@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
-import { sequelize } from '../../../db/sequelize';
-import { redis } from '../../../bootstrap/redis';
+import { env } from '../../../bootstrap/env';
+import { isDatabaseConfigured, sequelize } from '../../../db/sequelize';
+import { isRedisConfigured, redis } from '../../../bootstrap/redis';
 
 async function healthController(req: Request, res: Response)
 {
@@ -9,8 +10,11 @@ async function healthController(req: Request, res: Response)
 
     try
     {
-        await sequelize.authenticate();
-        databaseStatus = 'up';
+        if (isDatabaseConfigured())
+        {
+            await sequelize.authenticate();
+            databaseStatus = 'up';
+        }
     }
     catch (error)
     {
@@ -19,7 +23,11 @@ async function healthController(req: Request, res: Response)
 
     try
     {
-        if (redis.isOpen)
+        if (!isRedisConfigured())
+        {
+            redisStatus = 'down';
+        }
+        else if (redis.isOpen)
         {
             await redis.ping();
             redisStatus = 'up';
@@ -40,6 +48,7 @@ async function healthController(req: Request, res: Response)
         {
             status: isHealthy ? 'ok' : 'degraded',
             app: 'up',
+            appName: env.appName,
             database: databaseStatus,
             redis: redisStatus,
             timestamp: new Date().toISOString()

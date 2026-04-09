@@ -4,4 +4,6 @@ dist/
 npm-debug.log*
 .DS_Store
 storage/keys/
-
+micro_saas_codex_brief.md
+tmp-start-web.out
+tmp-start-web.err

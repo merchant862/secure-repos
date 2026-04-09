@@ -1,14 +1,14 @@
 import app from '../app/app';
 import { env } from '../bootstrap/env';
 import { connectDatabase } from '../bootstrap/database';
-import { redis } from '../bootstrap/redis';
+import { connectRedis } from '../bootstrap/redis';
 
 async function start()
 {
     try
     {
         await connectDatabase();
-        await redis.connect();
+        await connectRedis();
 
         app.listen(env.port, function ()
         {

@@ -1,10 +1,10 @@
 {
   "name": "micro-saas",
   "version": "1.0.0",
-  "main": "dist/main/start-web.js",
+  "main": "dist/src/main/start-web.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/main/start-web.js",
+    "start": "node dist/src/main/start-web.js",
     "dev:build": "tsc -w",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -16,6 +16,7 @@
     "dotenv": "^17.3.1",
     "ejs": "^5.0.1",
     "express": "^5.2.1",
+    "jsonwebtoken": "^9.0.3",
     "mysql2": "^3.19.0",
     "redis": "^5.11.0",
     "sequelize": "^6.37.7"
@@ -23,6 +24,7 @@
   "devDependencies": {
     "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^25.3.5",
     "@types/supertest": "^7.2.0",
     "sequelize-cli": "^6.6.5",

@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 import { GithubWebhookHeaders } from '../../../modules/github/github.types';
-import { verifyGithubWebhookSignature } from '../../../modules/github/github.service';
+import { verifyAndNormalizeGithubWebhook } from '../../../modules/github/github-webhook.service';
+import { processGithubWebhookEvent } from '../../../modules/github/github-event-processor.service';
 
-function githubWebhookController(req: Request, res: Response)
+async function githubWebhookController(req: Request, res: Response)
 {
     const headers: GithubWebhookHeaders =
     {
@@ -22,27 +23,57 @@ function githubWebhookController(req: Request, res: Response)
         );
     }
 
-    const isSignatureValid = verifyGithubWebhookSignature(rawBody, headers.signature256);
-
-    if (!isSignatureValid)
+    if (!headers.delivery)
     {
-        return res.status(401).json(
+        return res.status(400).json(
             {
-                message: 'Invalid webhook signature'
+                message: 'Missing x-github-delivery header'
             }
         );
     }
 
-    return res.status(200).json(
-        {
-            message: 'GitHub webhook verified',
-            data:
+    try
+    {
+        const webhookEvent = verifyAndNormalizeGithubWebhook(
             {
-                event: headers.event ?? null,
-                delivery: headers.delivery ?? null
+                payload: rawBody,
+                headers
             }
+        );
+
+        const processingResult = await processGithubWebhookEvent(headers.delivery, webhookEvent);
+
+        return res.status(200).json(
+            {
+                message: 'GitHub webhook verified',
+                data:
+                {
+                    event: webhookEvent.event,
+                    delivery: webhookEvent.delivery,
+                    action: processingResult.action,
+                    status: processingResult.status,
+                    payload: webhookEvent.payload
+                }
+            }
+        );
+    }
+    catch (error)
+    {
+        if (error instanceof Error && error.message === 'GitHub webhook payload is not valid JSON')
+        {
+            return res.status(400).json(
+                {
+                    message: error.message
+                }
+            );
         }
-    );
+
+        return res.status(401).json(
+            {
+                message: error instanceof Error ? error.message : 'Invalid webhook signature'
+            }
+        );
+    }
 }
 
 export {

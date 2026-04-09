@@ -17,6 +17,9 @@ class GithubInstallation extends Model<InferAttributes<GithubInstallation>, Infe
     declare githubInstallationId: string;
     declare githubAccountLogin: string;
     declare githubAccountType: string;
+    declare isActive: CreationOptional<boolean>;
+    declare lastRepositorySyncAt: CreationOptional<Date | null>;
+    declare uninstalledAt: CreationOptional<Date | null>;
     declare createdAt: CreationOptional<Date>;
     declare updatedAt: CreationOptional<Date>;
 }
@@ -51,6 +54,22 @@ function initGithubInstallationModel(sequelize: Sequelize)
             {
                 type: DataTypes.STRING(50),
                 allowNull: false
+            },
+            isActive:
+            {
+                type: DataTypes.BOOLEAN,
+                allowNull: false,
+                defaultValue: true
+            },
+            lastRepositorySyncAt:
+            {
+                type: DataTypes.DATE,
+                allowNull: true
+            },
+            uninstalledAt:
+            {
+                type: DataTypes.DATE,
+                allowNull: true
             },
             createdAt:
             {

@@ -23,8 +23,30 @@ type GithubWebhookHeaders =
     signature256?: string;
 };
 
+type GithubInstallationAccount =
+{
+    login: string;
+    type: string;
+};
+
+type GithubInstallationDetails =
+{
+    id: number;
+    account: GithubInstallationAccount;
+};
+
+type NormalizedGithubWebhookEvent =
+{
+    event: string | null;
+    delivery: string | null;
+    payload: unknown;
+};
+
 export type {
     GithubConfig,
     GithubInstallCallbackQuery,
-    GithubWebhookHeaders
+    GithubWebhookHeaders,
+    GithubInstallationAccount,
+    GithubInstallationDetails,
+    NormalizedGithubWebhookEvent
 };

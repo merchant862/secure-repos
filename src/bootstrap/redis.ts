@@ -1,16 +1,33 @@
 import { createClient } from 'redis';
-import { env } from './env';
+import { assertRedisEnv, env } from './env';
 
 const redis = createClient(
     {
         socket:
         {
-            host: env.redisHost,
+            host: env.redisHost ?? '127.0.0.1',
             port: env.redisPort
         }
     }
 );
 
+function isRedisConfigured(): boolean
+{
+    return Boolean(env.redisHost);
+}
+
+async function connectRedis()
+{
+    assertRedisEnv();
+
+    if (!redis.isOpen)
+    {
+        await redis.connect();
+    }
+}
+
 export {
-    redis
+    redis,
+    isRedisConfigured,
+    connectRedis
 };
