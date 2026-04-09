@@ -1,0 +1,2 @@
+[dotenv@17.3.1] injecting env (15) from .env -- tip: ⚙️  override existing env vars with { override: true }
+Micro SaaS listening on port 3000
