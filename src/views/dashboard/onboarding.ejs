@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'dashboard' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'Setup flow' }) %>
+            <main class="content">
+                <section class="page-toolbar"><div><h2>Launch your workspace</h2><p class="muted">Choose a plan, complete checkout, connect a provider, and run the first scan.</p></div><span class="badge brand">4 steps</span></section>
+                <section class="onboarding-steps">
+                    <article class="card card-body step-card active"><span class="step-number">1</span><strong>Select plan</strong><p class="muted small">Choose the package that matches repository and team limits.</p><a class="button" href="/pricing">Choose plan</a></article>
+                    <article class="card card-body step-card"><span class="step-number">2</span><strong>Payment</strong><p class="muted small">Add card details when merchant integration is ready.</p><a class="button" href="/billing">Open billing</a></article>
+                    <article class="card card-body step-card"><span class="step-number">3</span><strong>Connect provider</strong><p class="muted small">Install GitHub, GitLab, or Bitbucket connection.</p><a class="button" href="/repositories">Connect</a></article>
+                    <article class="card card-body step-card"><span class="step-number">4</span><strong>First scan</strong><p class="muted small">Select a repository and run the first scan.</p><a class="button primary" href="/repositories">Start scan</a></article>
+                </section>
+                <section class="card" style="margin-top:18px"><div class="card-header"><h2 class="card-title">Recommended flow</h2><span class="badge success">Email first</span></div><div class="card-body"><p class="muted">Email/password signup creates the workspace first. After checkout, provider connection is tied to the tenant cleanly. Provider-based signup can be added later without changing this onboarding path.</p></div></section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

@@ -8,6 +8,8 @@ class User extends Model<InferAttributes<User>, InferCreationAttributes<User>>
     declare name: string;
     declare email: string;
     declare password: CreationOptional<string | null>;
+    declare role: CreationOptional<string>;
+    declare status: CreationOptional<string>;
     declare createdAt: CreationOptional<Date>;
     declare updatedAt: CreationOptional<Date>;
 }
@@ -42,6 +44,18 @@ function initUserModel(sequelize: Sequelize)
             {
                 type: DataTypes.STRING(255),
                 allowNull: true
+            },
+            role:
+            {
+                type: DataTypes.STRING(30),
+                allowNull: false,
+                defaultValue: 'member'
+            },
+            status:
+            {
+                type: DataTypes.STRING(30),
+                allowNull: false,
+                defaultValue: 'active'
             },
             createdAt:
             {

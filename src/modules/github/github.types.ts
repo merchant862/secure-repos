@@ -23,8 +23,84 @@ type GithubWebhookHeaders =
     signature256?: string;
 };
 
+type GithubAccountPayload =
+{
+    login: string;
+    type: string;
+};
+
+type GithubRepositoryPayload =
+{
+    id: number;
+    name: string;
+    full_name: string;
+    private: boolean;
+    default_branch?: string;
+};
+
+type GithubInstallationResponse =
+{
+    id: number;
+    account:
+    {
+        login: string;
+        type: string;
+    };
+};
+
+type GithubInstallationRepositoriesResponse =
+{
+    repositories: GithubRepositoryPayload[];
+};
+
+type GithubInstallationPayload =
+{
+    id: number;
+    account?: GithubAccountPayload;
+};
+
+type GithubWebhookPayload =
+{
+    action?: string;
+    installation?: GithubInstallationPayload;
+    repositories?: GithubRepositoryPayload[];
+    repository?: GithubRepositoryPayload;
+};
+
+type GithubTreeItem =
+{
+    path: string;
+    mode: string;
+    type: string;
+    sha: string;
+    size?: number;
+    url: string;
+};
+
+type GithubTreeResponse =
+{
+    sha: string;
+    truncated: boolean;
+    tree: GithubTreeItem[];
+};
+
+type GithubBlobResponse =
+{
+    sha: string;
+    content: string;
+    encoding: string;
+    size: number;
+};
+
 export type {
     GithubConfig,
     GithubInstallCallbackQuery,
-    GithubWebhookHeaders
+    GithubWebhookHeaders,
+    GithubWebhookPayload,
+    GithubRepositoryPayload,
+    GithubInstallationResponse,
+    GithubInstallationRepositoriesResponse,
+    GithubTreeItem,
+    GithubTreeResponse,
+    GithubBlobResponse
 };

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <%- include('../partials/head', { title, appName }) %>
+</head>
+<body>
+    <main class="auth-shell">
+        <section class="auth-copy">
+            <a class="brand" href="/" style="padding:0;color:#fff">
+                <span class="brand-mark">S</span>
+                <span><span class="brand-title"><%= appName %></span><span class="brand-subtitle" style="color:#98a2b3">Security operations for small teams</span></span>
+            </a>
+            <div>
+                <h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Launch a security workspace in minutes.</h1>
+                <p style="color:#d0d5dd;max-width:560px">Start with one provider, invite your team, and move findings from discovered to resolved without a heavy enterprise tool.</p>
+            </div>
+            <p style="color:#98a2b3;margin:0">Plans, limits, and package points stay editable from admin APIs.</p>
+        </section>
+        <section class="auth-card">
+            <div class="auth-card-inner">
+                <a class="muted small" href="/sign-in">Already have an account?</a>
+                <h1 style="margin:22px 0 8px">Create workspace</h1>
+                <p class="muted" style="margin:0 0 26px">Create the owner account first. Plan, payment, and provider setup come next.</p>
+                <form method="post" action="/api/auth/signup">
+                    <div class="form-field">
+                        <label>Name</label>
+                        <input class="input" type="text" name="name" autocomplete="name" required>
+                    </div>
+                    <div class="form-field">
+                        <label>Email</label>
+                        <input class="input" type="email" name="email" autocomplete="email" required>
+                    </div>
+                    <div class="form-field">
+                        <label>Password</label>
+                        <input class="input" type="password" name="password" autocomplete="new-password" required>
+                    </div>
+                    <button class="button primary" type="submit" style="width:100%">Create account</button>
+                    <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                </form>
+            </div>
+        </section>
+    </main>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

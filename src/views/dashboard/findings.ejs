@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'findings' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'Triage queue' }) %>
+            <main class="content">
+                <section class="page-toolbar">
+                    <div>
+                        <h2>Finding triage</h2>
+                        <p class="muted">Assign, resolve, ignore, or snooze findings from scanner results.</p>
+                    </div>
+                    <div class="toolbar-actions">
+                        <select class="input compact"><option>Open</option><option>Resolved</option><option>Ignored</option></select>
+                        <button class="button primary" type="button">Bulk assign</button>
+                    </div>
+                </section>
+
+                <section class="grid grid-4">
+                    <article class="card card-body"><span class="badge danger">Critical</span><div class="metric-value">7</div><div class="metric-label">must fix</div></article>
+                    <article class="card card-body"><span class="badge warning">High</span><div class="metric-value">13</div><div class="metric-label">needs owner</div></article>
+                    <article class="card card-body"><span class="badge brand">Snoozed</span><div class="metric-value">5</div><div class="metric-label">time boxed</div></article>
+                    <article class="card card-body"><span class="badge success">Resolved</span><div class="metric-value">42</div><div class="metric-label">this month</div></article>
+                </section>
+
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header">
+                        <h2 class="card-title">Open Findings</h2>
+                        <span class="badge brand">/api/user/findings</span>
+                    </div>
+                    <div class="finding-list" data-api-list="findings">
+                        <article class="finding-item">
+                            <span class="badge danger">Critical</span>
+                            <div><strong>Possible secret token in config file</strong><p class="muted small">checkout-api / src/config/payment.ts</p></div>
+                            <div class="row-actions"><button class="button">Assign</button><button class="button">Resolve</button></div>
+                        </article>
+                        <article class="finding-item">
+                            <span class="badge warning">High</span>
+                            <div><strong>GitHub Actions workflow grants write-all permissions</strong><p class="muted small">customer-portal / .github/workflows/deploy.yml</p></div>
+                            <div class="row-actions"><button class="button">Snooze</button><button class="button">Resolve</button></div>
+                        </article>
+                    </div>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

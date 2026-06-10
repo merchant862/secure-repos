@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'repositories' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: `Repository #${repositoryId}` }) %>
+            <main class="content">
+                <section class="page-toolbar"><div><h2>Repository posture</h2><p class="muted">Score, checklist, findings, and scan history for one repository.</p></div><div class="toolbar-actions"><button class="button">Run scan</button><button class="button primary">Export</button></div></section>
+                <section class="grid grid-4">
+                    <article class="card card-body"><span class="badge success">Score</span><div class="metric-value">82</div><div class="metric-label">latest scan</div></article>
+                    <article class="card card-body"><span class="badge danger">Open</span><div class="metric-value">6</div><div class="metric-label">findings</div></article>
+                    <article class="card card-body"><span class="badge brand">Branch</span><div class="metric-value" style="font-size:24px">main</div><div class="metric-label">default branch</div></article>
+                    <article class="card card-body"><span class="badge warning">Provider</span><div class="metric-value" style="font-size:24px">GitHub</div><div class="metric-label">connected</div></article>
+                </section>
+                <section class="grid grid-2" style="margin-top:18px">
+                    <article class="card"><div class="card-header"><h2 class="card-title">Checklist</h2><span class="badge brand">/api/user/repositories/:id/checklist</span></div><div class="card-body checklist"><label><input type="checkbox" checked> Branch protection enabled</label><label><input type="checkbox"> Secret scanning reviewed</label><label><input type="checkbox" checked> Dockerfile non-root user</label><label><input type="checkbox"> CI token permission minimized</label></div></article>
+                    <article class="card"><div class="card-header"><h2 class="card-title">Scan History</h2></div><div class="table-wrap"><table><thead><tr><th>Scan</th><th>Status</th><th>Findings</th></tr></thead><tbody><tr><td>#1042</td><td><span class="badge success">Completed</span></td><td>6</td></tr><tr><td>#1039</td><td><span class="badge success">Baseline</span></td><td>9</td></tr></tbody></table></div></article>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

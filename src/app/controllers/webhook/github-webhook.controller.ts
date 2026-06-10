@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
-import { GithubWebhookHeaders } from '../../../modules/github/github.types';
+import { GithubWebhookEvent, Repository } from '../../../db/models';
+import { syncGithubInstallationFromWebhook } from '../../services/github-sync.service';
+import { enqueueRepositoryScan } from '../../services/scan.service';
+import { GithubWebhookHeaders, GithubWebhookPayload } from '../../../modules/github/github.types';
 import { verifyGithubWebhookSignature } from '../../../modules/github/github.service';
 
-function githubWebhookController(req: Request, res: Response)
+async function githubWebhookController(req: Request, res: Response)
 {
     const headers: GithubWebhookHeaders =
     {
@@ -33,16 +36,119 @@ function githubWebhookController(req: Request, res: Response)
         );
     }
 
-    return res.status(200).json(
-        {
-            message: 'GitHub webhook verified',
-            data:
+    if (!headers.delivery || !headers.event)
+    {
+        return res.status(400).json(
             {
-                event: headers.event ?? null,
-                delivery: headers.delivery ?? null
+                message: 'Missing GitHub delivery or event header'
+            }
+        );
+    }
+
+    let payload: GithubWebhookPayload;
+
+    try
+    {
+        payload = JSON.parse(rawBody.toString('utf8')) as GithubWebhookPayload;
+    }
+    catch (error)
+    {
+        return res.status(400).json(
+            {
+                message: 'Invalid webhook JSON payload'
+            }
+        );
+    }
+
+    const existingDelivery = await GithubWebhookEvent.findOne(
+        {
+            where:
+            {
+                deliveryId: headers.delivery
             }
         }
     );
+
+    if (existingDelivery)
+    {
+        return res.status(200).json(
+            {
+                message: 'GitHub webhook already processed',
+                data:
+                {
+                    event: existingDelivery.event,
+                    delivery: existingDelivery.deliveryId,
+                    status: existingDelivery.status
+                }
+            }
+        );
+    }
+
+    const webhookEvent = await GithubWebhookEvent.create(
+        {
+            deliveryId: headers.delivery,
+            event: headers.event,
+            action: payload.action ?? null,
+            status: 'processing'
+        }
+    );
+
+    try
+    {
+        const syncedRepositories = headers.event === 'installation' || headers.event === 'installation_repositories'
+            ? await syncGithubInstallationFromWebhook(payload)
+            : [];
+
+        if (headers.event === 'push' && payload.repository)
+        {
+            const repository = await Repository.findOne(
+                {
+                    where:
+                    {
+                        githubRepositoryId: String(payload.repository.id),
+                        isActive: true
+                    }
+                }
+            );
+
+            if (repository)
+            {
+                await enqueueRepositoryScan(repository.id, 'push');
+            }
+        }
+
+        await webhookEvent.update(
+            {
+                status: 'processed',
+                processedAt: new Date()
+            }
+        );
+
+        return res.status(200).json(
+            {
+                message: 'GitHub webhook processed',
+                data:
+                {
+                    event: headers.event,
+                    delivery: headers.delivery,
+                    action: payload.action ?? null,
+                    repositoriesSynced: syncedRepositories.length
+                }
+            }
+        );
+    }
+    catch (error)
+    {
+        await webhookEvent.update(
+            {
+                status: 'failed',
+                errorMessage: error instanceof Error ? error.message : 'Unknown webhook processing error',
+                processedAt: new Date()
+            }
+        );
+
+        throw error;
+    }
 }
 
 export {

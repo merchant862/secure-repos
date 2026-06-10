@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'notifications' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'Live alerts' }) %>
+            <main class="content">
+                <section class="page-toolbar">
+                    <div><h2>Notification center</h2><p class="muted">SSE-powered in-app updates plus persisted notification history.</p></div>
+                    <span class="badge success">Realtime stream</span>
+                </section>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Recent Notifications</h2><span class="badge brand">/api/user/notifications</span></div>
+                    <div class="finding-list" data-api-list="notifications">
+                        <article class="finding-item"><span class="badge danger">Critical</span><div><strong>Critical finding opened</strong><p class="muted small">A repository produced a critical scanner result.</p></div><button class="button">Mark read</button></article>
+                        <article class="finding-item"><span class="badge success">Report</span><div><strong>Weekly report ready</strong><p class="muted small">Security posture report has been generated.</p></div><button class="button">Open</button></article>
+                    </div>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

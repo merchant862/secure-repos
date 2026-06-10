@@ -1,9 +1,16 @@
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import https from 'https';
 
 import { getGithubConfig } from './github.config';
-import { GithubConfig } from './github.types';
+import {
+    GithubBlobResponse,
+    GithubConfig,
+    GithubInstallationRepositoriesResponse,
+    GithubInstallationResponse,
+    GithubTreeResponse
+} from './github.types';
 
 let githubPrivateKeyCache: string | null = null;
 
@@ -58,6 +65,156 @@ function clearGithubPrivateKeyCache()
     githubPrivateKeyCache = null;
 }
 
+function base64Url(input: Buffer | string): string
+{
+    return Buffer
+        .from(input)
+        .toString('base64')
+        .replace(/=/g, '')
+        .replace(/\+/g, '-')
+        .replace(/\//g, '_');
+}
+
+async function createGithubAppJwt(): Promise<string>
+{
+    const config = getGithubConfig();
+    const now = Math.floor(Date.now() / 1000);
+    const header = base64Url(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
+    const payload = base64Url(JSON.stringify(
+        {
+            iat: now - 60,
+            exp: now + 540,
+            iss: config.appId
+        }
+    ));
+    const unsignedToken = `${header}.${payload}`;
+    const privateKey = await readGithubPrivateKey();
+    const signer = crypto.createSign('RSA-SHA256');
+
+    signer.update(unsignedToken);
+    signer.end();
+
+    return `${unsignedToken}.${base64Url(signer.sign(privateKey))}`;
+}
+
+function githubRequest<T>(pathName: string, options: { method?: string; token?: string; body?: object } = {}): Promise<T>
+{
+    return new Promise(function (resolve, reject)
+    {
+        const body = options.body ? JSON.stringify(options.body) : undefined;
+        const request = https.request(
+            {
+                hostname: 'api.github.com',
+                path: pathName,
+                method: options.method ?? 'GET',
+                headers:
+                {
+                    Accept: 'application/vnd.github+json',
+                    Authorization: options.token ? `Bearer ${options.token}` : undefined,
+                    'Content-Type': body ? 'application/json' : undefined,
+                    'Content-Length': body ? Buffer.byteLength(body) : undefined,
+                    'User-Agent': 'micro-saas-security-platform',
+                    'X-GitHub-Api-Version': '2022-11-28'
+                }
+            },
+            function (response)
+            {
+                const chunks: Buffer[] = [];
+
+                response.on('data', function (chunk)
+                {
+                    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+                });
+
+                response.on('end', function ()
+                {
+                    const raw = Buffer.concat(chunks).toString('utf8');
+                    const statusCode = response.statusCode ?? 500;
+
+                    if (statusCode < 200 || statusCode >= 300)
+                    {
+                        reject(new Error(`GitHub API request failed (${statusCode}): ${raw}`));
+                        return;
+                    }
+
+                    if (!raw)
+                    {
+                        resolve({} as T);
+                        return;
+                    }
+
+                    resolve(JSON.parse(raw) as T);
+                });
+            }
+        );
+
+        request.on('error', reject);
+
+        if (body)
+        {
+            request.write(body);
+        }
+
+        request.end();
+    });
+}
+
+async function createInstallationAccessToken(installationId: string): Promise<string>
+{
+    const appJwt = await createGithubAppJwt();
+    const response = await githubRequest<{ token: string }>(
+        `/app/installations/${installationId}/access_tokens`,
+        {
+            method: 'POST',
+            token: appJwt
+        }
+    );
+
+    return response.token;
+}
+
+async function fetchGithubInstallation(installationId: string): Promise<GithubInstallationResponse>
+{
+    const appJwt = await createGithubAppJwt();
+
+    return githubRequest<GithubInstallationResponse>(
+        `/app/installations/${installationId}`,
+        {
+            token: appJwt
+        }
+    );
+}
+
+async function fetchInstallationRepositories(accessToken: string): Promise<GithubInstallationRepositoriesResponse>
+{
+    return githubRequest<GithubInstallationRepositoriesResponse>(
+        '/installation/repositories?per_page=100',
+        {
+            token: accessToken
+        }
+    );
+}
+
+async function fetchRepositoryTree(accessToken: string, fullName: string, branch: string): Promise<GithubTreeResponse>
+{
+    return githubRequest<GithubTreeResponse>(
+        `/repos/${fullName}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+        {
+            token: accessToken
+        }
+    );
+}
+
+async function fetchRepositoryBlob(accessToken: string, fullName: string, sha: string): Promise<GithubBlobResponse>
+{
+    return githubRequest<GithubBlobResponse>(
+        `/repos/${fullName}/git/blobs/${sha}`,
+        {
+            token: accessToken
+        }
+    );
+}
+
 function verifyGithubWebhookSignature(payload: Buffer, signature256?: string): boolean
 {
     if (!signature256)
@@ -90,5 +247,11 @@ export {
     buildGithubAppInstallUrl,
     readGithubPrivateKey,
     clearGithubPrivateKeyCache,
+    createGithubAppJwt,
+    createInstallationAccessToken,
+    fetchGithubInstallation,
+    fetchInstallationRepositories,
+    fetchRepositoryTree,
+    fetchRepositoryBlob,
     verifyGithubWebhookSignature
 };

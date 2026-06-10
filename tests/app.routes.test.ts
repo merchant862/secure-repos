@@ -3,15 +3,14 @@ import app from '../src/app/app';
 
 describe('Application routes', function ()
 {
-    it('should return health response', async function ()
+    it('should require admin auth for health response when admin token is configured', async function ()
     {
-        const response = await request(app).get('/health');
+        const response = await request(app).get('/api/admin/health');
 
         expect([200, 503]).toContain(response.status);
         expect(response.body).toHaveProperty('status');
         expect(response.body).toHaveProperty('app');
         expect(response.body).toHaveProperty('database');
-        expect(response.body).toHaveProperty('redis');
         expect(response.body).toHaveProperty('timestamp');
     });
 

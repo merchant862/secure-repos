@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body>
+    <main class="auth-shell">
+        <section class="auth-copy">
+            <a class="brand" href="/" style="padding:0;color:#fff"><span class="brand-mark">S</span><span><span class="brand-title"><%= appName %></span><span class="brand-subtitle" style="color:#98a2b3">Team invitation</span></span></a>
+            <div><h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Join your security workspace.</h1><p style="color:#d0d5dd;max-width:560px">Accept the invite, create your password, and start triaging repository findings with your team.</p></div>
+            <p style="color:#98a2b3;margin:0">Invitations are created by workspace owners or admins.</p>
+        </section>
+        <section class="auth-card">
+            <div class="auth-card-inner">
+                <h1 style="margin:0 0 8px">Accept invitation</h1>
+                <p class="muted" style="margin:0 0 26px">Set your name and password.</p>
+                <form data-api-form="accept-invitation">
+                    <input type="hidden" name="token" value="<%= token %>">
+                    <div class="form-field"><label>Name</label><input class="input" name="name" required></div>
+                    <div class="form-field"><label>Password</label><input class="input" type="password" name="password" required></div>
+                    <button class="button primary" type="submit" style="width:100%">Join workspace</button>
+                    <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                </form>
+            </div>
+        </section>
+    </main>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

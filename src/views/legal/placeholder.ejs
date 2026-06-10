@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body data-force-theme="dark">
+    <main class="landing-shell">
+        <nav class="landing-nav">
+            <a class="brand" href="/" style="padding:0"><span class="brand-mark">S</span><span><span class="brand-title"><%= appName %></span><span class="brand-subtitle">Legal</span></span></a>
+            <div class="toolbar-actions"><a class="button" href="/demo">Demo</a><a class="button primary" href="/sign-up">Create account</a></div>
+        </nav>
+        <section class="legal-shell">
+            <span class="badge brand">Policy page</span>
+            <h1><%= legalTitle %></h1>
+            <p class="muted">This page is reserved for the final legal copy. The footer and route are already in place so the content can be added cleanly when provided.</p>
+        </section>
+    </main>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

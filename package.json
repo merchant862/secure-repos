@@ -1,10 +1,13 @@
 {
   "name": "micro-saas",
   "version": "1.0.0",
-  "main": "dist/main/start-web.js",
+  "main": "dist/src/main/start-web.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/main/start-web.js",
+    "start": "node dist/src/main/start-web.js",
+    "start:worker": "node dist/src/main/start-worker.js",
+    "start:notifications": "node dist/src/main/start-notification-worker.js",
+    "start:scheduler": "node dist/src/main/start-scheduler.js",
     "dev:build": "tsc -w",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -17,7 +20,6 @@
     "ejs": "^5.0.1",
     "express": "^5.2.1",
     "mysql2": "^3.19.0",
-    "redis": "^5.11.0",
     "sequelize": "^6.37.7"
   },
   "devDependencies": {

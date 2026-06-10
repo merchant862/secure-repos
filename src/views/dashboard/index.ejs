@@ -1,0 +1,155 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <%- include('../partials/head', { title, appName }) %>
+</head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'dashboard' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'Security workspace' }) %>
+            <main class="content">
+                <section class="grid grid-4">
+                    <article class="card card-body">
+                        <span class="badge brand">Repositories</span>
+                        <div class="metric-value">18</div>
+                        <div class="metric-label">connected across GitHub, GitLab, and Bitbucket</div>
+                    </article>
+                    <article class="card card-body">
+                        <span class="badge danger">Critical</span>
+                        <div class="metric-value">7</div>
+                        <div class="metric-label">open findings that need owner review</div>
+                    </article>
+                    <article class="card card-body">
+                        <span class="badge warning">Queue</span>
+                        <div class="metric-value">4</div>
+                        <div class="metric-label">scans waiting or currently running</div>
+                    </article>
+                    <article class="card card-body">
+                        <span class="badge success">Score</span>
+                        <div class="metric-value">86</div>
+                        <div class="metric-label">average security score this week</div>
+                    </article>
+                </section>
+
+                <section class="grid grid-3" style="margin-top:18px">
+                    <article class="card span-2" id="findings">
+                        <div class="card-header">
+                            <div>
+                                <h2 class="card-title">Risk Overview</h2>
+                                <p class="muted small" style="margin:4px 0 0">Finding volume grouped by scanner category.</p>
+                            </div>
+                            <button class="button" type="button">Export report</button>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress-row"><span>Secrets</span><div class="progress"><span style="width:72%"></span></div><strong>18</strong></div>
+                            <div class="progress-row"><span>CI config</span><div class="progress"><span style="width:46%"></span></div><strong>9</strong></div>
+                            <div class="progress-row"><span>Docker</span><div class="progress"><span style="width:35%"></span></div><strong>6</strong></div>
+                            <div class="progress-row"><span>Packages</span><div class="progress"><span style="width:24%"></span></div><strong>4</strong></div>
+                        </div>
+                    </article>
+
+                    <article class="card">
+                        <div class="card-header">
+                            <h2 class="card-title">Provider Health</h2>
+                            <span class="badge success">Online</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="progress-row"><span>GitHub</span><div class="progress"><span style="width:100%"></span></div><strong>10</strong></div>
+                            <div class="progress-row"><span>GitLab</span><div class="progress"><span style="width:62%"></span></div><strong>5</strong></div>
+                            <div class="progress-row"><span>Bitbucket</span><div class="progress"><span style="width:38%"></span></div><strong>3</strong></div>
+                            <a class="button primary" href="/repositories" style="width:100%;margin-top:12px">Connect provider</a>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="grid grid-2" style="margin-top:18px">
+                    <article class="card" id="repositories">
+                        <div class="card-header">
+                            <h2 class="card-title">Repositories</h2>
+                            <span class="badge brand">Auto sync</span>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr><th>Repository</th><th>Provider</th><th>Score</th><th>Status</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>checkout-api</td><td>GitHub</td><td>91</td><td><span class="badge success">Clean</span></td></tr>
+                                    <tr><td>customer-portal</td><td>GitLab</td><td>78</td><td><span class="badge warning">Review</span></td></tr>
+                                    <tr><td>infra-deploy</td><td>Bitbucket</td><td>64</td><td><span class="badge danger">Critical</span></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article class="card" id="team">
+                        <div class="card-header">
+                            <h2 class="card-title">Team Workflow</h2>
+                            <span class="badge warning">3 pending</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="grid" style="gap:12px">
+                                <div class="card card-body" style="background:var(--surface-muted)">
+                                    <strong>Assign owners</strong>
+                                    <p class="muted small" style="margin:6px 0 0">Route findings to developers by repo ownership and role.</p>
+                                </div>
+                                <div class="card card-body" style="background:var(--surface-muted)">
+                                    <strong>Baseline accepted risk</strong>
+                                    <p class="muted small" style="margin:6px 0 0">Keep old noise out of current sprint reports.</p>
+                                </div>
+                                <div class="card card-body" style="background:var(--surface-muted)">
+                                    <strong>Notification rules</strong>
+                                    <p class="muted small" style="margin:6px 0 0">Email and in-app alerts are ready for critical events.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="grid grid-2" style="margin-top:18px">
+                    <article class="card" id="reports">
+                        <div class="card-header">
+                            <h2 class="card-title">Latest Findings</h2>
+                            <a class="button" href="/repositories">Run scan</a>
+                        </div>
+                        <div class="table-wrap">
+                            <table>
+                                <thead>
+                                    <tr><th>Finding</th><th>Severity</th><th>Owner</th></tr>
+                                </thead>
+                                <tbody>
+                                    <tr><td>Possible API key in config</td><td><span class="badge danger">Critical</span></td><td>Unassigned</td></tr>
+                                    <tr><td>Dockerfile missing USER</td><td><span class="badge warning">Medium</span></td><td>Platform</td></tr>
+                                    <tr><td>GitHub Actions write-all token</td><td><span class="badge danger">High</span></td><td>DevOps</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </article>
+
+                    <article class="card" id="settings">
+                        <div class="card-header">
+                            <h2 class="card-title">Quick Settings</h2>
+                            <span class="badge brand">Owner</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="form-field">
+                                <label>Critical email alerts</label>
+                                <select class="input"><option>Enabled for owners and admins</option><option>Owners only</option><option>Disabled</option></select>
+                            </div>
+                            <div class="form-field">
+                                <label>Default scan cadence</label>
+                                <select class="input"><option>Daily</option><option>Weekly</option><option>Manual only</option></select>
+                            </div>
+                            <button class="button primary" type="button">Save preferences</button>
+                        </div>
+                    </article>
+                </section>
+
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

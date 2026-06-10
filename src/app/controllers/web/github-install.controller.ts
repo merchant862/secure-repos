@@ -1,8 +1,10 @@
 import { Request, Response } from 'express';
 import { GithubInstallCallbackQuery } from '../../../modules/github/github.types';
 import { getGithubAppConfig } from '../../../modules/github/github.service';
+import { syncGithubInstallationForTenant } from '../../services/github-sync.service';
+import { verifyProviderState } from '../../services/provider-state.service';
 
-function githubInstallCallbackController(req: Request, res: Response)
+async function githubInstallCallbackController(req: Request, res: Response)
 {
     const query = req.query as GithubInstallCallbackQuery;
     const config = getGithubAppConfig();
@@ -19,6 +21,36 @@ function githubInstallCallbackController(req: Request, res: Response)
                 message: 'Missing installation_id'
             }
         );
+    }
+
+    if (state)
+    {
+        try
+        {
+            const providerState = verifyProviderState(state, 'github');
+            const result = await syncGithubInstallationForTenant(providerState.tenantId, installationId);
+
+            return res.status(200).json(
+                {
+                    message: 'GitHub installation connected',
+                    data:
+                    {
+                        appId: config.appId,
+                        installationId,
+                        setupAction: setupAction ?? null,
+                        repositoriesSynced: result.repositories.length
+                    }
+                }
+            );
+        }
+        catch (error)
+        {
+            return res.status(400).json(
+                {
+                    message: error instanceof Error ? error.message : 'Invalid GitHub installation state'
+                }
+            );
+        }
     }
 
     return res.status(200).json(

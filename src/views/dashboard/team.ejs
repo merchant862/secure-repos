@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'team' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'People and access' }) %>
+            <main class="content">
+                <section class="grid grid-2">
+                    <article class="card">
+                        <div class="card-header"><h2 class="card-title">Invite Member</h2><span class="badge brand">Owner/Admin</span></div>
+                        <form class="card-body" data-api-form="invite-member">
+                            <div class="form-field"><label>Email</label><input class="input" name="email" type="email" placeholder="developer@company.com" required></div>
+                            <div class="form-field"><label>Role</label><select class="input" name="role"><option value="member">Member</option><option value="admin">Admin</option></select></div>
+                            <button class="button primary" type="submit">Send invitation</button>
+                            <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                        </form>
+                    </article>
+                    <article class="card">
+                        <div class="card-header"><h2 class="card-title">Plan Limits</h2><span class="badge warning">Controlled by pricing</span></div>
+                        <div class="card-body">
+                            <div class="progress-row"><span>Members</span><div class="progress"><span style="width:48%"></span></div><strong>6/12</strong></div>
+                            <div class="progress-row"><span>Repos</span><div class="progress"><span style="width:68%"></span></div><strong>34/50</strong></div>
+                        </div>
+                    </article>
+                </section>
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header"><h2 class="card-title">Members</h2><span class="badge brand">/api/user/team/members</span></div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Joined</th></tr></thead>
+                            <tbody data-api-table="team-members">
+                                <tr><td>Workspace Owner</td><td>owner@example.com</td><td>Owner</td><td><span class="badge success">Active</span></td><td>Today</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'settings' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'Workspace controls' }) %>
+            <main class="content">
+                <section class="grid grid-2">
+                    <article class="card">
+                        <div class="card-header"><h2 class="card-title">Notification Settings</h2><span class="badge brand">/api/user/settings/notifications</span></div>
+                        <form class="card-body settings-form" data-api-form="notification-settings">
+                            <label><input type="checkbox" name="instantCritical" checked> Instant critical alerts</label>
+                            <label><input type="checkbox" name="instantHigh" checked> Instant high alerts</label>
+                            <label><input type="checkbox" name="dailyDigest" checked> Daily digest</label>
+                            <label><input type="checkbox" name="weeklyReport" checked> Weekly report</label>
+                            <div class="form-field"><label>Email recipients</label><textarea class="input textarea" name="emailRecipients" placeholder="security@company.com"></textarea></div>
+                            <button class="button primary" type="submit">Save settings</button>
+                            <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                        </form>
+                    </article>
+                    <article class="card">
+                        <div class="card-header"><h2 class="card-title">Ignore Rules</h2><span class="badge warning">Noise control</span></div>
+                        <form class="card-body" data-api-form="ignore-rule">
+                            <div class="form-field"><label>Rule ID</label><input class="input" name="ruleId" placeholder="generic-secret"></div>
+                            <div class="form-field"><label>File pattern</label><input class="input" name="filePattern" placeholder="docs/**"></div>
+                            <div class="form-field"><label>Reason</label><textarea class="input textarea" name="reason" placeholder="Documented test fixture"></textarea></div>
+                            <button class="button" type="submit">Create ignore rule</button>
+                            <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                        </form>
+                    </article>
+                </section>
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header"><h2 class="card-title">Audit Log</h2><span class="badge brand">/api/user/audit-logs</span></div>
+                    <div class="table-wrap">
+                        <table><thead><tr><th>Action</th><th>Entity</th><th>Time</th></tr></thead><tbody data-api-table="audit-logs"><tr><td>finding.updated</td><td>finding</td><td>Latest activity appears here</td></tr></tbody></table>
+                    </div>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

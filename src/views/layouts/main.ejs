@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <%- include('../partials/head', { title, appName }) %>
+</head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow }) %>
+            <main class="content">
+                <%- body %>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

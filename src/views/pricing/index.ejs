@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <%- include('../partials/head', { title, appName }) %>
+</head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'pricing' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'Plan selection' }) %>
+            <main class="content">
+                <section class="page-toolbar">
+                    <div>
+                        <h2>Choose the workspace plan</h2>
+                        <p class="muted">Pick limits for repositories, team members, reports, and workflow access.</p>
+                    </div>
+                    <span class="badge brand">Upgrade anytime</span>
+                </section>
+                <section class="grid grid-3">
+                    <article class="card card-body plan-card">
+                        <span class="badge brand">Starter</span>
+                        <div class="metric-value">$29<span class="plan-period">/mo</span></div>
+                        <p class="muted">For solo builders and early repos.</p>
+                        <ul class="plan-list"><li>5 repositories</li><li>1 team seat</li><li>Manual scans</li><li>Basic reports</li></ul>
+                        <a class="button" href="/billing" style="width:100%">Select Starter</a>
+                    </article>
+                    <article class="card card-body plan-card plan-featured">
+                        <span class="badge success">Recommended</span>
+                        <div class="metric-value">$79<span class="plan-period">/mo</span></div>
+                        <p class="muted">For small teams that need workflow and accountability.</p>
+                        <ul class="plan-list"><li>50 repositories</li><li>12 team seats</li><li>Scheduled scans</li><li>Audit log and exports</li></ul>
+                        <a class="button primary" href="/billing" style="width:100%">Select Team</a>
+                    </article>
+                    <article class="card card-body plan-card">
+                        <span class="badge warning">Growth</span>
+                        <div class="metric-value">$149<span class="plan-period">/mo</span></div>
+                        <p class="muted">For agencies and multi-repo teams.</p>
+                        <ul class="plan-list"><li>150 repositories</li><li>30 team seats</li><li>Priority scan queue</li><li>Advanced reports</li></ul>
+                        <a class="button" href="/billing" style="width:100%">Select Growth</a>
+                    </article>
+                </section>
+
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header">
+                        <h2 class="card-title">What Happens Next</h2>
+                        <span class="badge brand">Onboarding</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Step</th><th>Purpose</th><th>Status</th></tr></thead>
+                            <tbody>
+                                <tr><td>Payment</td><td>Confirm card through Stripe or PayPal once selected.</td><td><span class="badge warning">Pending provider</span></td></tr>
+                                <tr><td>Provider connect</td><td>Install GitHub, GitLab, or Bitbucket connection.</td><td><span class="badge brand">Next</span></td></tr>
+                                <tr><td>First scan</td><td>Choose repositories and start initial scan.</td><td><span class="badge success">Ready</span></td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

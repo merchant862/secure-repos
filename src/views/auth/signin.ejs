@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <%- include('../partials/head', { title, appName }) %>
+</head>
+<body>
+    <main class="auth-shell">
+        <section class="auth-copy">
+            <a class="brand" href="/" style="padding:0;color:#fff">
+                <span class="brand-mark">S</span>
+                <span><span class="brand-title"><%= appName %></span><span class="brand-subtitle" style="color:#98a2b3">Repository security workspace</span></span>
+            </a>
+            <div>
+                <h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Keep code risk visible before it ships.</h1>
+                  <p style="color:#d0d5dd;max-width:560px">Connect your code host, scan repositories, assign findings, and keep owners accountable from one focused dashboard.</p>
+            </div>
+            <p style="color:#98a2b3;margin:0">GitHub, GitLab, and Bitbucket provider support is built in.</p>
+        </section>
+        <section class="auth-card">
+            <div class="auth-card-inner">
+                <a class="muted small" href="/dashboard">Back to dashboard</a>
+                <h1 style="margin:22px 0 8px">Sign in</h1>
+                <p class="muted" style="margin:0 0 26px">Use the email and password attached to your workspace.</p>
+                <form method="post" action="/api/auth/login">
+                    <div class="form-field">
+                        <label>Email</label>
+                        <input class="input" type="email" name="email" autocomplete="email" required>
+                    </div>
+                    <div class="form-field">
+                        <label>Password</label>
+                        <input class="input" type="password" name="password" autocomplete="current-password" required>
+                    </div>
+                    <button class="button primary" type="submit" style="width:100%">Sign in</button>
+                    <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                </form>
+                <p class="muted small" style="margin-top:18px">New workspace? <a href="/sign-up" style="color:var(--brand-strong);font-weight:700">Create an account</a></p>
+            </div>
+        </section>
+    </main>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

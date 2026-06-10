@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'billing' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'Plan and checkout' }) %>
+            <main class="content">
+                <section class="page-toolbar">
+                    <div>
+                        <h2>Complete checkout</h2>
+                        <p class="muted">This screen is ready for Stripe or PayPal. The final provider can be connected without changing the user flow.</p>
+                    </div>
+                    <span class="badge warning">Provider pending</span>
+                </section>
+                <section class="grid grid-2">
+                    <article class="card">
+                        <div class="card-header"><h2 class="card-title">Selected Plan</h2><span class="badge success">Team</span></div>
+                        <div class="card-body"><div class="metric-value">$79<span class="plan-period">/mo</span></div><p class="muted">12 team seats, 50 repositories, scheduled scans, reports, notifications, and finding workflow.</p><a class="button" href="/pricing">Change plan</a></div>
+                    </article>
+                    <article class="card">
+                        <div class="card-header"><h2 class="card-title">Payment Method</h2><span class="badge brand">Stripe / PayPal ready</span></div>
+                        <form class="card-body">
+                            <div class="form-field"><label>Card number</label><input class="input" placeholder="4242 4242 4242 4242" disabled></div>
+                            <div class="grid grid-2"><div class="form-field"><label>Expiry</label><input class="input" placeholder="MM/YY" disabled></div><div class="form-field"><label>CVC</label><input class="input" placeholder="123" disabled></div></div>
+                            <button class="button primary" type="button" disabled>Connect payment provider</button>
+                        </form>
+                    </article>
+                </section>
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header"><h2 class="card-title">Checkout Path</h2></div>
+                    <div class="timeline-list">
+                        <article><span class="badge success">Done</span><div><strong>Workspace created</strong><p class="muted small">Account is ready.</p></div></article>
+                        <article><span class="badge success">Done</span><div><strong>Plan selected</strong><p class="muted small">Team plan summary is ready for checkout.</p></div></article>
+                        <article><span class="badge warning">Pending</span><div><strong>Payment method</strong><p class="muted small">Stripe or PayPal checkout will be connected here.</p></div></article>
+                        <article><span class="badge brand">Next</span><div><strong>Provider connect</strong><p class="muted small">GitHub, GitLab, or Bitbucket connection follows payment.</p></div></article>
+                    </div>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

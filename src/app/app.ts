@@ -16,7 +16,14 @@ app.use('/public', express.static(path.join(process.cwd(), 'src', 'public')));
 app.post('/webhooks/github', githubWebhookRawBodyMiddleware, githubWebhookController);
 
 app.use(express.urlencoded({ extended: true }));
-app.use(express.json());
+app.use(express.json(
+    {
+        verify: function (req, res, buffer)
+        {
+            (req as express.Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+        }
+    }
+));
 
 app.use(router);
 
