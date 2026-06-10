@@ -1,8 +1,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" content="light dark">
-<title><%= title ? `${title} | ${appName}` : appName %></title>
-<link rel="icon" href="/public/images/favicon.ico">
+<%
+    const seoData = typeof seo !== 'undefined' && seo ? seo : {};
+    const pageTitle = seoData.title || (title ? `${title} | ${appName}` : appName);
+    const pageDescription = seoData.description || 'SecureRepos helps teams scan GitHub, GitLab, and Bitbucket repositories for secrets, risky configs, CI/CD issues, dependency risk, and security workflow gaps.';
+    const pageCanonical = seoData.canonicalUrl || '';
+    const pageRobots = seoData.robots || 'noindex,nofollow';
+    const pageImage = seoData.image || '/public/images/og-secure-repos.svg';
+%>
+<title><%= pageTitle %></title>
+<meta name="description" content="<%= pageDescription %>">
+<meta name="robots" content="<%= pageRobots %>">
+<meta name="application-name" content="<%= appName %>">
+<meta name="theme-color" content="#0b1220">
+<% if (pageCanonical) { %><link rel="canonical" href="<%= pageCanonical %>"><% } %>
+<meta property="og:site_name" content="<%= appName %>">
+<meta property="og:type" content="<%= seoData.type || 'website' %>">
+<meta property="og:title" content="<%= pageTitle %>">
+<meta property="og:description" content="<%= pageDescription %>">
+<% if (pageCanonical) { %><meta property="og:url" content="<%= pageCanonical %>"><% } %>
+<meta property="og:image" content="<%= pageImage %>">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<%= pageTitle %>">
+<meta name="twitter:description" content="<%= pageDescription %>">
+<meta name="twitter:image" content="<%= pageImage %>">
+<link rel="icon" href="/public/images/logo-icon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750;800&display=swap" rel="stylesheet">

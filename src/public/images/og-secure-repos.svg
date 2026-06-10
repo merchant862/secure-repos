@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="SecureRepos repository security scanning">
+  <rect width="1200" height="630" fill="#0B1220"/>
+  <path d="M0 0h1200v630H0z" fill="url(#bg)"/>
+  <rect x="92" y="86" width="96" height="96" rx="26" fill="#6F8BFF"/>
+  <path d="M140 105 170 119v22c0 20.5-12.4 35-30 40-17.6-5-30-19.5-30-40v-22l30-14Z" fill="#101828"/>
+  <path d="m126 141 10 10 23-27" fill="none" stroke="#39D98A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="214" y="145" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="800">SecureRepos</text>
+  <text x="96" y="270" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="800">Repository security scanning</text>
+  <text x="100" y="345" fill="#B8C0CC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600">Find secrets, CI/CD risk, dependency issues, and risky configs across GitHub, GitLab, and Bitbucket.</text>
+  <g fill="none" stroke="#6F8BFF" stroke-opacity=".24">
+    <path d="M796 120h268M796 190h320M796 260h240M796 330h300"/>
+    <rect x="760" y="86" width="350" height="310" rx="22"/>
+  </g>
+  <defs>
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1000 80) rotate(130) scale(620 720)">
+      <stop stop-color="#1D2B62"/>
+      <stop offset="1" stop-color="#0B1220" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+</svg>

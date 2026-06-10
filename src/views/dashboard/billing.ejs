@@ -1,6 +1,6 @@
 <!doctype html>
 <html lang="en">
-<head><%- include('../partials/head', { title, appName }) %></head>
+<head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
 <body>
     <div class="app-shell">
         <%- include('../partials/sidebar', { appName, activePage: 'billing' }) %>

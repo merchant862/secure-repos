@@ -1,12 +1,11 @@
 <!doctype html>
 <html lang="en">
-<head><%- include('../partials/head', { title, appName }) %></head>
+<head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
 <body>
     <div class="app-shell demo-shell">
         <aside class="sidebar">
             <a class="brand" href="/demo" aria-label="Demo dashboard">
-                <span class="brand-mark">S</span>
-                <span><span class="brand-title"><%= appName %></span><span class="brand-subtitle">Demo workspace</span></span>
+                <%- include('../partials/brand-logo') %>
             </a>
             <nav aria-label="Demo">
                 <div class="nav-section">Demo App</div>

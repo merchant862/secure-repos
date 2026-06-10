@@ -1,15 +1,12 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <%- include('../partials/head', { title, appName }) %>
+    <%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %>
 </head>
 <body>
     <main class="auth-shell">
         <section class="auth-copy">
-            <a class="brand" href="/" style="padding:0;color:#fff">
-                <span class="brand-mark">S</span>
-                <span><span class="brand-title"><%= appName %></span><span class="brand-subtitle" style="color:#98a2b3">Security operations for small teams</span></span>
-            </a>
+            <a class="brand" href="/" style="padding:0;color:#fff"><%- include('../partials/brand-logo') %></a>
             <div>
                 <h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Launch a security workspace in minutes.</h1>
                 <p style="color:#d0d5dd;max-width:560px">Start with one provider, invite your team, and move findings from discovered to resolved without a heavy enterprise tool.</p>

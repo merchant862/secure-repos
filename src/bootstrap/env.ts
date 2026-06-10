@@ -16,7 +16,7 @@ function getEnv(name: string, fallback?: string): string
 
 const env =
 {
-    appName: getEnv('APP_NAME', 'Security Platform'),
+    appName: process.env.APP_NAME && process.env.APP_NAME.trim() !== '' ? process.env.APP_NAME : 'SecureRepos',
     port: Number(getEnv('PORT', '3000')),
 
     dbHost: getEnv('DB_HOST'),

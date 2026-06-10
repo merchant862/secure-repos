@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="220" height="52" viewBox="0 0 220 52" role="img" aria-label="SecureRepos">
+  <rect width="52" height="52" rx="14" fill="#465FFF"/>
+  <path d="M26 10 39 16v9c0 8.8-5.3 15-13 17-7.7-2-13-8.2-13-17v-9l13-6Z" fill="#FFFFFF"/>
+  <path d="m20 26 4 4 9-10" fill="none" stroke="#039855" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="66" y="24" fill="#101828" font-family="Inter, Arial, sans-serif" font-size="18" font-weight="800">SecureRepos</text>
+  <text x="67" y="41" fill="#667085" font-family="Inter, Arial, sans-serif" font-size="11" font-weight="700">Repository security scanning</text>
+</svg>

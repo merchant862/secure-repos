@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="en">
 <head>
-    <%- include('../partials/head', { title, appName }) %>
+    <%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %>
 </head>
 <body>
     <div class="app-shell">

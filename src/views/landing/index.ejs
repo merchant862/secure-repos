@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
-<head><%- include('../partials/head', { title, appName }) %></head>
+<head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
 <body data-force-theme="dark">
     <main class="landing-shell">
         <nav class="landing-nav">
-            <a class="brand" href="/" style="padding:0"><span class="brand-mark">S</span><span><span class="brand-title"><%= appName %></span><span class="brand-subtitle">Code security cockpit</span></span></a>
+            <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
             <div class="landing-nav-links">
                 <a href="#platform">Scans</a>
                 <a href="#workflow">Workflow</a>
@@ -32,7 +32,7 @@
             <div class="landing-hero-copy">
                 <span class="badge brand">Repository security workspace</span>
                 <h1>Code risk management without the enterprise overhead.</h1>
-                <p class="muted">Security Platform helps small engineering teams connect repositories, find risky code patterns, assign owners, and export clear progress reports from one focused dashboard.</p>
+                <p class="muted">SecureRepos helps small engineering teams connect repositories, find risky code patterns, assign owners, and export clear progress reports from one focused dashboard.</p>
                 <div class="toolbar-actions" style="justify-content:flex-start"><a class="button primary" href="/sign-up">Create workspace</a><a class="button" href="/demo">View product demo</a></div>
                 <div class="landing-trust-row">
                     <span>GitHub</span>
@@ -153,7 +153,7 @@
         </section>
         <footer class="landing-footer">
             <div class="landing-footer-brand">
-                <a class="brand" href="/" style="padding:0"><span class="brand-mark">S</span><span><span class="brand-title"><%= appName %></span><span class="brand-subtitle">Code security cockpit</span></span></a>
+                <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
                 <p class="muted small">Repository monitoring, scanner workflow, team accountability, and security reporting for small engineering teams.</p>
                 <div class="payment-marks" aria-label="Accepted payment methods">
                     <span class="payment-mark visa">VISA</span>

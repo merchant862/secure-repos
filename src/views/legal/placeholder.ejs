@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="en">
-<head><%- include('../partials/head', { title, appName }) %></head>
+<head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
 <body data-force-theme="dark">
     <main class="landing-shell">
         <nav class="landing-nav">
-            <a class="brand" href="/" style="padding:0"><span class="brand-mark">S</span><span><span class="brand-title"><%= appName %></span><span class="brand-subtitle">Legal</span></span></a>
+            <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
             <div class="toolbar-actions"><a class="button" href="/demo">Demo</a><a class="button primary" href="/sign-up">Create account</a></div>
         </nav>
         <section class="legal-shell">

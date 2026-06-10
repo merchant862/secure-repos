@@ -87,6 +87,24 @@ button { cursor: pointer; }
     font-weight: 800;
 }
 
+.brand-logo {
+    display: block;
+    width: 220px;
+    height: 52px;
+    flex: none;
+}
+
+.brand-logo img {
+    display: block;
+    width: 100%;
+    height: 100%;
+}
+
+.brand-logo-light { display: none !important; }
+
+[data-theme="dark"] .brand-logo-light { display: block !important; }
+[data-theme="dark"] .brand-logo-dark { display: none !important; }
+
 .brand-title { display: block; font-weight: 750; letter-spacing: 0; }
 .brand-subtitle { display: block; margin-top: 2px; color: var(--muted); font-size: 12px; }
 
