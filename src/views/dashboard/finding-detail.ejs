@@ -7,25 +7,22 @@
         <div class="main-area">
             <%- include('../partials/navbar', { title, appName, eyebrow: `Finding #${findingId}` }) %>
             <main class="content">
-                <section class="page-toolbar"><div><h2>Possible secret token in config file</h2><p class="muted">checkout-api / src/config/payment.ts</p></div><span class="badge danger">Critical</span></section>
+                <section class="page-toolbar"><div><h2>Finding detail</h2><p class="muted">Finding data loads from your authenticated workspace.</p></div><span class="badge brand">GitHub</span></section>
                 <section class="grid grid-2">
                     <article class="card">
                         <div class="card-header"><h2 class="card-title">Evidence</h2></div>
-                        <pre class="code-preview">rule: generic-secret
-file: src/config/payment.ts
-line: 18
-match: PAYMENT_API_KEY=****************</pre>
+                        <pre class="code-preview">No evidence loaded yet.</pre>
                     </article>
                     <article class="card">
                         <div class="card-header"><h2 class="card-title">Workflow</h2><span class="badge brand">PATCH /api/user/findings/:id</span></div>
                         <div class="card-body">
                             <div class="form-field"><label>Status</label><select class="input"><option>Open</option><option>Resolved</option><option>Ignored</option></select></div>
-                            <div class="form-field"><label>Assign to</label><select class="input"><option>Unassigned</option><option>Owner</option><option>DevOps</option></select></div>
+                            <div class="form-field"><label>Assign to</label><select class="input"><option>Unassigned</option></select></div>
                             <div class="toolbar-actions" style="justify-content:flex-start"><button class="button">Snooze</button><button class="button primary">Resolve</button></div>
                         </div>
                     </article>
                 </section>
-                <section class="card" style="margin-top:18px"><div class="card-header"><h2 class="card-title">Recommendation</h2></div><div class="card-body"><p class="muted">Move the secret into the deployment secret store, rotate the exposed value, and add the file path to ignore rules only if this is a documented test fixture.</p></div></section>
+                <section class="card" style="margin-top:18px"><div class="card-header"><h2 class="card-title">Recommendation</h2></div><div class="card-body"><p class="muted">Run a scan and open a real finding to review scanner evidence and remediation guidance.</p></div></section>
                 <%- include('../partials/footer') %>
             </main>
         </div>

@@ -1,20 +1,28 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="SecureRepos repository security scanning">
-  <rect width="1200" height="630" fill="#0B1220"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630" role="img" aria-label="SecureRepos GitHub security scanning">
+  <rect width="1200" height="630" fill="#080D16"/>
   <path d="M0 0h1200v630H0z" fill="url(#bg)"/>
-  <rect x="92" y="86" width="96" height="96" rx="26" fill="#6F8BFF"/>
-  <path d="M140 105 170 119v22c0 20.5-12.4 35-30 40-17.6-5-30-19.5-30-40v-22l30-14Z" fill="#101828"/>
-  <path d="m126 141 10 10 23-27" fill="none" stroke="#39D98A" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
-  <text x="214" y="145" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="800">SecureRepos</text>
-  <text x="96" y="270" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="800">Repository security scanning</text>
-  <text x="100" y="345" fill="#B8C0CC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600">Find secrets, CI/CD risk, dependency issues, and risky configs across GitHub, GitLab, and Bitbucket.</text>
-  <g fill="none" stroke="#6F8BFF" stroke-opacity=".24">
-    <path d="M796 120h268M796 190h320M796 260h240M796 330h300"/>
-    <rect x="760" y="86" width="350" height="310" rx="22"/>
+  <g transform="translate(92 76)">
+    <rect width="108" height="108" rx="28" fill="#0B1220" stroke="#7C9BFF" stroke-width="2"/>
+    <path d="M54 16 83 30v23c0 23-12.4 38.8-29 47-16.6-8.2-29-24-29-47V30l29-14Z" fill="#111827" stroke="#7C9BFF" stroke-width="4"/>
+    <path d="M43 42h18a9 9 0 0 1 9 9v8" fill="none" stroke="#9CB9FF" stroke-width="5" stroke-linecap="round"/>
+    <circle cx="42" cy="42" r="7" fill="#39D98A"/>
+    <circle cx="70" cy="59" r="7" fill="#7C9BFF"/>
+    <path d="m41 72 10 10 25-31" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+  <text x="226" y="138" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="850">SecureRepos</text>
+  <text x="96" y="270" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="850">GitHub security scanning</text>
+  <text x="100" y="345" fill="#B8C0CC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600">Find secrets, GitHub Actions risk, dependency issues, and risky configs before they ship.</text>
+  <g fill="none" stroke="#7C9BFF" stroke-opacity=".28" stroke-width="2">
+    <path d="M806 124h270M806 192h314M806 260h238M806 328h292"/>
+    <rect x="760" y="86" width="352" height="318" rx="24"/>
+    <circle cx="806" cy="124" r="8" fill="#39D98A" stroke="none"/>
+    <circle cx="806" cy="192" r="8" fill="#7C9BFF" stroke="none"/>
+    <circle cx="806" cy="260" r="8" fill="#FDB022" stroke="none"/>
   </g>
   <defs>
-    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(1000 80) rotate(130) scale(620 720)">
+    <radialGradient id="bg" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(980 64) rotate(130) scale(660 740)">
       <stop stop-color="#1D2B62"/>
-      <stop offset="1" stop-color="#0B1220" stop-opacity="0"/>
+      <stop offset="1" stop-color="#080D16" stop-opacity="0"/>
     </radialGradient>
   </defs>
 </svg>

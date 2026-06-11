@@ -3,6 +3,7 @@ import { Request, Response } from 'express';
 import { CodeHostConnection, Finding, PricingPlan, Repository, Scan, Tenant, TenantSubscription } from '../../../db/models';
 import { assignTenantPlan } from '../../services/plan-limit.service';
 import { enqueueRepositoryScan } from '../../services/scan.service';
+import { cancelTenantSubscription } from '../../services/billing.service';
 
 async function listTenantsController(req: Request, res: Response)
 {
@@ -37,7 +38,7 @@ async function assignTenantPlanController(req: Request, res: Response)
 {
     const tenantId = Number(req.params.tenantId);
     const pricingPlanId = Number(req.body.pricingPlanId);
-    const status = typeof req.body.status === 'string' ? req.body.status : 'trialing';
+    const status = typeof req.body.status === 'string' ? req.body.status : 'pending';
 
     if (!Number.isFinite(tenantId) || !Number.isFinite(pricingPlanId))
     {
@@ -52,6 +53,32 @@ async function assignTenantPlanController(req: Request, res: Response)
             data: subscription
         }
     );
+}
+
+async function cancelTenantSubscriptionController(req: Request, res: Response)
+{
+    const tenantId = Number(req.params.tenantId);
+
+    if (!Number.isFinite(tenantId))
+    {
+        return res.status(400).json({ message: 'Invalid tenant id' });
+    }
+
+    try
+    {
+        const subscription = await cancelTenantSubscription(tenantId, 'admin');
+
+        return res.json(
+            {
+                message: 'Tenant subscription cancelled',
+                data: subscription
+            }
+        );
+    }
+    catch (error)
+    {
+        return res.status(400).json({ message: error instanceof Error ? error.message : 'Subscription could not be cancelled' });
+    }
 }
 
 async function listAdminScansController(req: Request, res: Response)
@@ -152,6 +179,7 @@ async function listCriticalFindingsController(req: Request, res: Response)
 export {
     listTenantsController,
     assignTenantPlanController,
+    cancelTenantSubscriptionController,
     listAdminScansController,
     retryScanController,
     deactivateRepositoryController,

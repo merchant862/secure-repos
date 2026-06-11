@@ -19,6 +19,10 @@ import { IgnoreRule, initIgnoreRuleModel } from './ignore-rule.model';
 import { NotificationSetting, initNotificationSettingModel } from './notification-setting.model';
 import { InAppNotification, initInAppNotificationModel } from './in-app-notification.model';
 import { SecurityScoreSnapshot, initSecurityScoreSnapshotModel } from './security-score-snapshot.model';
+import { LoginOtp, initLoginOtpModel } from './login-otp.model';
+import { Admin, initAdminModel } from './admin.model';
+import { AdminSession, initAdminSessionModel } from './admin-session.model';
+import { ProviderSetting, initProviderSettingModel } from './provider-setting.model';
 
 function initModels(sequelize: Sequelize)
 {
@@ -41,6 +45,10 @@ function initModels(sequelize: Sequelize)
     initNotificationSettingModel(sequelize);
     initInAppNotificationModel(sequelize);
     initSecurityScoreSnapshotModel(sequelize);
+    initLoginOtpModel(sequelize);
+    initAdminModel(sequelize);
+    initAdminSessionModel(sequelize);
+    initProviderSettingModel(sequelize);
 
     Tenant.hasMany(User, {
         foreignKey: 'tenantId',
@@ -60,6 +68,26 @@ function initModels(sequelize: Sequelize)
     UserSession.belongsTo(User, {
         foreignKey: 'userId',
         as: 'user'
+    });
+
+    User.hasMany(LoginOtp, {
+        foreignKey: 'userId',
+        as: 'loginOtps'
+    });
+
+    LoginOtp.belongsTo(User, {
+        foreignKey: 'userId',
+        as: 'user'
+    });
+
+    Admin.hasMany(AdminSession, {
+        foreignKey: 'adminId',
+        as: 'sessions'
+    });
+
+    AdminSession.belongsTo(Admin, {
+        foreignKey: 'adminId',
+        as: 'admin'
     });
 
     Tenant.hasMany(TeamInvitation, {
@@ -304,5 +332,9 @@ export
     NotificationSetting,
     InAppNotification,
     SecurityScoreSnapshot,
+    LoginOtp,
+    Admin,
+    AdminSession,
+    ProviderSetting,
     initModels
 };

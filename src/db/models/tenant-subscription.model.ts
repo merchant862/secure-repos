@@ -19,6 +19,8 @@ class TenantSubscription extends Model<InferAttributes<TenantSubscription>, Infe
     declare status: CreationOptional<string>;
     declare trialEndsAt: CreationOptional<Date | null>;
     declare currentPeriodEndsAt: CreationOptional<Date | null>;
+    declare cancelledAt: CreationOptional<Date | null>;
+    declare cancelledBy: CreationOptional<string | null>;
     declare createdAt: CreationOptional<Date>;
     declare updatedAt: CreationOptional<Date>;
 }
@@ -47,7 +49,7 @@ function initTenantSubscriptionModel(sequelize: Sequelize)
             {
                 type: DataTypes.STRING(30),
                 allowNull: false,
-                defaultValue: 'trialing'
+                defaultValue: 'pending'
             },
             trialEndsAt:
             {
@@ -57,6 +59,16 @@ function initTenantSubscriptionModel(sequelize: Sequelize)
             currentPeriodEndsAt:
             {
                 type: DataTypes.DATE,
+                allowNull: true
+            },
+            cancelledAt:
+            {
+                type: DataTypes.DATE,
+                allowNull: true
+            },
+            cancelledBy:
+            {
+                type: DataTypes.STRING(30),
                 allowNull: true
             },
             createdAt:

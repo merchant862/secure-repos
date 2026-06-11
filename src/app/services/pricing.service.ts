@@ -142,7 +142,7 @@ async function createPricingPlan(input: PricingPlanInput)
             isHighlighted: false,
             isActive: input.isActive ?? true,
             sortOrder: input.sortOrder ?? 0,
-            ctaLabel: input.ctaLabel ?? 'Start trial'
+            ctaLabel: input.ctaLabel ?? 'Choose plan'
         }
     );
 

@@ -1,6 +1,67 @@
-import { Finding, NotificationEvent, Repository, Scan } from '../../db/models';
+import { Finding, NotificationEvent, NotificationSetting, Repository, Scan, User } from '../../db/models';
 import { ScannerFinding } from './scan-rules.service';
 import { createTenantNotification } from './in-app-notification.service';
+
+async function getTenantEmailRecipients(tenantId: number, fallbackUserId?: number): Promise<string[]>
+{
+    const settings = await NotificationSetting.findOne({ where: { tenantId } });
+    const configured = settings?.emailRecipients as unknown;
+
+    if (Array.isArray(configured))
+    {
+        return configured.filter((email): email is string => typeof email === 'string' && email.includes('@'));
+    }
+
+    if (typeof configured === 'string')
+    {
+        return configured
+            .split(/[\s,;]+/)
+            .map((email) => email.trim())
+            .filter((email) => email.includes('@'));
+    }
+
+    if (configured && typeof configured === 'object' && Array.isArray((configured as { recipients?: unknown }).recipients))
+    {
+        return (configured as { recipients: unknown[] }).recipients.filter((email): email is string => typeof email === 'string' && email.includes('@'));
+    }
+
+    const users = await User.findAll(
+        {
+            where: fallbackUserId ? { id: fallbackUserId, tenantId, status: 'active' } : { tenantId, status: 'active' },
+            attributes: ['email']
+        }
+    );
+
+    return users.map((user) => user.email);
+}
+
+async function queueEmailEvent(input: {
+    tenantId: number;
+    type: string;
+    subject: string;
+    payload: Record<string, unknown>;
+    recipients?: string[];
+})
+{
+    const recipients = input.recipients && input.recipients.length > 0
+        ? input.recipients
+        : await getTenantEmailRecipients(input.tenantId);
+
+    return NotificationEvent.create(
+        {
+            tenantId: input.tenantId,
+            type: input.type,
+            channel: 'email',
+            status: 'queued',
+            subject: input.subject,
+            payload:
+            {
+                ...input.payload,
+                recipients
+            }
+        }
+    );
+}
 
 async function queueSecurityAlert(
     tenantId: number,
@@ -29,12 +90,10 @@ async function queueSecurityAlert(
         }
     );
 
-    return NotificationEvent.create(
+    return queueEmailEvent(
         {
             tenantId,
             type: 'security_alert',
-            channel: 'email',
-            status: 'queued',
             subject: `${severeFindings.length} high-risk security findings in ${repositoryFullName}`,
             payload:
             {
@@ -56,14 +115,122 @@ async function queueSecurityAlert(
 
 async function queueWeeklyReport(tenantId: number, summary: object)
 {
-    return NotificationEvent.create(
+    return queueEmailEvent(
         {
             tenantId,
             type: 'weekly_report',
-            channel: 'email',
-            status: 'queued',
             subject: 'Weekly security report',
-            payload: summary
+            payload: summary as Record<string, unknown>
+        }
+    );
+}
+
+async function queueWelcomeOwnerEmail(user: User)
+{
+    return queueEmailEvent(
+        {
+            tenantId: user.tenantId,
+            type: 'welcome_owner',
+            subject: `Welcome to SecureRepos, ${user.name}`,
+            recipients: [user.email],
+            payload:
+            {
+                name: user.name,
+                email: user.email
+            }
+        }
+    );
+}
+
+async function queueScanSummaryEmail(scan: Scan, repository: Repository)
+{
+    return queueEmailEvent(
+        {
+            tenantId: scan.tenantId,
+            type: 'scan_summary',
+            subject: `Scan complete for ${repository.fullName}`,
+            payload:
+            {
+                repositoryFullName: repository.fullName,
+                critical: scan.findingsCritical,
+                high: scan.findingsHigh,
+                medium: scan.findingsMedium,
+                low: scan.findingsLow,
+                score: repository.securityScore
+            }
+        }
+    );
+}
+
+async function queueScanFailedEmail(scan: Scan, repository: Repository | null, errorMessage: string)
+{
+    return queueEmailEvent(
+        {
+            tenantId: scan.tenantId,
+            type: 'scan_failed',
+            subject: `Scan failed${repository ? ` for ${repository.fullName}` : ''}`,
+            payload:
+            {
+                repositoryFullName: repository?.fullName,
+                errorMessage
+            }
+        }
+    );
+}
+
+async function queueFindingAssignedEmail(finding: Finding, repository: Repository, assignedUser: User)
+{
+    return queueEmailEvent(
+        {
+            tenantId: assignedUser.tenantId,
+            type: 'finding_assigned',
+            subject: `Finding assigned: ${finding.title}`,
+            recipients: [assignedUser.email],
+            payload:
+            {
+                findingId: finding.id,
+                title: finding.title,
+                severity: finding.severity,
+                repositoryFullName: repository.fullName,
+                filePath: finding.filePath
+            }
+        }
+    );
+}
+
+async function queueFindingStatusEmail(tenantId: number, finding: Finding, repository: Repository, status: string)
+{
+    return queueEmailEvent(
+        {
+            tenantId,
+            type: 'finding_status_changed',
+            subject: `Finding ${status}: ${finding.title}`,
+            payload:
+            {
+                findingId: finding.id,
+                title: finding.title,
+                severity: finding.severity,
+                status,
+                repositoryFullName: repository.fullName,
+                filePath: finding.filePath
+            }
+        }
+    );
+}
+
+async function queueProviderStatusEmail(tenantId: number, provider: string, accountLogin: string, status = 'connected')
+{
+    return queueEmailEvent(
+        {
+            tenantId,
+            type: 'provider_status_changed',
+            subject: provider === 'github' ? `GitHub App ${status}` : `${provider} provider ${status}`,
+            payload:
+            {
+                provider,
+                accountLogin,
+                status
+            }
         }
     );
 }
@@ -139,7 +306,15 @@ async function queueWeeklyReportsForAllTenants()
 }
 
 export {
+    getTenantEmailRecipients,
+    queueEmailEvent,
     queueSecurityAlert,
     queueWeeklyReport,
-    queueWeeklyReportsForAllTenants
+    queueWeeklyReportsForAllTenants,
+    queueWelcomeOwnerEmail,
+    queueScanSummaryEmail,
+    queueScanFailedEmail,
+    queueFindingAssignedEmail,
+    queueFindingStatusEmail,
+    queueProviderStatusEmail
 };

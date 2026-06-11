@@ -4,7 +4,7 @@
 <%
     const seoData = typeof seo !== 'undefined' && seo ? seo : {};
     const pageTitle = seoData.title || (title ? `${title} | ${appName}` : appName);
-    const pageDescription = seoData.description || 'SecureRepos helps teams scan GitHub, GitLab, and Bitbucket repositories for secrets, risky configs, CI/CD issues, dependency risk, and security workflow gaps.';
+    const pageDescription = seoData.description || 'SecureRepos helps GitHub teams scan repositories for secrets, risky configs, GitHub Actions issues, dependency risk, and security workflow gaps.';
     const pageCanonical = seoData.canonicalUrl || '';
     const pageRobots = seoData.robots || 'noindex,nofollow';
     const pageImage = seoData.image || '/public/images/og-secure-repos.svg';
@@ -26,6 +26,7 @@
 <meta name="twitter:description" content="<%= pageDescription %>">
 <meta name="twitter:image" content="<%= pageImage %>">
 <link rel="icon" href="/public/images/logo-icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/public/images/logo-icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;750;800&display=swap" rel="stylesheet">

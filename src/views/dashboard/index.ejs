@@ -12,22 +12,22 @@
                 <section class="grid grid-4">
                     <article class="card card-body">
                         <span class="badge brand">Repositories</span>
-                        <div class="metric-value">18</div>
-                        <div class="metric-label">connected across GitHub, GitLab, and Bitbucket</div>
+                        <div class="metric-value">--</div>
+                        <div class="metric-label">connected through the GitHub App</div>
                     </article>
                     <article class="card card-body">
                         <span class="badge danger">Critical</span>
-                        <div class="metric-value">7</div>
+                        <div class="metric-value">--</div>
                         <div class="metric-label">open findings that need owner review</div>
                     </article>
                     <article class="card card-body">
                         <span class="badge warning">Queue</span>
-                        <div class="metric-value">4</div>
+                        <div class="metric-value">--</div>
                         <div class="metric-label">scans waiting or currently running</div>
                     </article>
                     <article class="card card-body">
                         <span class="badge success">Score</span>
-                        <div class="metric-value">86</div>
+                        <div class="metric-value">--</div>
                         <div class="metric-label">average security score this week</div>
                     </article>
                 </section>
@@ -42,23 +42,18 @@
                             <button class="button" type="button">Export report</button>
                         </div>
                         <div class="card-body">
-                            <div class="progress-row"><span>Secrets</span><div class="progress"><span style="width:72%"></span></div><strong>18</strong></div>
-                            <div class="progress-row"><span>CI config</span><div class="progress"><span style="width:46%"></span></div><strong>9</strong></div>
-                            <div class="progress-row"><span>Docker</span><div class="progress"><span style="width:35%"></span></div><strong>6</strong></div>
-                            <div class="progress-row"><span>Packages</span><div class="progress"><span style="width:24%"></span></div><strong>4</strong></div>
+                            <div class="empty-state">Run a repository scan to build your risk overview.</div>
                         </div>
                     </article>
 
                     <article class="card">
                         <div class="card-header">
-                            <h2 class="card-title">Provider Health</h2>
-                            <span class="badge success">Online</span>
+                            <h2 class="card-title">GitHub App Health</h2>
+                            <span class="badge brand">GitHub</span>
                         </div>
                         <div class="card-body">
-                            <div class="progress-row"><span>GitHub</span><div class="progress"><span style="width:100%"></span></div><strong>10</strong></div>
-                            <div class="progress-row"><span>GitLab</span><div class="progress"><span style="width:62%"></span></div><strong>5</strong></div>
-                            <div class="progress-row"><span>Bitbucket</span><div class="progress"><span style="width:38%"></span></div><strong>3</strong></div>
-                            <a class="button primary" href="/repositories" style="width:100%;margin-top:12px">Connect provider</a>
+                            <p class="muted small">Install the GitHub App and select repositories to start sync and scanning.</p>
+                            <a class="button primary" href="/repositories" style="width:100%;margin-top:12px">Open GitHub setup</a>
                         </div>
                     </article>
                 </section>
@@ -72,12 +67,10 @@
                         <div class="table-wrap">
                             <table>
                                 <thead>
-                                    <tr><th>Repository</th><th>Provider</th><th>Score</th><th>Status</th></tr>
+                                    <tr><th>Repository</th><th>Provider</th><th>Default Branch</th><th>Score</th><th>Status</th><th></th></tr>
                                 </thead>
-                                <tbody>
-                                    <tr><td>checkout-api</td><td>GitHub</td><td>91</td><td><span class="badge success">Clean</span></td></tr>
-                                    <tr><td>customer-portal</td><td>GitLab</td><td>78</td><td><span class="badge warning">Review</span></td></tr>
-                                    <tr><td>infra-deploy</td><td>Bitbucket</td><td>64</td><td><span class="badge danger">Critical</span></td></tr>
+                                <tbody data-api-table="repositories">
+                                    <tr><td colspan="6">Loading repositories...</td></tr>
                                 </tbody>
                             </table>
                         </div>
@@ -86,7 +79,7 @@
                     <article class="card" id="team">
                         <div class="card-header">
                             <h2 class="card-title">Team Workflow</h2>
-                            <span class="badge warning">3 pending</span>
+                            <span class="badge brand">Workflow</span>
                         </div>
                         <div class="card-body">
                             <div class="grid" style="gap:12px">
@@ -119,9 +112,7 @@
                                     <tr><th>Finding</th><th>Severity</th><th>Owner</th></tr>
                                 </thead>
                                 <tbody>
-                                    <tr><td>Possible API key in config</td><td><span class="badge danger">Critical</span></td><td>Unassigned</td></tr>
-                                    <tr><td>Dockerfile missing USER</td><td><span class="badge warning">Medium</span></td><td>Platform</td></tr>
-                                    <tr><td>GitHub Actions write-all token</td><td><span class="badge danger">High</span></td><td>DevOps</td></tr>
+                                    <tr><td colspan="3">Run a scan to load findings.</td></tr>
                                 </tbody>
                             </table>
                         </div>

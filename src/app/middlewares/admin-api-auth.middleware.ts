@@ -1,15 +1,19 @@
 import { NextFunction, Request, Response } from 'express';
 
-import { env } from '../../bootstrap/env';
+import { Admin } from '../../db/models';
+import { resolveAdminSession } from '../services/admin-auth.service';
 
-function adminApiAuthMiddleware(req: Request, res: Response, next: NextFunction)
+interface AuthenticatedAdminRequest extends Request
 {
-    if (!env.adminApiToken)
-    {
-        return next();
-    }
+    currentAdmin?: Admin;
+}
 
-    if (req.header('authorization') !== `Bearer ${env.adminApiToken}`)
+async function adminApiAuthMiddleware(req: AuthenticatedAdminRequest, res: Response, next: NextFunction)
+{
+    const authorization = req.header('authorization');
+    const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : '';
+
+    if (!token)
     {
         return res.status(401).json(
             {
@@ -18,9 +22,23 @@ function adminApiAuthMiddleware(req: Request, res: Response, next: NextFunction)
         );
     }
 
+    const resolved = await resolveAdminSession(token);
+
+    if (!resolved)
+    {
+        return res.status(401).json(
+            {
+                message: 'Unauthorized'
+            }
+        );
+    }
+
+    req.currentAdmin = resolved.admin;
+
     return next();
 }
 
 export {
+    AuthenticatedAdminRequest,
     adminApiAuthMiddleware
 };

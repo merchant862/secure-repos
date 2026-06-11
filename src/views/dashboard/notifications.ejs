@@ -14,8 +14,7 @@
                 <section class="card">
                     <div class="card-header"><h2 class="card-title">Recent Notifications</h2><span class="badge brand">/api/user/notifications</span></div>
                     <div class="finding-list" data-api-list="notifications">
-                        <article class="finding-item"><span class="badge danger">Critical</span><div><strong>Critical finding opened</strong><p class="muted small">A repository produced a critical scanner result.</p></div><button class="button">Mark read</button></article>
-                        <article class="finding-item"><span class="badge success">Report</span><div><strong>Weekly report ready</strong><p class="muted small">Security posture report has been generated.</p></div><button class="button">Open</button></article>
+                        <div class="empty-state">Loading notifications...</div>
                     </div>
                 </section>
                 <%- include('../partials/footer') %>

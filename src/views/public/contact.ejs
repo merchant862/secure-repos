@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
+<body data-force-theme="dark">
+    <main class="landing-shell public-page">
+        <nav class="landing-nav">
+            <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
+            <div class="landing-nav-links">
+                <a href="/">Home</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/demo">Demo</a>
+                <a href="/faqs">FAQ</a>
+                <a href="/contact">Contact</a>
+            </div>
+            <div class="toolbar-actions landing-nav-actions"><a class="button" href="/sign-in">Sign in</a><a class="button primary" href="/sign-up">Create account</a></div>
+            <button class="landing-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" data-landing-menu-toggle>
+                <span></span><span></span><span></span>
+            </button>
+            <div class="landing-mobile-menu" data-landing-menu>
+                <a href="/">Home</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/demo">Demo</a>
+                <a href="/faqs">FAQ</a>
+                <a href="/contact">Contact</a>
+                <div class="landing-mobile-actions">
+                    <a class="button" href="/sign-in">Sign in</a>
+                    <a class="button primary" href="/sign-up">Create account</a>
+                </div>
+            </div>
+        </nav>
+
+        <section class="public-hero">
+            <span class="badge brand">Contact</span>
+            <h1>Talk to us about GitHub security workflow.</h1>
+            <p class="muted">Send account, billing, GitHub App installation, scan, or report questions here. For security-sensitive data, describe the issue without pasting secrets or private code.</p>
+        </section>
+
+        <section class="contact-layout">
+            <form class="contact-panel" data-api-form="contact-message">
+                <div class="form-field">
+                    <label for="contact-name">Name</label>
+                    <input class="input" id="contact-name" name="name" autocomplete="name" required>
+                </div>
+                <div class="form-field">
+                    <label for="contact-email">Email</label>
+                    <input class="input" id="contact-email" type="email" name="email" autocomplete="email" required>
+                </div>
+                <div class="form-field">
+                    <label for="contact-company">Company or workspace</label>
+                    <input class="input" id="contact-company" name="company" autocomplete="organization">
+                </div>
+                <div class="form-field">
+                    <label for="contact-message">Message</label>
+                    <textarea class="input textarea" id="contact-message" name="message" minlength="10" required></textarea>
+                </div>
+                <div class="toolbar-actions" style="justify-content:flex-start">
+                    <button class="button primary" type="submit">Send message</button>
+                    <a class="button" href="mailto:<%= supportEmail %>">Email support</a>
+                </div>
+                <p class="muted small" data-form-status></p>
+            </form>
+
+            <aside class="contact-notes">
+                <article>
+                    <span class="badge success">Support</span>
+                    <h2>Email</h2>
+                    <p><a href="mailto:<%= supportEmail %>"><%= supportEmail %></a></p>
+                </article>
+                <article>
+                    <span class="badge brand">Best context</span>
+                    <h2>Include what helps</h2>
+                    <p>Workspace email, GitHub organization, repository name if relevant, and the page or action where the issue happened.</p>
+                </article>
+                <article>
+                    <span class="badge warning">Sensitive data</span>
+                    <h2>Do not paste secrets</h2>
+                    <p>Never send access tokens, private keys, passwords, full card details, or private source code in support messages.</p>
+                </article>
+            </aside>
+        </section>
+
+        <footer class="landing-footer compact-footer">
+            <div class="landing-footer-brand">
+                <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
+                <p class="muted small">Repository monitoring, scanner workflow, team accountability, and security reporting for small engineering teams.</p>
+            </div>
+            <div class="landing-footer-grid">
+                <div>
+                    <h3>Product</h3>
+                    <a href="/demo">Demo</a>
+                    <a href="/#pricing">Pricing</a>
+                    <a href="/faqs">FAQ</a>
+                    <a href="/contact">Contact</a>
+                </div>
+                <div>
+                    <h3>Legal</h3>
+                    <a href="/terms">Terms</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/refund-policy">Refund Policy</a>
+                    <a href="/do-not-sell">Do Not Sell/Share</a>
+                </div>
+            </div>
+        </footer>
+        <button class="back-to-top" type="button" aria-label="Back to top" data-back-to-top>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l7 7-1.4 1.4-4.6-4.6V20h-2V8.8l-4.6 4.6L5 12l7-7z"></path></svg>
+        </button>
+        <%- include('../partials/cookie-consent') %>
+    </main>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

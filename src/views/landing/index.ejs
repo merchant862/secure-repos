@@ -11,6 +11,8 @@
                 <a href="#pricing">Pricing</a>
                 <a href="#access">Access</a>
                 <a href="/demo">Demo</a>
+                <a href="/faqs">FAQ</a>
+                <a href="/contact">Contact</a>
             </div>
             <div class="toolbar-actions landing-nav-actions"><a class="button" href="/sign-in">Sign in</a><a class="button primary" href="/sign-up">Create account</a></div>
             <button class="landing-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" data-landing-menu-toggle>
@@ -22,6 +24,8 @@
                 <a href="#pricing">Pricing</a>
                 <a href="#access">Access</a>
                 <a href="/demo">Demo</a>
+                <a href="/faqs">FAQ</a>
+                <a href="/contact">Contact</a>
                 <div class="landing-mobile-actions">
                     <a class="button" href="/sign-in">Sign in</a>
                     <a class="button primary" href="/sign-up">Create account</a>
@@ -31,13 +35,13 @@
         <section class="landing-hero">
             <div class="landing-hero-copy">
                 <span class="badge brand">Repository security workspace</span>
-                <h1>Code risk management without the enterprise overhead.</h1>
-                <p class="muted">SecureRepos helps small engineering teams connect repositories, find risky code patterns, assign owners, and export clear progress reports from one focused dashboard.</p>
+                <h1>Find risky repository changes before they reach customers.</h1>
+                <p class="muted">SecureRepos gives small GitHub teams a practical place to scan repositories, assign findings, and export security progress without buying a heavy enterprise suite.</p>
                 <div class="toolbar-actions" style="justify-content:flex-start"><a class="button primary" href="/sign-up">Create workspace</a><a class="button" href="/demo">View product demo</a></div>
                 <div class="landing-trust-row">
                     <span>GitHub</span>
-                    <span>GitLab</span>
-                    <span>Bitbucket</span>
+                    <span>GitHub App</span>
+                    <span>Push Webhooks</span>
                     <span>Reports</span>
                 </div>
             </div>
@@ -93,7 +97,7 @@
                 <h2>Everything important stays close to the team’s daily work.</h2>
             </div>
             <div class="landing-experience-grid">
-                <article><strong>Quick provider access</strong><p>Teams connect GitHub, GitLab, or Bitbucket after signup so repositories stay tied to a real workspace.</p></article>
+                <article><strong>GitHub App access</strong><p>Teams install the GitHub App after signup so selected repositories stay tied to a real workspace.</p></article>
                 <article><strong>Visible progress</strong><p>Scores, open findings, scan activity, and reports show whether security work is actually moving.</p></article>
                 <article><strong>Focused workflow</strong><p>The product stays centered on scanning, triage, ownership, notification, and reporting.</p></article>
             </div>
@@ -104,7 +108,7 @@
                 <h2>A simple security routine your team can follow every week.</h2>
             </div>
             <div class="landing-step-grid">
-                <article><span>1</span><strong>Connect repositories</strong><p class="muted small">Choose the provider and repository set that should be monitored.</p></article>
+                <article><span>1</span><strong>Install GitHub App</strong><p class="muted small">Choose the GitHub repositories that should be monitored.</p></article>
                 <article><span>2</span><strong>Run scans</strong><p class="muted small">Review security checks for secrets, config, CI, Docker, and packages.</p></article>
                 <article><span>3</span><strong>Assign owners</strong><p class="muted small">Move findings into ownership instead of letting them sit in a backlog.</p></article>
                 <article><span>4</span><strong>Export progress</strong><p class="muted small">Generate reports that show what changed and what still needs attention.</p></article>
@@ -144,7 +148,7 @@
             <div>
                 <span class="badge warning">Access model</span>
                 <h2>Signup first. Payment next. Provider connection after that.</h2>
-                <p class="muted">The workspace is created with email and password. After plan and payment, users connect code providers and begin real scans. The public demo stays separate for product preview.</p>
+                <p class="muted">The workspace is created with email and password. After plan activation, users install the GitHub App and begin real scans. The public demo stays separate for product preview.</p>
             </div>
             <div class="landing-access-actions">
                 <a class="button primary" href="/sign-up">Create account</a>
@@ -160,7 +164,11 @@
                     <span class="payment-mark mastercard"><i></i><b></b></span>
                     <span class="payment-mark amex">AMEX</span>
                     <span class="payment-mark discover">DISCOVER</span>
-                    <span class="payment-mark paypal">PayPal</span>
+                    <span class="payment-mark diners">DINERS</span>
+                    <span class="payment-mark jcb">JCB</span>
+                    <span class="payment-mark unionpay">UP</span>
+                    <span class="payment-mark maestro">MAESTRO</span>
+                    <span class="payment-mark elo">ELO</span>
                 </div>
             </div>
             <div class="landing-footer-grid">
@@ -170,13 +178,13 @@
                     <a href="#platform">Scans</a>
                     <a href="#workflow">Workflow</a>
                     <a href="#pricing">Pricing</a>
+                    <a href="/faqs">FAQ</a>
                 </div>
                 <div>
                     <h3>Account</h3>
                     <a href="/sign-in">Sign in</a>
                     <a href="/sign-up">Create account</a>
-                    <a href="/billing">Billing</a>
-                    <a href="/profile">Profile</a>
+                    <a href="/contact">Contact</a>
                 </div>
                 <div>
                     <h3>Legal</h3>
@@ -189,11 +197,12 @@
         </footer>
         <div class="landing-footer-bottom">
             <span>© <%= new Date().getFullYear() %> <%= appName %>. All rights reserved.</span>
-            <span>Secure checkout available through Stripe or PayPal.</span>
+            <span>Hosted card checkout will be handled by the selected payment provider.</span>
         </div>
         <button class="back-to-top" type="button" aria-label="Back to top" data-back-to-top>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l7 7-1.4 1.4-4.6-4.6V20h-2V8.8l-4.6 4.6L5 12l7-7z"></path></svg>
         </button>
+        <%- include('../partials/cookie-consent') %>
     </main>
     <script src="/public/js/app.js"></script>
 </body>

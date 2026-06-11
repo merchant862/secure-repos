@@ -3,15 +3,20 @@ import app from '../src/app/app';
 
 describe('Application routes', function ()
 {
-    it('should require admin auth for health response when admin token is configured', async function ()
+    it('should require admin session auth for admin health response', async function ()
     {
         const response = await request(app).get('/api/admin/health');
 
-        expect([200, 503]).toContain(response.status);
-        expect(response.body).toHaveProperty('status');
-        expect(response.body).toHaveProperty('app');
-        expect(response.body).toHaveProperty('database');
-        expect(response.body).toHaveProperty('timestamp');
+        expect(response.status).toBe(401);
+        expect(response.body.message).toBe('Unauthorized');
+    });
+
+    it('should redirect unauthenticated dashboard pages to sign in', async function ()
+    {
+        const response = await request(app).get('/dashboard');
+
+        expect(response.status).toBe(302);
+        expect(response.header.location).toBe('/sign-in?next=%2Fdashboard');
     });
 
     it('should return 200 for github install callback with installation_id', async function ()

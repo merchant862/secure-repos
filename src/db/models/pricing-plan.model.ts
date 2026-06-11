@@ -94,7 +94,7 @@ function initPricingPlanModel(sequelize: Sequelize)
             {
                 type: DataTypes.STRING(100),
                 allowNull: false,
-                defaultValue: 'Start trial'
+                defaultValue: 'Choose plan'
             },
             createdAt:
             {

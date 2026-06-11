@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 
 import { env } from '../../bootstrap/env';
 import { NotificationEvent } from '../../db/models';
+import { renderEmailTemplate } from './email-template.service';
 
 function sleep(ms: number)
 {
@@ -20,9 +21,12 @@ async function deliverNotification(notification: NotificationEvent)
             throw new Error('RESEND_API_KEY and RESEND_FROM_EMAIL are required for resend delivery mode');
         }
 
-        const recipients = Array.isArray((notification.payload as { recipients?: unknown }).recipients)
-            ? (notification.payload as { recipients: string[] }).recipients
-            : [];
+        const payload = notification.payload as { recipients?: unknown; email?: unknown };
+        const recipients = Array.isArray(payload.recipients)
+            ? payload.recipients.filter((email): email is string => typeof email === 'string' && email.includes('@'))
+            : typeof payload.email === 'string' && payload.email.includes('@')
+                ? [payload.email]
+                : [];
 
         if (recipients.length === 0)
         {
@@ -42,7 +46,7 @@ async function deliverNotification(notification: NotificationEvent)
                         from: env.resendFromEmail,
                         to: recipients,
                         subject: notification.subject,
-                        html: `<pre>${JSON.stringify(notification.payload, null, 2)}</pre>`
+                        html: renderEmailTemplate(notification.type, notification.payload as Record<string, unknown>)
                     }
                 )
             }
@@ -72,17 +76,25 @@ async function deliverNotification(notification: NotificationEvent)
     throw new Error(`Unsupported notification delivery mode: ${env.notificationDeliveryMode}`);
 }
 
-async function runNotificationWorkerOnce()
+async function runNotificationWorkerOnce(emailType?: string)
 {
+    const where: Record<string, unknown> =
+    {
+        channel: 'email',
+        status:
+        {
+            [Op.in]: ['queued', 'retry']
+        }
+    };
+
+    if (emailType)
+    {
+        where.type = emailType;
+    }
+
     const notification = await NotificationEvent.findOne(
         {
-            where:
-            {
-                status:
-                {
-                    [Op.in]: ['queued', 'retry']
-                }
-            },
+            where,
             order: [['createdAt', 'ASC']]
         }
     );
@@ -136,11 +148,11 @@ async function runNotificationWorkerOnce()
     return notification;
 }
 
-async function runNotificationWorkerLoop(pollMs: number)
+async function runNotificationWorkerLoop(pollMs: number, emailType?: string)
 {
     while (true)
     {
-        await runNotificationWorkerOnce();
+        await runNotificationWorkerOnce(emailType);
         await sleep(pollMs);
     }
 }

@@ -34,6 +34,43 @@
         }
     }
 
+    function getSafeNextPath() {
+        const next = new URLSearchParams(window.location.search).get('next');
+
+        if (!next || !next.startsWith('/') || next.startsWith('//')) {
+            return '';
+        }
+
+        return next;
+    }
+
+    function getCookieConsent() {
+        try {
+            return JSON.parse(localStorage.getItem('securerepos_cookie_consent') || 'null');
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function saveCookieConsent(consent) {
+        const payload = Object.assign(
+            {
+                necessary: true,
+                preferences: false,
+                analytics: false,
+                marketing: false
+            },
+            consent,
+            {
+                necessary: true,
+                updatedAt: new Date().toISOString()
+            }
+        );
+        localStorage.setItem('securerepos_cookie_consent', JSON.stringify(payload));
+        window.secureReposCookieConsent = payload;
+        return payload;
+    }
+
     async function apiFetch(path, options) {
         const token = getToken();
         const headers = Object.assign({ 'Content-Type': 'application/json' }, options && options.headers ? options.headers : {});
@@ -65,6 +102,7 @@
         const landingMenu = event.target.closest('[data-landing-menu]');
         const landingMenuLink = event.target.closest('[data-landing-menu] a');
         const backToTopButton = event.target.closest('[data-back-to-top]');
+        const cookieActionButton = event.target.closest('[data-cookie-action]');
         const panel = document.querySelector('[data-notification-panel]');
 
         if (themeButton) {
@@ -107,6 +145,10 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
             closeLandingMenu();
         }
+
+        if (cookieActionButton) {
+            updateCookieConsent(cookieActionButton.dataset.cookieAction);
+        }
     });
 
     const searchInput = document.querySelector('[data-command-search]');
@@ -137,6 +179,37 @@
 
     syncBackToTop();
     window.addEventListener('scroll', syncBackToTop, { passive: true });
+
+    const cookiePanel = document.querySelector('[data-cookie-consent]');
+    function initCookieConsent() {
+        if (!cookiePanel) {
+            return;
+        }
+
+        const consent = getCookieConsent();
+        if (consent) {
+            window.secureReposCookieConsent = consent;
+            return;
+        }
+
+        cookiePanel.hidden = false;
+    }
+
+    function updateCookieConsent(action) {
+        if (!cookiePanel) {
+            return;
+        }
+
+        const choices = {};
+        cookiePanel.querySelectorAll('[data-cookie-choice]').forEach(function (input) {
+            choices[input.dataset.cookieChoice] = action === 'all' ? true : action === 'necessary' ? false : Boolean(input.checked);
+        });
+
+        saveCookieConsent(choices);
+        cookiePanel.hidden = true;
+    }
+
+    initCookieConsent();
 
     const notificationList = document.querySelector('[data-notification-list]');
     const unreadCount = document.querySelector('[data-unread-count]');
@@ -189,9 +262,17 @@
 
             try {
                 const body = Object.fromEntries(new FormData(form).entries());
-                const payload = await apiFetch(form.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) });
+                const isOtpStep = form.dataset.otpStep === 'true';
+                const payload = await apiFetch(isOtpStep ? '/api/auth/login/otp' : form.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) });
+
+                if (payload.data && payload.data.otpRequired) {
+                    prepareOtpStep(form, payload.data.challengeId);
+                    showFormStatus(form, 'Login code sent. Check your email.');
+                    return;
+                }
+
                 setToken(payload.data && payload.data.token);
-                window.location.href = form.getAttribute('action') === '/api/auth/signup' ? '/onboarding' : '/dashboard';
+                window.location.href = getSafeNextPath() || (form.getAttribute('action') === '/api/auth/signup' ? '/onboarding' : '/dashboard');
             } catch (error) {
                 showFormStatus(form, error.message, true);
             } finally {
@@ -202,6 +283,34 @@
             }
         });
     });
+
+    function prepareOtpStep(form, challengeId) {
+        form.dataset.otpStep = 'true';
+        form.querySelectorAll('input[name="email"], input[name="password"]').forEach(function (input) {
+            input.closest('.form-field')?.remove();
+        });
+
+        if (!form.querySelector('input[name="challengeId"]')) {
+            const hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = 'challengeId';
+            hidden.value = challengeId;
+            form.prepend(hidden);
+        }
+
+        if (!form.querySelector('input[name="otpCode"]')) {
+            const field = document.createElement('div');
+            field.className = 'form-field';
+            field.innerHTML = '<label>Login code</label><input class="input" type="text" name="otpCode" inputmode="numeric" autocomplete="one-time-code" required>';
+            const status = form.querySelector('[data-form-status]');
+            form.insertBefore(field, status || form.querySelector('button[type="submit"]'));
+        }
+
+        const button = form.querySelector('button[type="submit"]');
+        if (button) {
+            button.textContent = 'Verify code';
+        }
+    }
 
     document.querySelectorAll('[data-api-form]').forEach(function (form) {
         form.addEventListener('submit', async function (event) {
@@ -219,7 +328,9 @@
                 'invite-member': { path: '/api/user/team/invitations', method: 'POST' },
                 'notification-settings': { path: '/api/user/settings/notifications', method: 'PUT' },
                 'ignore-rule': { path: '/api/user/ignore-rules', method: 'POST' },
-                'accept-invitation': { path: '/api/auth/invitations/accept', method: 'POST' }
+                'accept-invitation': { path: '/api/auth/invitations/accept', method: 'POST' },
+                'cancel-subscription': { path: '/api/user/billing/cancel', method: 'POST' },
+                'contact-message': { path: '/api/contact', method: 'POST' }
             };
             const target = map[formType];
 
@@ -234,22 +345,16 @@
                     window.location.href = '/onboarding';
                     return;
                 }
-                showFormStatus(form, 'Saved successfully.');
+                showFormStatus(form, formType === 'contact-message' ? 'Message sent. We will reply by email.' : 'Saved successfully.');
                 form.reset();
             } catch (error) {
-                showFormStatus(form, getToken() ? error.message : 'Sign in first, then retry this action.', true);
+                showFormStatus(form, formType === 'contact-message' || getToken() ? error.message : 'Sign in first, then retry this action.', true);
             }
         });
     });
 
     hydratePageData();
-
     async function hydratePageData() {
-        if (!getToken()) {
-            markApiSurfacesUnauthenticated();
-            return;
-        }
-
         await Promise.allSettled([
             hydrateRepositories(),
             hydrateFindings(),

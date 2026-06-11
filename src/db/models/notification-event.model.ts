@@ -13,7 +13,7 @@ import { Tenant } from './tenant.model';
 class NotificationEvent extends Model<InferAttributes<NotificationEvent>, InferCreationAttributes<NotificationEvent>>
 {
     declare id: CreationOptional<number>;
-    declare tenantId: ForeignKey<Tenant['id']>;
+    declare tenantId: ForeignKey<Tenant['id']> | null;
     declare type: string;
     declare channel: CreationOptional<string>;
     declare status: CreationOptional<string>;
@@ -38,7 +38,7 @@ function initNotificationEventModel(sequelize: Sequelize)
             tenantId:
             {
                 type: DataTypes.BIGINT.UNSIGNED,
-                allowNull: false
+                allowNull: true
             },
             type:
             {

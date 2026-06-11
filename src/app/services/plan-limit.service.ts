@@ -86,7 +86,7 @@ async function assertRepositoryLimitAvailable(tenantId: number, provider: string
     }
 }
 
-async function assignTenantPlan(tenantId: number, pricingPlanId: number, status = 'trialing')
+async function assignTenantPlan(tenantId: number, pricingPlanId: number, status = 'pending')
 {
     const existing = await TenantSubscription.findOne(
         {
@@ -96,7 +96,7 @@ async function assignTenantPlan(tenantId: number, pricingPlanId: number, status 
             }
         }
     );
-    const trialEndsAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const trialEndsAt = status === 'trialing' ? new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) : null;
 
     if (existing)
     {

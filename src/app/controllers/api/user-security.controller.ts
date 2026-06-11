@@ -1,6 +1,6 @@
 import { Response } from 'express';
 
-import { CodeHostConnection, Finding, Repository, Scan } from '../../../db/models';
+import { CodeHostConnection, Finding, Repository, Scan, User } from '../../../db/models';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import {
     getRepositoryChecklist,
@@ -8,6 +8,7 @@ import {
     updateFindingWorkflow
 } from '../../services/security-posture.service';
 import { recordAuditLog } from '../../services/audit.service';
+import { queueFindingAssignedEmail, queueFindingStatusEmail } from '../../services/notification.service';
 
 async function getTenantRepositoryIds(tenantId: number)
 {
@@ -105,6 +106,8 @@ async function updateUserFindingController(req: AuthenticatedRequest, res: Respo
         return res.status(404).json({ message: 'Finding not found' });
     }
 
+    const previousAssignedToUserId = existingFinding.assignedToUserId;
+    const previousStatus = existingFinding.status;
     const finding = await updateFindingWorkflow(
         findingId,
         {
@@ -113,6 +116,12 @@ async function updateUserFindingController(req: AuthenticatedRequest, res: Respo
             ignoredUntil: req.body.ignoredUntil ? new Date(req.body.ignoredUntil) : req.body.ignoredUntil === null ? null : undefined
         }
     );
+
+    if (!finding)
+    {
+        return res.status(404).json({ message: 'Finding not found' });
+    }
+
     await recordAuditLog(
         {
             tenantId: user.tenantId,
@@ -123,6 +132,22 @@ async function updateUserFindingController(req: AuthenticatedRequest, res: Respo
             metadata: req.body
         }
     );
+    const repository = await Repository.findByPk(finding.repositoryId);
+
+    if (repository && finding.assignedToUserId && finding.assignedToUserId !== previousAssignedToUserId)
+    {
+        const assignedUser = await User.findOne({ where: { id: finding.assignedToUserId, tenantId: user.tenantId, status: 'active' } });
+
+        if (assignedUser)
+        {
+            await queueFindingAssignedEmail(finding, repository, assignedUser);
+        }
+    }
+
+    if (repository && req.body.status && req.body.status !== previousStatus)
+    {
+        await queueFindingStatusEmail(user.tenantId, finding, repository, String(req.body.status));
+    }
 
     return res.json(
         {

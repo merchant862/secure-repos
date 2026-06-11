@@ -22,21 +22,21 @@
                         <div class="metric-value">$29<span class="plan-period">/mo</span></div>
                         <p class="muted">For solo builders and early repos.</p>
                         <ul class="plan-list"><li>5 repositories</li><li>1 team seat</li><li>Manual scans</li><li>Basic reports</li></ul>
-                        <a class="button" href="/billing" style="width:100%">Select Starter</a>
+                        <a class="button" href="/billing?planId=1" style="width:100%">Select Starter</a>
                     </article>
                     <article class="card card-body plan-card plan-featured">
                         <span class="badge success">Recommended</span>
                         <div class="metric-value">$79<span class="plan-period">/mo</span></div>
                         <p class="muted">For small teams that need workflow and accountability.</p>
                         <ul class="plan-list"><li>50 repositories</li><li>12 team seats</li><li>Scheduled scans</li><li>Audit log and exports</li></ul>
-                        <a class="button primary" href="/billing" style="width:100%">Select Team</a>
+                        <a class="button primary" href="/billing?planId=2" style="width:100%">Select Team</a>
                     </article>
                     <article class="card card-body plan-card">
                         <span class="badge warning">Growth</span>
                         <div class="metric-value">$149<span class="plan-period">/mo</span></div>
                         <p class="muted">For agencies and multi-repo teams.</p>
                         <ul class="plan-list"><li>150 repositories</li><li>30 team seats</li><li>Priority scan queue</li><li>Advanced reports</li></ul>
-                        <a class="button" href="/billing" style="width:100%">Select Growth</a>
+                        <a class="button" href="/billing?planId=3" style="width:100%">Select Growth</a>
                     </article>
                 </section>
 
@@ -49,8 +49,8 @@
                         <table>
                             <thead><tr><th>Step</th><th>Purpose</th><th>Status</th></tr></thead>
                             <tbody>
-                                <tr><td>Payment</td><td>Confirm card through Stripe or PayPal once selected.</td><td><span class="badge warning">Pending provider</span></td></tr>
-                                <tr><td>Provider connect</td><td>Install GitHub, GitLab, or Bitbucket connection.</td><td><span class="badge brand">Next</span></td></tr>
+                                <tr><td>Hosted checkout</td><td>Activate the plan through the selected payment processor once connected.</td><td><span class="badge warning">Pending checkout</span></td></tr>
+                                <tr><td>GitHub App install</td><td>Select the repositories SecureRepos should scan.</td><td><span class="badge brand">Next</span></td></tr>
                                 <tr><td>First scan</td><td>Choose repositories and start initial scan.</td><td><span class="badge success">Ready</span></td></tr>
                             </tbody>
                         </table>

@@ -78,7 +78,7 @@ module.exports =
             {
                 type: Sequelize.STRING(100),
                 allowNull: false,
-                defaultValue: 'Start trial'
+                defaultValue: 'Choose plan'
             },
             createdAt:
             {
@@ -111,7 +111,7 @@ module.exports =
                 isHighlighted: false,
                 isActive: true,
                 sortOrder: 10,
-                ctaLabel: 'Start trial',
+                ctaLabel: 'Choose Starter',
                 createdAt: new Date(),
                 updatedAt: new Date()
             },
@@ -127,7 +127,7 @@ module.exports =
                 isHighlighted: true,
                 isActive: true,
                 sortOrder: 20,
-                ctaLabel: 'Start trial',
+                ctaLabel: 'Choose Team',
                 createdAt: new Date(),
                 updatedAt: new Date()
             },
@@ -143,7 +143,7 @@ module.exports =
                 isHighlighted: false,
                 isActive: true,
                 sortOrder: 30,
-                ctaLabel: 'Start trial',
+                ctaLabel: 'Choose Growth',
                 createdAt: new Date(),
                 updatedAt: new Date()
             }

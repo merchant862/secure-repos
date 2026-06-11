@@ -1,10 +1,9 @@
 import { Op } from 'sequelize';
 
-import { CodeHostConnection, Finding, GithubInstallation, Repository, Scan } from '../../db/models';
+import { Finding, GithubInstallation, Repository, Scan } from '../../db/models';
 import { fetchRepositoryBlob, fetchRepositoryTree, createInstallationAccessToken } from '../../modules/github/github.service';
 import { GithubTreeItem } from '../../modules/github/github.types';
-import { fetchBitbucketFiles, fetchGitLabFiles } from './code-host-provider.service';
-import { queueSecurityAlert } from './notification.service';
+import { queueScanFailedEmail, queueScanSummaryEmail, queueSecurityAlert } from './notification.service';
 import { refreshRepositorySecurityScore } from './security-posture.service';
 import { filterIgnoredFindings } from './ignore-rule.service';
 import { RepositoryFile, scanFiles } from './scan-rules.service';
@@ -103,10 +102,7 @@ async function enqueueRepositoryScan(repositoryId: number, triggerType: string)
     const githubInstallation = repository.githubInstallationId
         ? await GithubInstallation.findByPk(repository.githubInstallationId)
         : null;
-    const connection = repository.codeHostConnectionId
-        ? await CodeHostConnection.findByPk(repository.codeHostConnectionId)
-        : null;
-    const tenantId = githubInstallation?.tenantId ?? connection?.tenantId;
+    const tenantId = githubInstallation?.tenantId;
 
     if (!tenantId)
     {
@@ -203,26 +199,7 @@ async function fetchScannableFilesForRepository(repository: Repository): Promise
         return fetchScannableFiles(repository, accessToken);
     }
 
-    const connection = repository.codeHostConnectionId
-        ? await CodeHostConnection.findByPk(repository.codeHostConnectionId)
-        : null;
-
-    if (!connection)
-    {
-        throw new Error('Code host connection not found for repository');
-    }
-
-    if (repository.provider === 'gitlab')
-    {
-        return fetchGitLabFiles(connection, repository.fullName, repository.defaultBranch || 'main');
-    }
-
-    if (repository.provider === 'bitbucket')
-    {
-        return fetchBitbucketFiles(connection, repository.fullName, repository.defaultBranch || 'main');
-    }
-
-    throw new Error(`Unsupported repository provider: ${repository.provider}`);
+    throw new Error('Only GitHub repositories are supported');
 }
 
 async function processScan(scan: Scan)
@@ -373,13 +350,16 @@ async function processScan(scan: Scan)
         );
 
         await refreshRepositorySecurityScore(repository.id);
+        await repository.reload();
         await queueSecurityAlert(scan.tenantId, repository.fullName, dedupedFindings);
+        await queueScanSummaryEmail(scan, repository);
 
         return scan;
     }
     catch (error)
     {
         const message = error instanceof Error ? error.message : 'Unknown scan error';
+        const repository = await Repository.findByPk(scan.repositoryId);
 
         await scan.update(
             {
@@ -388,6 +368,7 @@ async function processScan(scan: Scan)
                 completedAt: new Date()
             }
         );
+        await queueScanFailedEmail(scan, repository, message);
 
         throw error;
     }

@@ -1,7 +1,8 @@
 import { Request, Response } from 'express';
 
 const appName = process.env.APP_NAME && process.env.APP_NAME.trim() !== '' ? process.env.APP_NAME : 'SecureRepos';
-const defaultDescription = 'SecureRepos helps teams scan GitHub, GitLab, and Bitbucket repositories for secrets, risky configs, CI/CD issues, dependency risk, and security workflow gaps.';
+const defaultDescription = 'SecureRepos helps GitHub teams scan repositories for secrets, risky configs, CI/CD issues, dependency risk, and security workflow gaps.';
+const supportEmail = process.env.SUPPORT_EMAIL && process.env.SUPPORT_EMAIL.trim() !== '' ? process.env.SUPPORT_EMAIL : 'support@securerepos.com';
 
 function getBaseUrl(req: Request): string
 {
@@ -44,7 +45,7 @@ function landingPageController(req: Request, res: Response)
     {
         title: 'Repository Security Scanning',
         appName,
-        seo: publicSeo(req, 'SecureRepos | Repository Security Scanning for GitHub, GitLab & Bitbucket')
+        seo: publicSeo(req, 'SecureRepos | GitHub Repository Security Scanning')
     });
 }
 
@@ -73,7 +74,7 @@ function demoPageController(req: Request, res: Response)
     {
         title: `Demo ${titles[normalizedPage]}`,
         appName,
-        seo: publicSeo(req, `${titles[normalizedPage]} Demo | SecureRepos`, 'Explore a SecureRepos demo workspace for repository scanning, findings triage, security reports, team workflow, and provider setup.', req.path),
+        seo: publicSeo(req, `${titles[normalizedPage]} Demo | SecureRepos`, 'Explore a SecureRepos demo workspace for GitHub repository scanning, findings triage, security reports, team workflow, and app setup.', req.path),
         page: normalizedPage,
         pageTitle: titles[normalizedPage]
     });
@@ -105,7 +106,29 @@ function pricingPageController(req: Request, res: Response)
     {
         title: 'Pricing',
         appName,
-        seo: publicSeo(req, 'SecureRepos Pricing | Repository Security Scanning Plans', 'Compare SecureRepos plans for repository security scanning, team seats, scheduled scans, reports, and security workflow coverage.')
+        seo: publicSeo(req, 'SecureRepos Pricing | GitHub Security Scanning Plans', 'Compare SecureRepos plans for GitHub repository security scanning, team seats, scheduled scans, reports, and security workflow coverage.')
+    });
+}
+
+function faqPageController(req: Request, res: Response)
+{
+    return res.render('public/faq',
+    {
+        title: 'FAQ',
+        appName,
+        supportEmail,
+        seo: publicSeo(req, 'SecureRepos FAQ | GitHub Security Scanner Questions', 'Answers about SecureRepos GitHub repository scanning, app access, findings, reports, team seats, billing, and support.', '/faqs')
+    });
+}
+
+function contactPageController(req: Request, res: Response)
+{
+    return res.render('public/contact',
+    {
+        title: 'Contact Us',
+        appName,
+        supportEmail,
+        seo: publicSeo(req, 'Contact SecureRepos | GitHub Security Scanner Support', 'Contact SecureRepos for account, billing, support, GitHub repository scanning, and security workflow questions.', '/contact')
     });
 }
 
@@ -180,13 +203,17 @@ function legalPlaceholderPageController(req: Request, res: Response)
     };
     const slug = req.params.legalSlug ?? req.path.replace('/', '');
     const normalizedSlug = typeof slug === 'string' && legalPages[slug] ? slug : 'terms';
+    const rootUrl = getBaseUrl(req);
 
     return res.render('legal/placeholder',
     {
         title: legalPages[normalizedSlug],
         appName,
         legalTitle: legalPages[normalizedSlug],
-        seo: publicSeo(req, `${legalPages[normalizedSlug]} | SecureRepos`, `${legalPages[normalizedSlug]} for SecureRepos repository security scanning and workspace services.`)
+        supportEmail,
+        websiteUrl: rootUrl,
+        legalSlug: normalizedSlug,
+        seo: publicSeo(req, `${legalPages[normalizedSlug]} | SecureRepos`, `${legalPages[normalizedSlug]} for SecureRepos GitHub repository security scanning and workspace services.`)
     });
 }
 
@@ -194,7 +221,9 @@ export
 {
     acceptInvitationPageController,
     billingPageController,
+    contactPageController,
     demoPageController,
+    faqPageController,
     findingDetailPageController,
     findingsPageController,
     landingPageController,

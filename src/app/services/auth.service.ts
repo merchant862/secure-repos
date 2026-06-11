@@ -3,11 +3,13 @@ import { promisify } from 'util';
 
 import { Op } from 'sequelize';
 
-import { PricingPlan, TeamInvitation, Tenant, User, UserSession } from '../../db/models';
+import { LoginOtp, NotificationEvent, PricingPlan, TeamInvitation, Tenant, User, UserSession } from '../../db/models';
 import { assignTenantPlan } from './plan-limit.service';
+import { queueWelcomeOwnerEmail } from './notification.service';
 
 const scrypt = promisify(crypto.scrypt);
 const sessionDays = 14;
+const loginOtpMinutes = 10;
 
 function hashToken(token: string): string
 {
@@ -96,7 +98,21 @@ async function registerOwner(name: string, email: string, password: string, plan
 
     if (pricingPlan)
     {
-        await assignTenantPlan(tenant.id, pricingPlan.id, 'trialing');
+        await assignTenantPlan(tenant.id, pricingPlan.id, 'pending');
+    }
+
+    await queueWelcomeOwnerEmail(user);
+
+    return user;
+}
+
+async function validateLoginCredentials(email: string, password: string)
+{
+    const user = await User.findOne({ where: { email, status: 'active' } });
+
+    if (!user || !(await verifyPassword(password, user.password ?? null)))
+    {
+        throw new Error('Invalid email or password');
     }
 
     return user;
@@ -104,11 +120,93 @@ async function registerOwner(name: string, email: string, password: string, plan
 
 async function loginUser(email: string, password: string, ipAddress?: string, userAgent?: string)
 {
-    const user = await User.findOne({ where: { email, status: 'active' } });
+    const user = await validateLoginCredentials(email, password);
 
-    if (!user || !(await verifyPassword(password, user.password ?? null)))
+    return createSession(user, ipAddress, userAgent);
+}
+
+function generateOtpCode()
+{
+    return String(crypto.randomInt(100000, 1000000));
+}
+
+async function createLoginOtpChallenge(email: string, password: string, ipAddress?: string, userAgent?: string)
+{
+    const user = await validateLoginCredentials(email, password);
+    const otpCode = generateOtpCode();
+    const challengeId = crypto.randomBytes(24).toString('hex');
+    const expiresAt = new Date(Date.now() + loginOtpMinutes * 60 * 1000);
+    const otp = await LoginOtp.create(
+        {
+            userId: user.id,
+            challengeId,
+            codeHash: hashToken(otpCode),
+            expiresAt,
+            ipAddress: ipAddress ?? null,
+            userAgent: userAgent ?? null
+        }
+    );
+
+    await NotificationEvent.create(
+        {
+            tenantId: user.tenantId,
+            type: 'login_otp',
+            channel: 'email',
+            status: 'queued',
+            subject: 'Your SecureRepos login code',
+            payload:
+            {
+                recipients: [user.email],
+                email: user.email,
+                name: user.name,
+                otpCode,
+                expiresMinutes: loginOtpMinutes,
+                ipAddress: ipAddress ?? null
+            }
+        }
+    );
+
+    return {
+        challengeId: otp.challengeId,
+        expiresAt: otp.expiresAt
+    };
+}
+
+async function verifyLoginOtpChallenge(challengeId: string, otpCode: string, ipAddress?: string, userAgent?: string)
+{
+    const otp = await LoginOtp.findOne(
+        {
+            where:
+            {
+                challengeId,
+                usedAt: null,
+                expiresAt:
+                {
+                    [Op.gt]: new Date()
+                }
+            },
+            include:
+            [
+                {
+                    model: User,
+                    as: 'user'
+                }
+            ]
+        }
+    );
+
+    if (!otp || otp.codeHash !== hashToken(otpCode))
     {
-        throw new Error('Invalid email or password');
+        throw new Error('Invalid or expired login code');
+    }
+
+    await otp.update({ usedAt: new Date() });
+
+    const user = otp.get('user') as User | undefined ?? await User.findByPk(otp.userId);
+
+    if (!user || user.status !== 'active')
+    {
+        throw new Error('Invalid or expired login code');
     }
 
     return createSession(user, ipAddress, userAgent);
@@ -252,5 +350,7 @@ export {
     resolveSession,
     revokeSession,
     createInvitation,
-    acceptInvitation
+    acceptInvitation,
+    createLoginOtpChallenge,
+    verifyLoginOtpChallenge
 };

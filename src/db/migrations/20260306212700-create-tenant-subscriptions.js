@@ -42,7 +42,7 @@ module.exports =
             {
                 type: Sequelize.STRING(30),
                 allowNull: false,
-                defaultValue: 'trialing'
+                defaultValue: 'pending'
             },
             trialEndsAt:
             {

@@ -17,6 +17,9 @@ function getEnv(name: string, fallback?: string): string
 const env =
 {
     appName: process.env.APP_NAME && process.env.APP_NAME.trim() !== '' ? process.env.APP_NAME : 'SecureRepos',
+    nodeEnv: getEnv('NODE_ENV', 'development'),
+    appUrl: getEnv('APP_URL', 'https://securerepos.com'),
+    supportEmail: getEnv('SUPPORT_EMAIL', 'support@securerepos.com'),
     port: Number(getEnv('PORT', '3000')),
 
     dbHost: getEnv('DB_HOST'),
@@ -31,17 +34,6 @@ const env =
     githubWebhookSecret: getEnv('GITHUB_WEBHOOK_SECRET'),
     githubPrivateKeyPath: getEnv('GITHUB_PRIVATE_KEY_PATH'),
     githubAppSlug: getEnv('GITHUB_APP_SLUG'),
-
-    gitlabBaseUrl: getEnv('GITLAB_BASE_URL', 'https://gitlab.com'),
-    gitlabClientId: getEnv('GITLAB_CLIENT_ID', ''),
-    gitlabClientSecret: getEnv('GITLAB_CLIENT_SECRET', ''),
-    gitlabRedirectUri: getEnv('GITLAB_REDIRECT_URI', ''),
-    gitlabWebhookSecret: getEnv('GITLAB_WEBHOOK_SECRET', ''),
-
-    bitbucketClientId: getEnv('BITBUCKET_CLIENT_ID', ''),
-    bitbucketClientSecret: getEnv('BITBUCKET_CLIENT_SECRET', ''),
-    bitbucketRedirectUri: getEnv('BITBUCKET_REDIRECT_URI', ''),
-    bitbucketWebhookSecret: getEnv('BITBUCKET_WEBHOOK_SECRET', ''),
 
     tokenEncryptionKey: getEnv('TOKEN_ENCRYPTION_KEY', ''),
 

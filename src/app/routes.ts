@@ -5,7 +5,9 @@ import { githubInstallCallbackController } from './controllers/web/github-instal
 import {
     acceptInvitationPageController,
     billingPageController,
+    contactPageController,
     demoPageController,
+    faqPageController,
     findingDetailPageController,
     findingsPageController,
     landingPageController,
@@ -38,12 +40,12 @@ import {
     updateAdminPricingPlanController
 } from './controllers/api/pricing.controller';
 import {
-    getProviderConnectUrlController,
-    providerOAuthCallbackController
+    getProviderConnectUrlController
 } from './controllers/api/code-host.controller';
 import {
     acceptInvitationController,
     loginController,
+    loginOtpController,
     logoutController,
     meController,
     signupController
@@ -75,20 +77,39 @@ import {
 import { notificationStreamController } from './controllers/api/notification-stream.controller';
 import {
     requireOwnerOrAdmin,
-    userAuthMiddleware
+    userAuthMiddleware,
+    userPageAuthMiddleware
 } from './middlewares/user-auth.middleware';
 import {
-    bitbucketWebhookController,
-    gitlabWebhookController
-} from './controllers/webhook/provider-webhook.controller';
-import {
     assignTenantPlanController,
+    cancelTenantSubscriptionController,
     deactivateRepositoryController,
     listAdminScansController,
     listCriticalFindingsController,
     listTenantsController,
     retryScanController
 } from './controllers/api/admin-operations.controller';
+import {
+    cancelUserSubscriptionController,
+    getUserBillingController
+} from './controllers/api/billing.controller';
+import {
+    adminLoginController,
+    adminLogoutController,
+    adminMeController,
+    bootstrapAdminController
+} from './controllers/api/admin-auth.controller';
+import {
+    createAdminController,
+    listAdminsController,
+    updateAdminController
+} from './controllers/api/admin-management.controller';
+import {
+    getAdminProviderSettingController,
+    listAdminProviderSettingsController,
+    updateAdminProviderSettingController
+} from './controllers/api/admin-provider-settings.controller';
+import { submitContactController } from './controllers/api/contact.controller';
 
 const router = Router();
 
@@ -97,34 +118,37 @@ router.get('/terms', legalPlaceholderPageController);
 router.get('/privacy', legalPlaceholderPageController);
 router.get('/refund-policy', legalPlaceholderPageController);
 router.get('/do-not-sell', legalPlaceholderPageController);
+router.get('/faqs', faqPageController);
+router.get('/contact', contactPageController);
 router.get('/demo', demoPageController);
 router.get('/demo/:page', demoPageController);
 
-router.get('/dashboard', dashboardController);
-router.get('/onboarding', onboardingPageController);
-router.get('/repositories', repositoriesPageController);
-router.get('/repositories/:repositoryId', repositoryDetailPageController);
-router.get('/findings', findingsPageController);
-router.get('/findings/:findingId', findingDetailPageController);
-router.get('/reports', reportsPageController);
-router.get('/team', teamPageController);
-router.get('/settings', settingsPageController);
-router.get('/notifications', notificationsPageController);
-router.get('/billing', billingPageController);
-router.get('/profile', profilePageController);
-router.get('/pricing', pricingPageController);
+router.get('/dashboard', userPageAuthMiddleware, dashboardController);
+router.get('/onboarding', userPageAuthMiddleware, onboardingPageController);
+router.get('/repositories', userPageAuthMiddleware, repositoriesPageController);
+router.get('/repositories/:repositoryId', userPageAuthMiddleware, repositoryDetailPageController);
+router.get('/findings', userPageAuthMiddleware, findingsPageController);
+router.get('/findings/:findingId', userPageAuthMiddleware, findingDetailPageController);
+router.get('/reports', userPageAuthMiddleware, reportsPageController);
+router.get('/team', userPageAuthMiddleware, teamPageController);
+router.get('/settings', userPageAuthMiddleware, settingsPageController);
+router.get('/notifications', userPageAuthMiddleware, notificationsPageController);
+router.get('/billing', userPageAuthMiddleware, billingPageController);
+router.get('/profile', userPageAuthMiddleware, profilePageController);
+router.get('/pricing', userPageAuthMiddleware, pricingPageController);
 router.get('/sign-in', signInPageController);
 router.get('/sign-up', signUpPageController);
 router.get('/invitations/accept', acceptInvitationPageController);
 router.get('/github/install/callback', githubInstallCallbackController);
-router.post('/webhooks/gitlab', gitlabWebhookController);
-router.post('/webhooks/bitbucket', bitbucketWebhookController);
 router.post('/api/auth/signup', signupController);
 router.post('/api/auth/login', loginController);
+router.post('/api/auth/login/otp', loginOtpController);
 router.post('/api/auth/logout', logoutController);
 router.post('/api/auth/invitations/accept', acceptInvitationController);
-router.get('/api/auth/:provider/callback', providerOAuthCallbackController);
+router.post('/api/contact', submitContactController);
 router.get('/api/pricing', listPublicPricingPlansController);
+router.post('/api/admin/auth/bootstrap', bootstrapAdminController);
+router.post('/api/admin/auth/login', adminLoginController);
 
 router.use('/api/user', userAuthMiddleware);
 router.get('/api/user/me', meController);
@@ -148,8 +172,15 @@ router.patch('/api/user/notifications/:notificationId/read', markNotificationRea
 router.get('/api/user/audit-logs', requireOwnerOrAdmin, listAuditLogsController);
 router.get('/api/user/security-trend', getSecurityTrendController);
 router.get('/api/user/reports/export', exportReportController);
+router.get('/api/user/billing', getUserBillingController);
+router.post('/api/user/billing/cancel', cancelUserSubscriptionController);
 
 router.use('/api/admin', adminApiAuthMiddleware);
+router.get('/api/admin/auth/me', adminMeController);
+router.post('/api/admin/auth/logout', adminLogoutController);
+router.get('/api/admin/admins', listAdminsController);
+router.post('/api/admin/admins', createAdminController);
+router.put('/api/admin/admins/:adminId', updateAdminController);
 router.get('/api/admin/health', healthController);
 router.get('/api/admin/pricing-plans', listAdminPricingPlansController);
 router.post('/api/admin/pricing-plans', createAdminPricingPlanController);
@@ -157,6 +188,7 @@ router.put('/api/admin/pricing-plans/:planId', updateAdminPricingPlanController)
 router.delete('/api/admin/pricing-plans/:planId', deactivateAdminPricingPlanController);
 router.get('/api/admin/tenants', listTenantsController);
 router.put('/api/admin/tenants/:tenantId/plan', assignTenantPlanController);
+router.post('/api/admin/tenants/:tenantId/subscription/cancel', cancelTenantSubscriptionController);
 router.get('/api/admin/repositories', listRepositoriesController);
 router.post('/api/admin/repositories/:repositoryId/scans', enqueueRepositoryScanController);
 router.delete('/api/admin/repositories/:repositoryId', deactivateRepositoryController);
@@ -166,6 +198,9 @@ router.get('/api/admin/scans', listAdminScansController);
 router.get('/api/admin/scans/:scanId', getScanController);
 router.post('/api/admin/scans/:scanId/retry', retryScanController);
 router.get('/api/admin/findings/critical', listCriticalFindingsController);
+router.get('/api/admin/provider-settings', listAdminProviderSettingsController);
+router.get('/api/admin/provider-settings/:provider', getAdminProviderSettingController);
+router.put('/api/admin/provider-settings/:provider', updateAdminProviderSettingController);
 
 export {
     router

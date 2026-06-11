@@ -7,6 +7,7 @@ import {
 } from '../../modules/github/github.service';
 import { enqueueRepositoryScan } from './scan.service';
 import { assertRepositoryLimitAvailable } from './plan-limit.service';
+import { queueProviderStatusEmail } from './notification.service';
 
 function slugify(value: string): string
 {
@@ -82,23 +83,6 @@ async function upsertRepository(githubInstallation: GithubInstallation, reposito
     return Repository.create(values);
 }
 
-async function deactivateRepository(repositoryPayload: GithubRepositoryPayload)
-{
-    const repository = await Repository.findOne(
-        {
-            where:
-            {
-                githubRepositoryId: String(repositoryPayload.id)
-            }
-        }
-    );
-
-    if (repository)
-    {
-        await repository.update({ isActive: false });
-    }
-}
-
 async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
 {
     if (!payload.installation?.id || !payload.installation.account?.login)
@@ -164,30 +148,10 @@ async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
     const repositories = payload.repositories ?? (payload.repository ? [payload.repository] : []);
     const syncedRepositories: Repository[] = [];
 
-    if (payload.action === 'deleted')
+    if (payload.action === 'deleted' || payload.action === 'removed')
     {
-        await Repository.update(
-            {
-                isActive: false
-            },
-            {
-                where:
-                {
-                    githubInstallationId: githubInstallation.id
-                }
-            }
-        );
-
-        return [];
-    }
-
-    if (payload.action === 'removed')
-    {
-        for (const repositoryPayload of repositories)
-        {
-            await deactivateRepository(repositoryPayload);
-        }
-
+        // Keep selected repositories active so plan slots cannot be freed by
+        // removing GitHub App access before an admin changes the subscription.
         return [];
     }
 
@@ -286,6 +250,8 @@ async function syncGithubInstallationForTenant(tenantId: number, installationId:
         repositories.push(repository);
         await enqueueRepositoryScan(repository.id, 'github_initial_sync');
     }
+
+    await queueProviderStatusEmail(tenant.id, 'github', installation.account.login, 'connected');
 
     return {
         githubInstallation,

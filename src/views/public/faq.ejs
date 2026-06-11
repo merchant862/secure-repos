@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
+<body data-force-theme="dark">
+    <main class="landing-shell public-page">
+        <nav class="landing-nav">
+            <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
+            <div class="landing-nav-links">
+                <a href="/">Home</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/demo">Demo</a>
+                <a href="/faqs">FAQ</a>
+                <a href="/contact">Contact</a>
+            </div>
+            <div class="toolbar-actions landing-nav-actions"><a class="button" href="/sign-in">Sign in</a><a class="button primary" href="/sign-up">Create account</a></div>
+            <button class="landing-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" data-landing-menu-toggle>
+                <span></span><span></span><span></span>
+            </button>
+            <div class="landing-mobile-menu" data-landing-menu>
+                <a href="/">Home</a>
+                <a href="/#pricing">Pricing</a>
+                <a href="/demo">Demo</a>
+                <a href="/faqs">FAQ</a>
+                <a href="/contact">Contact</a>
+                <div class="landing-mobile-actions">
+                    <a class="button" href="/sign-in">Sign in</a>
+                    <a class="button primary" href="/sign-up">Create account</a>
+                </div>
+            </div>
+        </nav>
+
+        <section class="public-hero">
+            <span class="badge brand">FAQ</span>
+            <h1>Questions teams ask before connecting GitHub repositories.</h1>
+            <p class="muted">SecureRepos is built for small engineering teams that need GitHub repository checks, findings workflow, and security reporting without adding a full security platform.</p>
+        </section>
+
+        <section class="faq-layout">
+            <article class="faq-item">
+                <h2>What does SecureRepos scan?</h2>
+                <p>SecureRepos checks connected GitHub repositories for common code and configuration risks such as exposed secrets, broad GitHub Actions permissions, risky Dockerfile patterns, dependency concerns, and repository hygiene issues.</p>
+            </article>
+            <article class="faq-item">
+                <h2>Does SecureRepos replace a security audit?</h2>
+                <p>No. It is an automated scanning and workflow tool. It helps surface likely issues and keeps ownership visible, but findings still need human review before you treat them as confirmed vulnerabilities.</p>
+            </article>
+            <article class="faq-item">
+                <h2>How does GitHub access work?</h2>
+                <p>Users install the SecureRepos GitHub App after account creation and select the repositories the workspace should scan.</p>
+            </article>
+            <article class="faq-item">
+                <h2>Do you store repository code?</h2>
+                <p>The service uses provider access to inspect repository content needed for scans and reporting. Scan results, finding metadata, audit activity, and workflow data are stored for the workspace.</p>
+            </article>
+            <article class="faq-item">
+                <h2>Can I invite team members?</h2>
+                <p>Yes. Plans can include team seats. Owners and admins can invite members, assign findings, review scan activity, and manage workflow permissions.</p>
+            </article>
+            <article class="faq-item">
+                <h2>How does billing work?</h2>
+                <p>Checkout will be handled through the selected payment provider. SecureRepos keeps plan, workspace, and access state in the app after the payment provider confirms activation.</p>
+            </article>
+            <article class="faq-item">
+                <h2>Can GitHub access be revoked?</h2>
+                <p>Yes. You can remove or suspend the GitHub App installation from GitHub. After revocation, SecureRepos may not be able to scan or refresh repository data.</p>
+            </article>
+            <article class="faq-item">
+                <h2>How do I contact support?</h2>
+                <p>Email <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a> or use the contact form. Include your workspace email and GitHub organization or repository name when the issue is account-specific.</p>
+            </article>
+        </section>
+
+        <section class="public-callout">
+            <div>
+                <span class="badge success">Need a closer look?</span>
+                <h2>Open the demo before creating a workspace.</h2>
+                <p class="muted">The demo shows the product shape without connecting a real repository.</p>
+            </div>
+            <a class="button primary" href="/demo">View demo</a>
+        </section>
+
+        <footer class="landing-footer compact-footer">
+            <div class="landing-footer-brand">
+                <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
+                <p class="muted small">Repository monitoring, scanner workflow, team accountability, and security reporting for small engineering teams.</p>
+            </div>
+            <div class="landing-footer-grid">
+                <div>
+                    <h3>Product</h3>
+                    <a href="/demo">Demo</a>
+                    <a href="/#pricing">Pricing</a>
+                    <a href="/faqs">FAQ</a>
+                    <a href="/contact">Contact</a>
+                </div>
+                <div>
+                    <h3>Legal</h3>
+                    <a href="/terms">Terms</a>
+                    <a href="/privacy">Privacy</a>
+                    <a href="/refund-policy">Refund Policy</a>
+                    <a href="/do-not-sell">Do Not Sell/Share</a>
+                </div>
+            </div>
+        </footer>
+        <button class="back-to-top" type="button" aria-label="Back to top" data-back-to-top>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l7 7-1.4 1.4-4.6-4.6V20h-2V8.8l-4.6 4.6L5 12l7-7z"></path></svg>
+        </button>
+        <%- include('../partials/cookie-consent') %>
+    </main>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

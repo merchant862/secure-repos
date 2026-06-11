@@ -3,6 +3,7 @@ import { GithubInstallCallbackQuery } from '../../../modules/github/github.types
 import { getGithubAppConfig } from '../../../modules/github/github.service';
 import { syncGithubInstallationForTenant } from '../../services/github-sync.service';
 import { verifyProviderState } from '../../services/provider-state.service';
+import { assertProviderEnabled } from '../../services/provider-setting.service';
 
 async function githubInstallCallbackController(req: Request, res: Response)
 {
@@ -27,6 +28,7 @@ async function githubInstallCallbackController(req: Request, res: Response)
     {
         try
         {
+            await assertProviderEnabled('github');
             const providerState = verifyProviderState(state, 'github');
             const result = await syncGithubInstallationForTenant(providerState.tenantId, installationId);
 
