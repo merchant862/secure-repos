@@ -10,6 +10,8 @@ class PricingPlan extends Model<InferAttributes<PricingPlan>, InferCreationAttri
     declare currency: CreationOptional<string>;
     declare repositoryLimit: CreationOptional<number | null>;
     declare teamMemberLimit: CreationOptional<number | null>;
+    declare manualScanDailyLimit: CreationOptional<number | null>;
+    declare manualScanCooldownMinutes: CreationOptional<number>;
     declare scanSchedule: CreationOptional<string>;
     declare isHighlighted: CreationOptional<boolean>;
     declare isActive: CreationOptional<boolean>;
@@ -65,6 +67,17 @@ function initPricingPlanModel(sequelize: Sequelize)
             {
                 type: DataTypes.INTEGER.UNSIGNED,
                 allowNull: true
+            },
+            manualScanDailyLimit:
+            {
+                type: DataTypes.INTEGER.UNSIGNED,
+                allowNull: true
+            },
+            manualScanCooldownMinutes:
+            {
+                type: DataTypes.INTEGER.UNSIGNED,
+                allowNull: false,
+                defaultValue: 15
             },
             scanSchedule:
             {

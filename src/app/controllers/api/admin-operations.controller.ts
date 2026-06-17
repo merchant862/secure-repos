@@ -1,14 +1,45 @@
 import { Request, Response } from 'express';
+import { Op } from 'sequelize';
 
 import { CodeHostConnection, Finding, PricingPlan, Repository, Scan, Tenant, TenantSubscription } from '../../../db/models';
 import { assignTenantPlan } from '../../services/plan-limit.service';
 import { enqueueRepositoryScan } from '../../services/scan.service';
 import { cancelTenantSubscription } from '../../services/billing.service';
 
+function paginationFromRequest(req: Request)
+{
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 25)));
+    const cursor = Number(req.query.cursor);
+
+    return {
+        limit,
+        cursor: Number.isFinite(cursor) && cursor > 0 ? cursor : null
+    };
+}
+
+function nextCursor<T extends { id: number }>(rows: T[], limit: number)
+{
+    if (rows.length <= limit)
+    {
+        return null;
+    }
+
+    return rows[limit - 1].id;
+}
+
 async function listTenantsController(req: Request, res: Response)
 {
+    const pagination = paginationFromRequest(req);
     const tenants = await Tenant.findAll(
         {
+            where: pagination.cursor
+                ? {
+                    id:
+                    {
+                        [Op.lt]: pagination.cursor
+                    }
+                }
+                : undefined,
             include:
             [
                 {
@@ -27,11 +58,23 @@ async function listTenantsController(req: Request, res: Response)
                     as: 'codeHostConnections'
                 }
             ],
-            order: [['createdAt', 'DESC']]
+            order: [['id', 'DESC']],
+            limit: pagination.limit + 1
         }
     );
+    const total = await Tenant.count();
 
-    return res.json({ data: tenants });
+    return res.json(
+        {
+            data: tenants.slice(0, pagination.limit),
+            pagination:
+            {
+                limit: pagination.limit,
+                nextCursor: nextCursor(tenants, pagination.limit)
+            },
+            total
+        }
+    );
 }
 
 async function assignTenantPlanController(req: Request, res: Response)
@@ -83,8 +126,17 @@ async function cancelTenantSubscriptionController(req: Request, res: Response)
 
 async function listAdminScansController(req: Request, res: Response)
 {
+    const pagination = paginationFromRequest(req);
     const scans = await Scan.findAll(
         {
+            where: pagination.cursor
+                ? {
+                    id:
+                    {
+                        [Op.lt]: pagination.cursor
+                    }
+                }
+                : undefined,
             include:
             [
                 {
@@ -92,12 +144,23 @@ async function listAdminScansController(req: Request, res: Response)
                     as: 'repository'
                 }
             ],
-            order: [['createdAt', 'DESC']],
-            limit: 100
+            order: [['id', 'DESC']],
+            limit: pagination.limit + 1
         }
     );
+    const total = await Scan.count();
 
-    return res.json({ data: scans });
+    return res.json(
+        {
+            data: scans.slice(0, pagination.limit),
+            pagination:
+            {
+                limit: pagination.limit,
+                nextCursor: nextCursor(scans, pagination.limit)
+            },
+            total
+        }
+    );
 }
 
 async function retryScanController(req: Request, res: Response)
@@ -154,13 +217,23 @@ async function deactivateRepositoryController(req: Request, res: Response)
 
 async function listCriticalFindingsController(req: Request, res: Response)
 {
+    const pagination = paginationFromRequest(req);
+    const where =
+    {
+        status: 'open',
+        severity: ['critical', 'high'],
+        ...(pagination.cursor
+            ? {
+                id:
+                {
+                    [Op.lt]: pagination.cursor
+                }
+            }
+            : {})
+    };
     const findings = await Finding.findAll(
         {
-            where:
-            {
-                status: 'open',
-                severity: ['critical', 'high']
-            },
+            where,
             include:
             [
                 {
@@ -168,12 +241,31 @@ async function listCriticalFindingsController(req: Request, res: Response)
                     as: 'repository'
                 }
             ],
-            order: [['createdAt', 'DESC']],
-            limit: 200
+            order: [['id', 'DESC']],
+            limit: pagination.limit + 1
+        }
+    );
+    const total = await Finding.count(
+        {
+            where:
+            {
+                status: 'open',
+                severity: ['critical', 'high']
+            }
         }
     );
 
-    return res.json({ data: findings });
+    return res.json(
+        {
+            data: findings.slice(0, pagination.limit),
+            pagination:
+            {
+                limit: pagination.limit,
+                nextCursor: nextCursor(findings, pagination.limit)
+            },
+            total
+        }
+    );
 }
 
 export {

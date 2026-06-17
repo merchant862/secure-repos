@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'scans' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: 'Scan history' }) %>
+            <main class="content">
+                <section class="page-toolbar">
+                    <div>
+                        <h2>Repository scans</h2>
+                        <p class="muted">Review queued, running, completed, and failed scans across your connected repositories.</p>
+                    </div>
+                    <a class="button primary" href="/repositories">Queue scan</a>
+                </section>
+
+                <section class="card">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">Scan Runs</h2>
+                            <p class="muted small" style="margin:4px 0 0">Loaded from your workspace scan history.</p>
+                        </div>
+                        <span class="badge brand" data-scan-total>0 scans</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead>
+                                <tr><th>ID</th><th>Repository</th><th>Status</th><th>Trigger</th><th>Findings</th><th>Completed</th></tr>
+                            </thead>
+                            <tbody data-api-table="scans">
+                                <tr><td colspan="6">Loading scans...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="card-body" style="border-top:1px solid var(--border)">
+                        <button class="button" type="button" data-load-more="scans" hidden>Load more</button>
+                    </div>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

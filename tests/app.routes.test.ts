@@ -19,7 +19,29 @@ describe('Application routes', function ()
         expect(response.header.location).toBe('/sign-in?next=%2Fdashboard');
     });
 
-    it('should return 200 for github install callback with installation_id', async function ()
+    it('should only include internal allowlisted paths in sign in next redirects', async function ()
+    {
+        const response = await request(app).get('/dashboard').query({ next: 'https://169.254.169.254/latest/meta-data' });
+
+        expect(response.status).toBe(302);
+        expect(response.header.location).toBe('/sign-in?next=%2Fdashboard%3Fnext%3Dhttps%253A%252F%252F169.254.169.254%252Flatest%252Fmeta-data');
+    });
+
+    it('should render admin sign in and panel shells', async function ()
+    {
+        const signInResponse = await request(app).get('/admin/sign-in');
+        const panelResponse = await request(app).get('/admin/overview');
+        const pricingResponse = await request(app).get('/admin/pricing');
+
+        expect(signInResponse.status).toBe(200);
+        expect(signInResponse.text).toContain('Admin sign in');
+        expect(panelResponse.status).toBe(200);
+        expect(panelResponse.text).toContain('Overview');
+        expect(pricingResponse.status).toBe(200);
+        expect(pricingResponse.text).toContain('Create Pricing Plan');
+    });
+
+    it('should redirect github install callback with installation_id back to dashboard', async function ()
     {
         const response = await request(app)
             .get('/github/install/callback')
@@ -30,19 +52,18 @@ describe('Application routes', function ()
                 }
             );
 
-        expect(response.status).toBe(200);
-        expect(response.body.message).toBe('GitHub install callback received');
-        expect(response.body.data.installationId).toBe('12345');
-        expect(response.body.data.setupAction).toBe('install');
+        expect(response.status).toBe(302);
+        expect(response.header.location).toContain('/dashboard?github=installed');
+        expect(response.header.location).toContain('installation_id=12345');
     });
 
-    it('should return 400 for github install callback without installation_id', async function ()
+    it('should redirect github install callback without installation_id back to dashboard', async function ()
     {
         const response = await request(app)
             .get('/github/install/callback');
 
-        expect(response.status).toBe(400);
-        expect(response.body.message).toBe('Missing installation_id');
+        expect(response.status).toBe(302);
+        expect(response.header.location).toBe('/dashboard?github=cancelled');
     });
 
     it('should return 401 for github webhook with invalid signature', async function ()

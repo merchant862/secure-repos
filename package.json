@@ -5,6 +5,7 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/src/main/start-web.js",
+    "seed:admin": "node dist/src/main/seed-admin.js",
     "start:worker": "node dist/src/main/start-worker.js",
     "start:notifications": "node dist/src/main/start-notification-worker.js",
     "start:scheduler": "node dist/src/main/start-scheduler.js",

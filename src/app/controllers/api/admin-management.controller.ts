@@ -2,7 +2,6 @@ import { Response } from 'express';
 
 import { Admin } from '../../../db/models';
 import { AuthenticatedAdminRequest } from '../../middlewares/admin-api-auth.middleware';
-import { createAdmin } from '../../services/admin-auth.service';
 
 function serializeAdmin(admin: Admin)
 {
@@ -23,32 +22,6 @@ async function listAdminsController(req: AuthenticatedAdminRequest, res: Respons
     const admins = await Admin.findAll({ order: [['createdAt', 'DESC']] });
 
     return res.json({ data: admins.map(serializeAdmin) });
-}
-
-async function createAdminController(req: AuthenticatedAdminRequest, res: Response)
-{
-    try
-    {
-        const { name, email, password, role } = req.body;
-
-        if (!name || !email || !password)
-        {
-            return res.status(400).json({ message: 'name, email, and password are required' });
-        }
-
-        const admin = await createAdmin({ name, email, password, role: role ?? 'admin' });
-
-        return res.status(201).json(
-            {
-                message: 'Admin created',
-                data: serializeAdmin(admin)
-            }
-        );
-    }
-    catch (error)
-    {
-        return res.status(400).json({ message: error instanceof Error ? error.message : 'Admin creation failed' });
-    }
 }
 
 async function updateAdminController(req: AuthenticatedAdminRequest, res: Response)
@@ -85,6 +58,5 @@ async function updateAdminController(req: AuthenticatedAdminRequest, res: Respon
 
 export {
     listAdminsController,
-    createAdminController,
     updateAdminController
 };

@@ -83,6 +83,11 @@ async function upsertRepository(githubInstallation: GithubInstallation, reposito
     return Repository.create(values);
 }
 
+function isRepositoryLimitError(error: unknown)
+{
+    return error instanceof Error && error.message.startsWith('Repository limit reached');
+}
+
 async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
 {
     if (!payload.installation?.id || !payload.installation.account?.login)
@@ -157,7 +162,22 @@ async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
 
     for (const repositoryPayload of repositories)
     {
-        const repository = await upsertRepository(githubInstallation, repositoryPayload);
+        let repository: Repository;
+
+        try
+        {
+            repository = await upsertRepository(githubInstallation, repositoryPayload);
+        }
+        catch (error)
+        {
+            if (isRepositoryLimitError(error))
+            {
+                continue;
+            }
+
+            throw error;
+        }
+
         syncedRepositories.push(repository);
 
         if (payload.action === 'created' || payload.action === 'added')
@@ -246,7 +266,22 @@ async function syncGithubInstallationForTenant(tenantId: number, installationId:
 
     for (const repositoryPayload of repositoriesResponse.repositories)
     {
-        const repository = await upsertRepository(githubInstallation, repositoryPayload);
+        let repository: Repository;
+
+        try
+        {
+            repository = await upsertRepository(githubInstallation, repositoryPayload);
+        }
+        catch (error)
+        {
+            if (isRepositoryLimitError(error))
+            {
+                continue;
+            }
+
+            throw error;
+        }
+
         repositories.push(repository);
         await enqueueRepositoryScan(repository.id, 'github_initial_sync');
     }

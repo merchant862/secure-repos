@@ -1,4 +1,5 @@
 import { Response } from 'express';
+import { Op } from 'sequelize';
 
 import { AuditLog, IgnoreRule, InAppNotification, NotificationSetting, SecurityScoreSnapshot } from '../../../db/models';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
@@ -143,15 +144,43 @@ async function listNotificationsController(req: AuthenticatedRequest, res: Respo
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 25)));
+    const cursor = Number(req.query.cursor);
+    const where =
+    {
+        tenantId: user.tenantId,
+        [Op.or]:
+        [
+            { userId: null },
+            { userId: user.id }
+        ],
+        ...(Number.isFinite(cursor) && cursor > 0
+            ? {
+                id:
+                {
+                    [Op.lt]: cursor
+                }
+            }
+            : {})
+    };
     const notifications = await InAppNotification.findAll(
         {
-            where: { tenantId: user.tenantId },
+            where,
             order: [['createdAt', 'DESC']],
-            limit: 100
+            limit: limit + 1
         }
     );
 
-    return res.json({ data: notifications });
+    return res.json(
+        {
+            data: notifications.slice(0, limit),
+            pagination:
+            {
+                limit,
+                nextCursor: notifications.length > limit ? notifications[limit - 1].id : null
+            }
+        }
+    );
 }
 
 async function markNotificationReadController(req: AuthenticatedRequest, res: Response)

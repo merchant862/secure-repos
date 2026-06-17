@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { dashboardController } from './controllers/web/dashboard.controller';
+import { adminPanelPageController, adminSignInPageController } from './controllers/web/admin-page.controller';
 import { healthController } from './controllers/web/health.controller';
 import { githubInstallCallbackController } from './controllers/web/github-install.controller';
 import {
@@ -19,6 +20,7 @@ import {
     reportsPageController,
     repositoryDetailPageController,
     repositoriesPageController,
+    scansPageController,
     settingsPageController,
     signInPageController,
     signUpPageController,
@@ -56,9 +58,13 @@ import {
     listTeamMembersController
 } from './controllers/api/team.controller';
 import {
+    enqueueUserRepositoryScanController,
+    getUserDashboardSummaryController,
+    getUserRepositoryController,
     getUserRepositoryChecklistController,
     listUserFindingsController,
     listUserRepositoriesController,
+    listUserScansController,
     markUserBaselineController,
     updateUserFindingController
 } from './controllers/api/user-security.controller';
@@ -96,11 +102,9 @@ import {
 import {
     adminLoginController,
     adminLogoutController,
-    adminMeController,
-    bootstrapAdminController
+    adminMeController
 } from './controllers/api/admin-auth.controller';
 import {
-    createAdminController,
     listAdminsController,
     updateAdminController
 } from './controllers/api/admin-management.controller';
@@ -122,11 +126,15 @@ router.get('/faqs', faqPageController);
 router.get('/contact', contactPageController);
 router.get('/demo', demoPageController);
 router.get('/demo/:page', demoPageController);
+router.get('/admin', adminPanelPageController);
+router.get('/admin/sign-in', adminSignInPageController);
+router.get('/admin/:adminPage', adminPanelPageController);
 
 router.get('/dashboard', userPageAuthMiddleware, dashboardController);
 router.get('/onboarding', userPageAuthMiddleware, onboardingPageController);
 router.get('/repositories', userPageAuthMiddleware, repositoriesPageController);
 router.get('/repositories/:repositoryId', userPageAuthMiddleware, repositoryDetailPageController);
+router.get('/scans', userPageAuthMiddleware, scansPageController);
 router.get('/findings', userPageAuthMiddleware, findingsPageController);
 router.get('/findings/:findingId', userPageAuthMiddleware, findingDetailPageController);
 router.get('/reports', userPageAuthMiddleware, reportsPageController);
@@ -140,6 +148,7 @@ router.get('/sign-in', signInPageController);
 router.get('/sign-up', signUpPageController);
 router.get('/invitations/accept', acceptInvitationPageController);
 router.get('/github/install/callback', githubInstallCallbackController);
+router.get('/github/install/return', githubInstallCallbackController);
 router.post('/api/auth/signup', signupController);
 router.post('/api/auth/login', loginController);
 router.post('/api/auth/login/otp', loginOtpController);
@@ -147,7 +156,6 @@ router.post('/api/auth/logout', logoutController);
 router.post('/api/auth/invitations/accept', acceptInvitationController);
 router.post('/api/contact', submitContactController);
 router.get('/api/pricing', listPublicPricingPlansController);
-router.post('/api/admin/auth/bootstrap', bootstrapAdminController);
 router.post('/api/admin/auth/login', adminLoginController);
 
 router.use('/api/user', userAuthMiddleware);
@@ -156,8 +164,12 @@ router.get('/api/user/team/members', listTeamMembersController);
 router.get('/api/user/team/invitations', requireOwnerOrAdmin, listTeamInvitationsController);
 router.post('/api/user/team/invitations', requireOwnerOrAdmin, inviteTeamMemberController);
 router.get('/api/user/auth/:provider/connect-url', getProviderConnectUrlController);
+router.get('/api/user/dashboard-summary', getUserDashboardSummaryController);
 router.get('/api/user/repositories', listUserRepositoriesController);
+router.get('/api/user/repositories/:repositoryId', getUserRepositoryController);
 router.get('/api/user/repositories/:repositoryId/checklist', getUserRepositoryChecklistController);
+router.post('/api/user/repositories/:repositoryId/scans', enqueueUserRepositoryScanController);
+router.get('/api/user/scans', listUserScansController);
 router.get('/api/user/findings', listUserFindingsController);
 router.patch('/api/user/findings/:findingId', updateUserFindingController);
 router.post('/api/user/scans/:scanId/baseline', requireOwnerOrAdmin, markUserBaselineController);
@@ -179,7 +191,6 @@ router.use('/api/admin', adminApiAuthMiddleware);
 router.get('/api/admin/auth/me', adminMeController);
 router.post('/api/admin/auth/logout', adminLogoutController);
 router.get('/api/admin/admins', listAdminsController);
-router.post('/api/admin/admins', createAdminController);
 router.put('/api/admin/admins/:adminId', updateAdminController);
 router.get('/api/admin/health', healthController);
 router.get('/api/admin/pricing-plans', listAdminPricingPlansController);

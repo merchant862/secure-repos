@@ -27,14 +27,10 @@ function stat(label: string, value: unknown, tone = '#d0d5dd')
 
 function emailLogo(appUrl: string)
 {
-    return `<a href="${escapeHtml(appUrl)}" style="display:inline-flex;align-items:center;color:#ffffff;text-decoration:none">
-<span style="position:relative;display:inline-block;width:38px;height:38px;border-radius:10px;background:#0b1220;border:1px solid #33456f;margin-right:10px;vertical-align:middle">
-<span style="position:absolute;left:9px;top:7px;width:20px;height:24px;border:2px solid #7c9bff;border-radius:8px 8px 10px 10px"></span>
-<span style="position:absolute;left:12px;top:13px;width:7px;height:7px;border-radius:50%;background:#39d98a"></span>
-<span style="position:absolute;left:23px;top:19px;width:7px;height:7px;border-radius:50%;background:#7c9bff"></span>
-<span style="position:absolute;left:15px;top:23px;width:13px;height:7px;border-left:3px solid #ffffff;border-bottom:3px solid #ffffff;transform:rotate(-45deg)"></span>
-</span>
-<span style="display:inline-block;vertical-align:middle"><span style="display:block;color:#ffffff;font-size:20px;font-weight:900;line-height:1">${escapeHtml(env.appName)}</span><span style="display:block;color:#98a2b3;font-size:12px;font-weight:700;margin-top:4px">GitHub security scanner</span></span>
+    const logoUrl = `${appUrl}/public/images/logo-email.png`;
+
+    return `<a href="${escapeHtml(appUrl)}" style="display:inline-block;text-decoration:none">
+<img src="${escapeHtml(logoUrl)}" width="220" height="52" alt="SecureRepos - GitHub security scanner" style="display:block;width:220px;height:52px;max-width:100%;border:0;outline:none;text-decoration:none">
 </a>`;
 }
 

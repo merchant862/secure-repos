@@ -53,7 +53,7 @@ function demoPageController(req: Request, res: Response)
 {
     const requestedPage = Array.isArray(req.params.page) ? req.params.page[0] : req.params.page;
     const page = requestedPage ?? 'dashboard';
-    const allowedPages = ['dashboard', 'repositories', 'findings', 'reports', 'team', 'settings', 'notifications', 'pricing', 'billing', 'profile', 'onboarding'];
+    const allowedPages = ['dashboard', 'repositories', 'scans', 'findings', 'reports', 'team', 'settings', 'notifications', 'pricing', 'billing', 'profile', 'onboarding'];
     const normalizedPage = allowedPages.includes(page) ? page : 'dashboard';
     const titles: Record<string, string> =
     {
@@ -66,6 +66,7 @@ function demoPageController(req: Request, res: Response)
         profile: 'Profile',
         reports: 'Reports',
         repositories: 'Repositories',
+        scans: 'Scans',
         settings: 'Settings',
         team: 'Team'
     };
@@ -140,6 +141,11 @@ function repositoriesPageController(req: Request, res: Response)
 function findingsPageController(req: Request, res: Response)
 {
     return res.render('dashboard/findings', { title: 'Findings', appName, seo: privateSeo() });
+}
+
+function scansPageController(req: Request, res: Response)
+{
+    return res.render('dashboard/scans', { title: 'Scans', appName, seo: privateSeo() });
 }
 
 function reportsPageController(req: Request, res: Response)
@@ -235,6 +241,7 @@ export
     reportsPageController,
     repositoryDetailPageController,
     repositoriesPageController,
+    scansPageController,
     settingsPageController,
     signInPageController,
     signUpPageController,

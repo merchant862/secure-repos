@@ -144,6 +144,28 @@ async function queueWelcomeOwnerEmail(user: User)
 
 async function queueScanSummaryEmail(scan: Scan, repository: Repository)
 {
+    const totalFindings = scan.findingsCritical + scan.findingsHigh + scan.findingsMedium + scan.findingsLow;
+
+    await createTenantNotification(
+        {
+            tenantId: scan.tenantId,
+            type: 'scan_summary',
+            title: `Scan complete for ${repository.name}`,
+            body: `${repository.fullName} finished with ${totalFindings} open findings and a score of ${repository.securityScore}.`,
+            payload:
+            {
+                scanId: scan.id,
+                repositoryId: repository.id,
+                repositoryFullName: repository.fullName,
+                critical: scan.findingsCritical,
+                high: scan.findingsHigh,
+                medium: scan.findingsMedium,
+                low: scan.findingsLow,
+                score: repository.securityScore
+            }
+        }
+    );
+
     return queueEmailEvent(
         {
             tenantId: scan.tenantId,
@@ -164,6 +186,22 @@ async function queueScanSummaryEmail(scan: Scan, repository: Repository)
 
 async function queueScanFailedEmail(scan: Scan, repository: Repository | null, errorMessage: string)
 {
+    await createTenantNotification(
+        {
+            tenantId: scan.tenantId,
+            type: 'scan_failed',
+            title: `Scan failed${repository ? ` for ${repository.name}` : ''}`,
+            body: errorMessage,
+            payload:
+            {
+                scanId: scan.id,
+                repositoryId: repository?.id,
+                repositoryFullName: repository?.fullName,
+                errorMessage
+            }
+        }
+    );
+
     return queueEmailEvent(
         {
             tenantId: scan.tenantId,

@@ -102,20 +102,30 @@ function githubRequest<T>(pathName: string, options: { method?: string; token?: 
     return new Promise(function (resolve, reject)
     {
         const body = options.body ? JSON.stringify(options.body) : undefined;
+        const headers: Record<string, string | number> =
+        {
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'micro-saas-security-platform',
+            'X-GitHub-Api-Version': '2022-11-28'
+        };
+
+        if (options.token)
+        {
+            headers.Authorization = `Bearer ${options.token}`;
+        }
+
+        if (body)
+        {
+            headers['Content-Type'] = 'application/json';
+            headers['Content-Length'] = Buffer.byteLength(body);
+        }
+
         const request = https.request(
             {
                 hostname: 'api.github.com',
                 path: pathName,
                 method: options.method ?? 'GET',
-                headers:
-                {
-                    Accept: 'application/vnd.github+json',
-                    Authorization: options.token ? `Bearer ${options.token}` : undefined,
-                    'Content-Type': body ? 'application/json' : undefined,
-                    'Content-Length': body ? Buffer.byteLength(body) : undefined,
-                    'User-Agent': 'micro-saas-security-platform',
-                    'X-GitHub-Api-Version': '2022-11-28'
-                }
+                headers
             },
             function (response)
             {

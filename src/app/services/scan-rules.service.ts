@@ -112,6 +112,44 @@ const dangerousPackages = new Set(
     ]
 );
 
+const samplePathSegments = new Set(
+    [
+        'example',
+        'examples',
+        'demo',
+        'demos',
+        'sample',
+        'samples',
+        'fixture',
+        'fixtures',
+        '__fixtures__',
+        'test',
+        'tests',
+        'stub',
+        'stubs',
+        'mock',
+        'mocks'
+    ]
+);
+
+const sampleSuppressedRules = new Set(
+    [
+        'repo.key-file-committed',
+        'secret.generic-assignment'
+    ]
+);
+
+const highConfidenceSecretPatterns =
+[
+    /AKIA[0-9A-Z]{16}/,
+    /gh[pousr]_[A-Za-z0-9_]{36,255}/,
+    /-----BEGIN (RSA |EC |OPENSSH |DSA )?PRIVATE KEY-----/,
+    /sk_(live|test)_[A-Za-z0-9]{16,}/,
+    /xox[baprs]-[A-Za-z0-9-]{20,}/,
+    /AIza[0-9A-Za-z_-]{35}/,
+    /\/\/registry\.npmjs\.org\/:_authToken\s*=\s*[A-Za-z0-9_\-]{20,}/
+];
+
 function fingerprint(ruleId: string, filePath: string, lineNumber: number | null, evidence: string): string
 {
     return crypto
@@ -125,6 +163,28 @@ function getLineNumber(content: string, index: number): number
     return content.slice(0, index).split('\n').length;
 }
 
+function isSamplePath(filePath: string): boolean
+{
+    const segments = filePath.replace(/\\/g, '/').toLowerCase().split('/');
+
+    return segments.some((segment) => samplePathSegments.has(segment));
+}
+
+function hasHighConfidenceSecret(content: string): boolean
+{
+    return highConfidenceSecretPatterns.some((pattern) => pattern.test(content));
+}
+
+function shouldSuppressSampleFinding(filePath: string, content: string, ruleId: string): boolean
+{
+    if (!sampleSuppressedRules.has(ruleId) || !isSamplePath(filePath))
+    {
+        return false;
+    }
+
+    return !hasHighConfidenceSecret(content);
+}
+
 function pushFinding(
     findings: ScannerFinding[],
     ruleId: string,
@@ -135,9 +195,15 @@ function pushFinding(
     filePath: string,
     lineNumber: number | null,
     evidence: string,
+    fileContent: string,
     metadata?: object
 )
 {
+    if (shouldSuppressSampleFinding(filePath, fileContent, ruleId))
+    {
+        return;
+    }
+
     findings.push(
         {
             ruleId,
@@ -171,7 +237,8 @@ function scanSecrets(file: RepositoryFile, findings: ScannerFinding[])
                 rule.remediation,
                 file.path,
                 getLineNumber(file.content, match.index),
-                match[0].slice(0, 24)
+                match[0].slice(0, 24),
+                file.content
             );
 
             match = pattern.exec(file.content);
@@ -194,7 +261,8 @@ function scanRepositoryHygiene(file: RepositoryFile, findings: ScannerFinding[])
             'Remove the .env file from the repository, rotate any exposed values, add .env to .gitignore, and use environment configuration in deployment.',
             file.path,
             null,
-            file.path
+            file.path,
+            file.content
         );
     }
 
@@ -209,7 +277,8 @@ function scanRepositoryHygiene(file: RepositoryFile, findings: ScannerFinding[])
             'Remove the key file, rotate/reissue the credential, and store sensitive key material outside source control.',
             file.path,
             null,
-            file.path
+            file.path,
+            file.content
         );
     }
 }
@@ -240,6 +309,7 @@ function scanPackageJson(file: RepositoryFile, findings: ScannerFinding[])
                     file.path,
                     null,
                     `${scriptName}:${scriptValue}`,
+                    file.content,
                     { scriptName }
                 );
             }
@@ -261,6 +331,7 @@ function scanPackageJson(file: RepositoryFile, findings: ScannerFinding[])
                     file.path,
                     null,
                     dependencyName,
+                    file.content,
                     { dependencyName }
                 );
             }
@@ -277,7 +348,8 @@ function scanPackageJson(file: RepositoryFile, findings: ScannerFinding[])
             'Fix invalid JSON so dependency and script checks can run reliably.',
             file.path,
             null,
-            file.path
+            file.path,
+            file.content
         );
     }
 }
@@ -300,7 +372,8 @@ function scanDockerfile(file: RepositoryFile, findings: ScannerFinding[])
             'Create a non-root user in the image and add a USER instruction before the final command.',
             file.path,
             null,
-            file.path
+            file.path,
+            file.content
         );
     }
 }
@@ -325,7 +398,8 @@ function scanGithubActions(file: RepositoryFile, findings: ScannerFinding[])
             'Use pull_request where possible, or ensure untrusted code is never checked out/executed with privileged tokens.',
             file.path,
             null,
-            file.path
+            file.path,
+            file.content
         );
     }
 
@@ -340,7 +414,8 @@ function scanGithubActions(file: RepositoryFile, findings: ScannerFinding[])
             'Replace write-all with explicit least-privilege permissions for each workflow job.',
             file.path,
             null,
-            file.path
+            file.path,
+            file.content
         );
     }
 }
@@ -365,7 +440,8 @@ function scanDockerCompose(file: RepositoryFile, findings: ScannerFinding[])
             'Restrict exposed ports, bind development services to localhost, and keep production compose files separate.',
             file.path,
             null,
-            file.path
+            file.path,
+            file.content
         );
     }
 }

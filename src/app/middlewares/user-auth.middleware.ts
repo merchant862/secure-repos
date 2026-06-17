@@ -1,13 +1,28 @@
 import { NextFunction, Request, Response } from 'express';
 
-import { User } from '../../db/models';
+import { User, UserSession } from '../../db/models';
 import { resolveSession } from '../services/auth.service';
 
-type AuthenticatedRequest = Request & { currentUser?: User };
+type AuthenticatedRequest = Request & { currentUser?: User; currentSession?: UserSession };
 
 const authCookieName = process.env.AUTH_COOKIE_NAME && process.env.AUTH_COOKIE_NAME.trim() !== ''
     ? process.env.AUTH_COOKIE_NAME
     : 'security_platform_token';
+const allowedNextPathPrefixes =
+[
+    '/billing',
+    '/dashboard',
+    '/findings',
+    '/notifications',
+    '/onboarding',
+    '/pricing',
+    '/profile',
+    '/reports',
+    '/repositories',
+    '/scans',
+    '/settings',
+    '/team'
+];
 
 function getCookieValue(req: Request, name: string): string
 {
@@ -45,6 +60,39 @@ function getRequestToken(req: Request): string
     return getCookieValue(req, authCookieName);
 }
 
+function getSafeNextPath(req: Request): string
+{
+    const nextPath = req.originalUrl || req.path || '/dashboard';
+
+    if (!nextPath.startsWith('/') || nextPath.startsWith('//') || nextPath.includes('\\'))
+    {
+        return '/dashboard';
+    }
+
+    let parsed: URL;
+
+    try
+    {
+        parsed = new URL(nextPath, 'https://securerepos.local');
+    }
+    catch (error)
+    {
+        return '/dashboard';
+    }
+
+    if (parsed.origin !== 'https://securerepos.local')
+    {
+        return '/dashboard';
+    }
+
+    const isAllowedPath = allowedNextPathPrefixes.some(function (prefix)
+    {
+        return parsed.pathname === prefix || parsed.pathname.startsWith(`${prefix}/`);
+    });
+
+    return isAllowedPath ? `${parsed.pathname}${parsed.search}` : '/dashboard';
+}
+
 async function resolveUserFromRequest(req: AuthenticatedRequest)
 {
     const token = getRequestToken(req);
@@ -62,6 +110,7 @@ async function resolveUserFromRequest(req: AuthenticatedRequest)
     }
 
     req.currentUser = resolved.user;
+    req.currentSession = resolved.session;
     return resolved.user;
 }
 
@@ -79,11 +128,15 @@ async function userAuthMiddleware(req: AuthenticatedRequest, res: Response, next
 
 async function userPageAuthMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction)
 {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+
     const user = await resolveUserFromRequest(req);
 
     if (!user)
     {
-        const nextPath = encodeURIComponent(req.originalUrl || req.path);
+        const nextPath = encodeURIComponent(getSafeNextPath(req));
 
         return res.redirect(`/sign-in?next=${nextPath}`);
     }

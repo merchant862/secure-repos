@@ -14,6 +14,8 @@ function sleep(ms: number)
 
 async function deliverNotification(notification: NotificationEvent)
 {
+    const payload = normalizeNotificationPayload(notification.payload);
+
     if (env.notificationDeliveryMode === 'resend')
     {
         if (!env.resendApiKey || !env.resendFromEmail)
@@ -21,12 +23,7 @@ async function deliverNotification(notification: NotificationEvent)
             throw new Error('RESEND_API_KEY and RESEND_FROM_EMAIL are required for resend delivery mode');
         }
 
-        const payload = notification.payload as { recipients?: unknown; email?: unknown };
-        const recipients = Array.isArray(payload.recipients)
-            ? payload.recipients.filter((email): email is string => typeof email === 'string' && email.includes('@'))
-            : typeof payload.email === 'string' && payload.email.includes('@')
-                ? [payload.email]
-                : [];
+        const recipients = recipientsFromPayload(payload);
 
         if (recipients.length === 0)
         {
@@ -46,7 +43,7 @@ async function deliverNotification(notification: NotificationEvent)
                         from: env.resendFromEmail,
                         to: recipients,
                         subject: notification.subject,
-                        html: renderEmailTemplate(notification.type, notification.payload as Record<string, unknown>)
+                        html: renderEmailTemplate(notification.type, payload)
                     }
                 )
             }
@@ -67,13 +64,48 @@ async function deliverNotification(notification: NotificationEvent)
                 id: notification.id,
                 type: notification.type,
                 subject: notification.subject,
-                payload: notification.payload
+                payload
             }
         ));
         return;
     }
 
     throw new Error(`Unsupported notification delivery mode: ${env.notificationDeliveryMode}`);
+}
+
+function normalizeNotificationPayload(payload: unknown): Record<string, unknown>
+{
+    if (typeof payload === 'string')
+    {
+        try
+        {
+            const parsed = JSON.parse(payload) as unknown;
+
+            return parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+                ? parsed as Record<string, unknown>
+                : {};
+        }
+        catch (error)
+        {
+            return {};
+        }
+    }
+
+    return payload && typeof payload === 'object' && !Array.isArray(payload)
+        ? payload as Record<string, unknown>
+        : {};
+}
+
+function recipientsFromPayload(payload: Record<string, unknown>): string[]
+{
+    if (Array.isArray(payload.recipients))
+    {
+        return payload.recipients.filter((email): email is string => typeof email === 'string' && email.includes('@'));
+    }
+
+    return typeof payload.email === 'string' && payload.email.includes('@')
+        ? [payload.email]
+        : [];
 }
 
 async function runNotificationWorkerOnce(emailType?: string)

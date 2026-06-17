@@ -15,13 +15,18 @@ async function githubInstallCallbackController(req: Request, res: Response)
     const state = query.state;
     const code = query.code;
 
+    console.log('github_install_return',
+        {
+            path: req.path,
+            installationId: installationId ?? null,
+            setupAction: setupAction ?? null,
+            hasState: Boolean(state),
+            hasCode: Boolean(code)
+        });
+
     if (!installationId)
     {
-        return res.status(400).json(
-            {
-                message: 'Missing installation_id'
-            }
-        );
+        return res.redirect('/dashboard?github=cancelled');
     }
 
     if (state)
@@ -32,42 +37,15 @@ async function githubInstallCallbackController(req: Request, res: Response)
             const providerState = verifyProviderState(state, 'github');
             const result = await syncGithubInstallationForTenant(providerState.tenantId, installationId);
 
-            return res.status(200).json(
-                {
-                    message: 'GitHub installation connected',
-                    data:
-                    {
-                        appId: config.appId,
-                        installationId,
-                        setupAction: setupAction ?? null,
-                        repositoriesSynced: result.repositories.length
-                    }
-                }
-            );
+            return res.redirect(`/dashboard?github=connected&installation_id=${encodeURIComponent(installationId)}&repositories=${result.repositories.length}`);
         }
         catch (error)
         {
-            return res.status(400).json(
-                {
-                    message: error instanceof Error ? error.message : 'Invalid GitHub installation state'
-                }
-            );
+            return res.redirect(`/dashboard?github=error&message=${encodeURIComponent(error instanceof Error ? error.message : 'Invalid GitHub installation state')}`);
         }
     }
 
-    return res.status(200).json(
-        {
-            message: 'GitHub install callback received',
-            data:
-            {
-                appId: config.appId,
-                installationId,
-                setupAction: setupAction ?? null,
-                state: state ?? null,
-                code: code ?? null
-            }
-        }
-    );
+    return res.redirect(`/dashboard?github=installed&installation_id=${encodeURIComponent(installationId)}&app_id=${encodeURIComponent(config.appId)}&setup_action=${encodeURIComponent(setupAction ?? '')}&code=${encodeURIComponent(code ?? '')}`);
 }
 
 export {

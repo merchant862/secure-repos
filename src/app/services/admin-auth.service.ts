@@ -41,24 +41,38 @@ async function verifyAdminPassword(password: string, hashedPassword: string): Pr
     return crypto.timingSafeEqual(derivedKey, storedBuffer);
 }
 
-async function createAdmin(input: { name: string; email: string; password: string; role?: string })
+async function seedAdmin(input: { name: string; email: string; password: string; role?: string; status?: string; updateExisting?: boolean })
 {
     const existing = await Admin.findOne({ where: { email: input.email } });
+    const values =
+    {
+        name: input.name,
+        email: input.email,
+        password: await hashAdminPassword(input.password),
+        role: input.role ?? 'super_admin',
+        status: input.status ?? 'active'
+    };
 
     if (existing)
     {
-        throw new Error('Admin email is already registered');
+        if (!input.updateExisting)
+        {
+            throw new Error('Admin email already exists. Pass --update to update this admin.');
+        }
+
+        await existing.update(values);
+        return {
+            admin: existing,
+            created: false
+        };
     }
 
-    return Admin.create(
-        {
-            name: input.name,
-            email: input.email,
-            password: await hashAdminPassword(input.password),
-            role: input.role ?? 'admin',
-            status: 'active'
-        }
-    );
+    const admin = await Admin.create(values);
+
+    return {
+        admin,
+        created: true
+    };
 }
 
 async function loginAdmin(email: string, password: string, ipAddress?: string, userAgent?: string)
@@ -148,7 +162,7 @@ async function revokeAdminSession(token: string)
 }
 
 export {
-    createAdmin,
+    seedAdmin,
     loginAdmin,
     resolveAdminSession,
     revokeAdminSession

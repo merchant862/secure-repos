@@ -169,9 +169,23 @@ async function loginOtpController(req: Request, res: Response)
 
 function meController(req: AuthenticatedRequest, res: Response)
 {
+    const session = req.currentSession;
+
     return res.json(
         {
-            data: serializeUser(req.currentUser)
+            data:
+            {
+                ...serializeUser(req.currentUser),
+                session: session
+                    ? {
+                        id: session.id,
+                        createdAt: session.createdAt,
+                        expiresAt: session.expiresAt,
+                        ipAddress: session.ipAddress,
+                        userAgent: session.userAgent
+                    }
+                    : null
+            }
         }
     );
 }

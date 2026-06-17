@@ -7,33 +7,51 @@
         <div class="main-area">
             <%- include('../partials/navbar', { title, appName, eyebrow: 'GitHub repositories' }) %>
             <main class="content">
+                <div class="card card-body github-callback-status" data-github-callback-status hidden style="margin-bottom:18px"></div>
                 <section class="page-toolbar">
                     <div>
                         <h2>Connected repositories</h2>
-                        <p class="muted">Install the GitHub App, review repository scores, and start manual scans.</p>
+                        <p class="muted" data-repositories-toolbar-copy>Install the GitHub App, review repository scores, and start manual scans.</p>
                     </div>
                     <div class="toolbar-actions">
-                        <button class="button primary" type="button" data-provider-connect="github">Install GitHub App</button>
+                        <button class="button primary" type="button" data-provider-connect="github" data-github-install-action>Install GitHub App</button>
                     </div>
                 </section>
 
-                <section class="grid grid-3">
+                <section class="grid grid-3" data-github-disconnected-card>
                     <article class="card card-body provider-card">
                         <span class="provider-icon">GH</span>
                         <div><strong>GitHub App</strong><p class="muted small">Selected repository access, installation sync, and push webhooks.</p></div>
                     </article>
                 </section>
 
-                <section class="card" style="margin-top:18px">
+                <section class="card card-body github-connected-card" data-github-connected-card hidden>
+                    <div class="github-account">
+                        <span class="github-logo" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 .5A11.5 11.5 0 0 0 8.36 22.9c.58.1.79-.25.79-.56v-2.02c-3.2.7-3.88-1.37-3.88-1.37-.53-1.34-1.3-1.7-1.3-1.7-1.05-.72.08-.7.08-.7 1.17.08 1.79 1.2 1.79 1.2 1.04 1.78 2.73 1.27 3.4.97.1-.75.4-1.27.73-1.56-2.55-.3-5.24-1.28-5.24-5.68 0-1.25.45-2.28 1.2-3.08-.12-.3-.52-1.51.12-3.04 0 0 .98-.31 3.2 1.18a11.1 11.1 0 0 1 5.82 0c2.22-1.5 3.2-1.18 3.2-1.18.64 1.53.24 2.74.12 3.04.75.8 1.2 1.83 1.2 3.08 0 4.42-2.7 5.38-5.26 5.67.42.36.78 1.06.78 2.14v3.15c0 .31.21.67.8.56A11.5 11.5 0 0 0 12 .5Z"/></svg>
+                        </span>
+                        <div>
+                            <a href="https://github.com" target="_blank" rel="noopener noreferrer" data-repositories-github-link style="color:var(--text);font-weight:800;text-decoration:none">
+                                <strong data-repositories-github-login>GitHub connected</strong>
+                            </a>
+                            <p class="muted small" data-repositories-github-meta style="margin:3px 0 0">Loading sync status...</p>
+                        </div>
+                        <span class="badge success" style="margin-left:auto">Connected</span>
+                    </div>
+                </section>
+
+                <section class="card card-body" data-repository-limit-notice hidden style="margin-top:18px"></section>
+
+                <section class="card" style="margin-top:18px" data-repository-inventory>
                     <div class="card-header">
                         <div>
                             <h2 class="card-title">Repository Inventory</h2>
-                            <p class="muted small" style="margin:4px 0 0">Loaded from <code>/api/user/repositories</code> when a session token is present.</p>
+                            <p class="muted small" style="margin:4px 0 0">Showing 5 repositories per page from your active GitHub selection.</p>
                         </div>
                         <div class="segmented">
-                            <button class="active" type="button">All</button>
-                            <button type="button">Critical</button>
-                            <button type="button">Healthy</button>
+                            <button class="active" type="button" data-repository-filter="all">All</button>
+                            <button type="button" data-repository-filter="critical">Critical</button>
+                            <button type="button" data-repository-filter="healthy">Healthy</button>
                         </div>
                     </div>
                     <div class="table-wrap">
@@ -43,6 +61,13 @@
                                 <tr><td colspan="6">Loading repositories...</td></tr>
                             </tbody>
                         </table>
+                    </div>
+                    <div class="table-pagination" data-repository-pagination>
+                        <span class="muted small" data-repository-page-summary>Loading repositories...</span>
+                        <div class="toolbar-actions">
+                            <button class="button" type="button" data-repository-page="prev" disabled>Previous</button>
+                            <button class="button" type="button" data-repository-page="next" disabled>Next</button>
+                        </div>
                     </div>
                 </section>
                 <%- include('../partials/footer') %>

@@ -16,6 +16,8 @@ type PricingPlanInput =
     currency?: string;
     repositoryLimit?: number | null;
     teamMemberLimit?: number | null;
+    manualScanDailyLimit?: number | null;
+    manualScanCooldownMinutes?: number;
     scanSchedule?: string;
     isHighlighted?: boolean;
     isActive?: boolean;
@@ -138,6 +140,8 @@ async function createPricingPlan(input: PricingPlanInput)
             currency: input.currency ?? 'USD',
             repositoryLimit: input.repositoryLimit ?? null,
             teamMemberLimit: input.teamMemberLimit ?? null,
+            manualScanDailyLimit: input.manualScanDailyLimit ?? null,
+            manualScanCooldownMinutes: input.manualScanCooldownMinutes ?? 15,
             scanSchedule: input.scanSchedule ?? 'daily',
             isHighlighted: false,
             isActive: input.isActive ?? true,
@@ -174,6 +178,8 @@ async function updatePricingPlan(planId: number, input: PricingPlanInput)
             currency: input.currency ?? plan.currency,
             repositoryLimit: input.repositoryLimit === undefined ? plan.repositoryLimit : input.repositoryLimit,
             teamMemberLimit: input.teamMemberLimit === undefined ? plan.teamMemberLimit : input.teamMemberLimit,
+            manualScanDailyLimit: input.manualScanDailyLimit === undefined ? plan.manualScanDailyLimit : input.manualScanDailyLimit,
+            manualScanCooldownMinutes: input.manualScanCooldownMinutes ?? plan.manualScanCooldownMinutes,
             scanSchedule: input.scanSchedule ?? plan.scanSchedule,
             isActive: input.isActive ?? plan.isActive,
             sortOrder: input.sortOrder ?? plan.sortOrder,

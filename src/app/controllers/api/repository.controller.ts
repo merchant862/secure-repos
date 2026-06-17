@@ -1,15 +1,36 @@
 import { Request, Response } from 'express';
+import { Op } from 'sequelize';
 
 import { Finding, GithubInstallation, Repository, Scan } from '../../../db/models';
 import { enqueueAllActiveRepositories, enqueueRepositoryScan } from '../../services/scan.service';
 
+function paginationFromRequest(req: Request)
+{
+    const limit = Math.min(100, Math.max(1, Number(req.query.limit ?? 25)));
+    const cursor = Number(req.query.cursor);
+
+    return {
+        limit,
+        cursor: Number.isFinite(cursor) && cursor > 0 ? cursor : null
+    };
+}
+
 async function listRepositoriesController(req: Request, res: Response)
 {
+    const pagination = paginationFromRequest(req);
     const repositories = await Repository.findAll(
         {
             where:
             {
-                isActive: true
+                isActive: true,
+                ...(pagination.cursor
+                    ? {
+                        id:
+                        {
+                            [Op.lt]: pagination.cursor
+                        }
+                    }
+                    : {})
             },
             include:
             [
@@ -18,13 +39,22 @@ async function listRepositoriesController(req: Request, res: Response)
                     as: 'githubInstallation'
                 }
             ],
-            order: [['updatedAt', 'DESC']]
+            order: [['id', 'DESC']],
+            limit: pagination.limit + 1
         }
     );
+    const total = await Repository.count({ where: { isActive: true } });
+    const nextCursor = repositories.length > pagination.limit ? repositories[pagination.limit - 1].id : null;
 
     return res.json(
         {
-            data: repositories
+            data: repositories.slice(0, pagination.limit),
+            pagination:
+            {
+                limit: pagination.limit,
+                nextCursor
+            },
+            total
         }
     );
 }
