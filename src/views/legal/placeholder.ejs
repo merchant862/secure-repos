@@ -31,7 +31,7 @@
         <section class="legal-shell">
             <span class="badge brand">Legal</span>
             <h1><%= legalTitle %></h1>
-            <p class="muted">These terms apply to <%= appName %>, a GitHub repository security scanning and workflow platform.</p>
+            <p class="muted">These policies apply to <%= appName %>, a GitHub repository security scanning and workflow platform operated by PURPLE FLARE LTD.</p>
             <div class="legal-meta">
                 <span>Contact: <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a></span>
                 <span>Website: <a href="<%= websiteUrl %>"><%= websiteUrl %></a></span>
@@ -41,64 +41,81 @@
         <% if (legalSlug === 'terms') { %>
             <section class="legal-content">
                 <h2>1. Acceptance of Terms</h2>
-                <p>By creating an account, accessing a workspace, installing the GitHub App, or using <%= appName %>, you agree to these Terms, the Privacy Policy, Refund Policy, and any checkout disclosures shown at purchase.</p>
+                <p>By visiting the website, creating an account, selecting a plan, installing the GitHub App, inviting team members, or using <%= appName %>, you agree to these Terms and Conditions, the Privacy Policy, Refund Policy, and any checkout or billing disclosures presented at the time of purchase.</p>
+                <p><%= appName %> is operated by PURPLE FLARE LTD. In these Terms, "we," "us," and "our" refer to PURPLE FLARE LTD and <%= appName %>. "You" and "user" refer to the person or organization using the service.</p>
                 <h2>2. Service Description</h2>
-                <p><%= appName %> provides GitHub repository security scanning, finding triage, team workflow, notifications, audit activity, and reporting. The service is not a penetration testing firm, legal advisor, or guaranteed vulnerability prevention system.</p>
+                <p><%= appName %> provides repository security monitoring for GitHub workspaces. Features may include repository inventory, automated scans, secret and configuration checks, GitHub Actions checks, dependency and container hygiene checks, finding triage, team assignments, notifications, audit activity, reports, and related security workflow tools.</p>
+                <p>The service is a software tool. It is not a managed penetration test, legal service, incident response service, or guarantee that your repositories are secure.</p>
                 <h2>3. Accounts and Access</h2>
-                <p>You are responsible for account security, team member access, provider permissions, and all activity under your workspace. Do not share credentials, bypass limits, attack the service, or use <%= appName %> for unlawful activity.</p>
+                <p>You are responsible for the accuracy of account information, the security of login credentials, the permissions granted to team members, and all activity under your workspace. You must be authorized to connect the GitHub organizations, accounts, and repositories you add to <%= appName %>.</p>
+                <p>You may not share credentials, bypass plan limits, reverse engineer the service, interfere with platform security, scan repositories you are not authorized to access, or use the service for unlawful activity.</p>
                 <h2>4. GitHub App Connections</h2>
-                <p>When you install the GitHub App, you authorize <%= appName %> to access selected repository metadata and code content needed to perform scans and generate findings. You can revoke access from GitHub or workspace settings.</p>
+                <p>When you install the GitHub App, you authorize <%= appName %> to access selected repository metadata and repository content needed to perform scans, generate findings, track repository status, and provide reports. You should select only repositories that you want monitored under your plan.</p>
+                <p>You may revoke GitHub App access from GitHub. If access is revoked, suspended, or reduced, scans and repository updates may stop or become incomplete.</p>
                 <h2>5. Plans and Billing</h2>
-                <p>Pricing, usage limits, included seats, repositories, and billing terms are displayed before purchase. Payment processing will be handled by the selected checkout provider. Access may be paused if a payment fails, is disputed, or the plan is cancelled.</p>
+                <p>Pricing, billing interval, included repositories, included seats, usage limits, and plan features are displayed before purchase. Payment processing is handled by the checkout provider shown at payment. By completing checkout, you authorize the applicable charges shown at purchase.</p>
+                <p>If your plan is offered as a subscription, it renews until cancelled according to the checkout terms. Access may be paused, limited, or terminated if payment fails, a charge is disputed, the plan is cancelled, or the account violates these Terms.</p>
                 <h2>6. Security Findings</h2>
-                <p>Findings are generated by automated rules and may include false positives or miss issues. You remain responsible for reviewing results, validating risk, and deciding whether code changes are required.</p>
-                <h2>7. Intellectual Property</h2>
-                <p><%= appName %>, its interface, scanner logic, reports, branding, and platform materials are owned by the operator or licensors. Your code, repositories, and uploaded workspace data remain yours.</p>
-                <h2>8. Availability and Changes</h2>
+                <p>Findings are generated by automated rules and may include false positives, incomplete results, or missed issues. Severity labels are guidance only. You remain responsible for reviewing results, validating risk, applying fixes, and deciding whether additional security review is needed.</p>
+                <h2>7. Customer Data and Repository Content</h2>
+                <p>Your repository content, organization data, team data, and workspace data remain yours. You grant us the limited rights needed to operate the service, process scans, generate findings, deliver notifications, provide support, maintain security, and comply with legal obligations.</p>
+                <h2>8. Intellectual Property</h2>
+                <p><%= appName %>, its interface, scanner logic, reports, branding, documentation, and platform materials are owned by PURPLE FLARE LTD or its licensors. You receive a limited, non-transferable right to use the service for your internal business purposes according to your plan.</p>
+                <h2>9. Availability and Changes</h2>
                 <p>We may update, improve, suspend, or discontinue parts of the service. We work to keep the platform reliable, but we do not guarantee uninterrupted or error-free access.</p>
-                <h2>9. Limitation of Liability</h2>
-                <p>To the maximum extent permitted by law, <%= appName %> is not liable for indirect, incidental, special, consequential, or punitive damages, including lost profits, lost data, security incidents, or business interruption.</p>
-                <h2>10. Contact</h2>
+                <h2>10. Limitation of Liability</h2>
+                <p>To the maximum extent permitted by law, PURPLE FLARE LTD and <%= appName %> are not liable for indirect, incidental, special, consequential, exemplary, or punitive damages, including lost profits, lost data, security incidents, repository compromise, or business interruption.</p>
+                <h2>11. Governing Law</h2>
+                <p>These Terms are governed by the laws applicable to PURPLE FLARE LTD, unless mandatory consumer protection laws require otherwise.</p>
+                <h2>12. Contact</h2>
                 <p>For account, billing, or legal questions, contact <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a>.</p>
             </section>
         <% } else if (legalSlug === 'privacy') { %>
             <section class="legal-content">
                 <h2>1. Overview</h2>
-                <p>This Privacy Policy explains how <%= appName %> collects, uses, and protects information when you visit the site, create an account, connect GitHub repositories, invite team members, or use scanning and reporting features.</p>
+                <p>This Privacy Policy explains how PURPLE FLARE LTD and <%= appName %> collect, use, disclose, and protect information when you visit the website, create an account, connect GitHub repositories, invite team members, use scans and reports, contact support, or interact with our services.</p>
                 <h2>2. Information We Collect</h2>
-                <p>We may collect account information, team member emails, GitHub App installation metadata, repository metadata, scan results, findings, audit events, notification preferences, usage logs, device information, and support messages.</p>
+                <p>We may collect account information such as name, email address, password hash, workspace name, role, team invitations, notification preferences, support messages, billing status, and plan information.</p>
+                <p>We may also collect technical and product information such as IP address, browser, device data, login sessions, audit logs, page activity, repository IDs, repository names, default branches, GitHub App installation metadata, scan status, findings, reports, and error logs.</p>
                 <h2>3. Repository Data</h2>
-                <p>Repository access is used to run security checks, create findings, build reports, and support workflow features. We do not sell repository code. GitHub access should be limited to the repositories selected during app installation.</p>
+                <p>Repository access is used to run security checks, create findings, build reports, track repository health, and support workflow features. Depending on the scan, <%= appName %> may process repository file paths, selected file contents, configuration files, dependency files, workflow files, and detected patterns.</p>
+                <p>We do not sell repository code. You control repository access through the GitHub App installation and should limit access to repositories you want monitored.</p>
                 <h2>4. How We Use Information</h2>
-                <p>We use information to operate workspaces, authenticate users, connect providers, run scans, send notifications, improve the product, prevent abuse, provide support, and comply with legal or payment processor obligations.</p>
+                <p>We use information to create and operate workspaces, authenticate users, connect GitHub, run scans, generate findings, send emails and in-app notifications, enforce plan limits, provide reports, improve reliability, prevent abuse, investigate errors, respond to support requests, process billing status, and comply with legal obligations.</p>
                 <h2>5. Service Providers</h2>
-                <p>We may use trusted providers for hosting, email delivery, analytics, logging, security, payment processing, and customer support. These providers process information only as needed to provide their services.</p>
+                <p>We may use trusted providers for hosting, databases, infrastructure, email delivery, analytics, logging, security monitoring, payment processing, fraud prevention, and customer support. These providers process information only as needed to provide services to us.</p>
                 <h2>6. Cookies and Analytics</h2>
-                <p>We may use cookies or similar technologies for login sessions, preferences, product analytics, fraud prevention, and performance measurement. Browser settings may allow you to block or delete cookies.</p>
+                <p>We use cookies and similar technologies for login sessions, security, preferences, product analytics, fraud prevention, and performance measurement. You can control cookies through browser settings, but some features may not work correctly if required cookies are blocked.</p>
                 <h2>7. Data Retention</h2>
-                <p>We retain data while your account is active and as needed for security, audit, legal, billing, dispute, and operational purposes. You may request deletion where applicable by contacting support.</p>
+                <p>We retain information while your account is active and as needed for security, audit, legal, billing, dispute, tax, backup, and operational purposes. Some records may be retained after cancellation where required for compliance, fraud prevention, dispute handling, or legitimate business records.</p>
                 <h2>8. Your Rights</h2>
                 <p>Depending on your location, you may request access, correction, deletion, portability, restriction, or opt-out of certain processing. We may verify your identity before processing a request.</p>
-                <h2>9. Contact</h2>
+                <h2>9. Security</h2>
+                <p>We use reasonable administrative, technical, and organizational safeguards designed to protect information. No online service is completely secure, and you are responsible for managing GitHub permissions and team access carefully.</p>
+                <h2>10. International Processing</h2>
+                <p>Your information may be processed in countries where we or our service providers operate. By using the service, you understand that information may be transferred and processed outside your country of residence where permitted by law.</p>
+                <h2>11. Contact</h2>
                 <p>For privacy requests, contact <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a>.</p>
             </section>
         <% } else if (legalSlug === 'refund-policy') { %>
             <section class="legal-content">
                 <h2>1. Digital Service Refund Policy</h2>
-                <p><%= appName %> is a digital SaaS product. Once a workspace is activated and service access is delivered, fees are generally non-refundable unless required by law or approved by support.</p>
+                <p><%= appName %> is a digital SaaS product operated by PURPLE FLARE LTD. Once a workspace is activated and service access is delivered, fees are generally non-refundable unless required by law or approved by support.</p>
                 <h2>2. Refund Requests</h2>
                 <p>Refund requests are reviewed case by case. To request review, contact <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a> with your account email, workspace name, purchase date, transaction reference if available, and reason for the request.</p>
                 <h2>3. Billing Errors</h2>
                 <p>If you believe you were charged incorrectly, contact support as soon as possible. Confirmed duplicate charges or billing errors may be corrected to the original payment method.</p>
                 <h2>4. Cancellations</h2>
-                <p>Cancellation stops future access or renewal according to the selected checkout terms. Cancellation does not automatically refund prior charges.</p>
-                <h2>5. Chargebacks</h2>
-                <p>Please contact support before opening a payment dispute. Chargebacks may result in workspace suspension while the dispute is reviewed.</p>
+                <p>If your plan renews, cancellation stops future renewal according to the selected checkout terms. Cancellation does not automatically refund prior charges, partial billing periods, unused repositories, or unused seats.</p>
+                <h2>5. Plan Changes and Access</h2>
+                <p>Changing or cancelling a plan may affect repository limits, team seats, scans, reports, and access to workspace features. We may retain certain records for audit, billing, dispute, and legal purposes.</p>
+                <h2>6. Chargebacks</h2>
+                <p>Please contact support before opening a payment dispute. Chargebacks may result in workspace suspension while the dispute is reviewed. We may provide account, checkout, access, and usage records to payment processors or banks to respond to disputes.</p>
             </section>
         <% } else { %>
             <section class="legal-content">
                 <h2>Do Not Sell or Share</h2>
-                <p><%= appName %> does not sell personal information for money. Some analytics, advertising, attribution, or similar technologies may be considered "sharing" or "targeted advertising" under certain privacy laws.</p>
+                <p>PURPLE FLARE LTD and <%= appName %> do not sell personal information for money. Some analytics, advertising, attribution, or similar technologies may be considered "sharing" or "targeted advertising" under certain privacy laws.</p>
                 <p>You may request to opt out by emailing <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a> with the subject line "Do Not Sell or Share Request." Include the email address associated with your account so we can process the request.</p>
                 <p>We may need to verify your identity before completing certain privacy requests.</p>
             </section>
