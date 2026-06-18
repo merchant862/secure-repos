@@ -34,7 +34,7 @@ async function githubInstallCallbackController(req: Request, res: Response)
         try
         {
             await assertProviderEnabled('github');
-            const providerState = verifyProviderState(state, 'github');
+            const providerState = await verifyProviderState(state, 'github');
             const result = await syncGithubInstallationForTenant(providerState.tenantId, installationId);
 
             return res.redirect(`/dashboard?github=connected&installation_id=${encodeURIComponent(installationId)}&repositories=${result.repositories.length}`);

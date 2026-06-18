@@ -11,7 +11,6 @@
     "start:scheduler": "node dist/src/main/start-scheduler.js",
     "start:email:login-otp": "node dist/src/main/start-login-otp-email-worker.js",
     "start:email:welcome": "node dist/src/main/start-welcome-email-worker.js",
-    "start:email:team-invite": "node dist/src/main/start-team-invite-email-worker.js",
     "start:email:security-alert": "node dist/src/main/start-security-alert-email-worker.js",
     "start:email:weekly-report": "node dist/src/main/start-weekly-report-email-worker.js",
     "start:email:scan-summary": "node dist/src/main/start-scan-summary-email-worker.js",

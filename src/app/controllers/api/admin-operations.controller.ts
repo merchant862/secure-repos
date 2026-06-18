@@ -27,6 +27,49 @@ function nextCursor<T extends { id: number }>(rows: T[], limit: number)
     return rows[limit - 1].id;
 }
 
+async function getAdminOverviewController(req: Request, res: Response)
+{
+    const [tenantCount, planCount, activeSubscriptions] = await Promise.all(
+        [
+            Tenant.count(),
+            PricingPlan.count({ where: { isActive: true } }),
+            TenantSubscription.findAll(
+                {
+                    where:
+                    {
+                        status: 'active'
+                    },
+                    include:
+                    [
+                        {
+                            model: PricingPlan,
+                            as: 'pricingPlan'
+                        }
+                    ]
+                }
+            )
+        ]
+    );
+    const estimatedMrrCents = activeSubscriptions.reduce(function (total, subscription)
+    {
+        const plan = subscription.get('pricingPlan') as PricingPlan | undefined;
+
+        return total + Number(plan?.priceMonthlyCents ?? 0);
+    }, 0);
+
+    return res.json(
+        {
+            data:
+            {
+                tenants: tenantCount,
+                plans: planCount,
+                estimatedMrrCents,
+                estimatedMrrCurrency: 'USD'
+            }
+        }
+    );
+}
+
 async function listTenantsController(req: Request, res: Response)
 {
     const pagination = paginationFromRequest(req);
@@ -269,6 +312,7 @@ async function listCriticalFindingsController(req: Request, res: Response)
 }
 
 export {
+    getAdminOverviewController,
     listTenantsController,
     assignTenantPlanController,
     cancelTenantSubscriptionController,

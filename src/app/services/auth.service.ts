@@ -3,13 +3,38 @@ import { promisify } from 'util';
 
 import { Op } from 'sequelize';
 
-import { LoginOtp, NotificationEvent, PricingPlan, TeamInvitation, Tenant, User, UserSession } from '../../db/models';
-import { assignTenantPlan } from './plan-limit.service';
+import { LoginOtp, NotificationEvent, PricingPlan, Tenant, TenantSubscription, User, UserSession } from '../../db/models';
+import { sequelize } from '../../db/sequelize';
 import { queueWelcomeOwnerEmail } from './notification.service';
 
 const scrypt = promisify(crypto.scrypt);
 const sessionDays = 14;
 const loginOtpMinutes = 10;
+const loginOtpMaxAttempts = 5;
+const loginOtpResendCooldownMs = 60 * 1000;
+
+function normalizeEmail(email: string): string
+{
+    return email.trim().toLowerCase();
+}
+
+function validateAccountInput(name: string, email: string, password: string)
+{
+    if (name.trim().length < 2 || name.trim().length > 100)
+    {
+        throw new Error('Name must be between 2 and 100 characters');
+    }
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)
+    {
+        throw new Error('Enter a valid email address');
+    }
+
+    if (password.length < 12 || password.length > 128)
+    {
+        throw new Error('Password must be between 12 and 128 characters');
+    }
+}
 
 function hashToken(token: string): string
 {
@@ -70,36 +95,53 @@ async function createSession(user: User, ipAddress?: string, userAgent?: string)
 
 async function registerOwner(name: string, email: string, password: string, planSlug = 'starter')
 {
-    const existing = await User.findOne({ where: { email } });
+    const normalizedEmail = normalizeEmail(email);
+    const normalizedName = name.trim();
+    validateAccountInput(normalizedName, normalizedEmail, password);
+    const existing = await User.findOne({ where: { email: normalizedEmail } });
 
     if (existing)
     {
         throw new Error('Email is already registered');
     }
 
-    const tenant = await Tenant.create(
-        {
-            name,
-            slug: `${email.split('@')[0].toLowerCase().replace(/[^a-z0-9]+/g, '-')}-${crypto.randomBytes(3).toString('hex')}`
-        }
-    );
-    const user = await User.create(
-        {
-            tenantId: tenant.id,
-            name,
-            email,
-            password: await hashPassword(password),
-            role: 'owner',
-            status: 'active'
-        }
-    );
     const pricingPlan = await PricingPlan.findOne({ where: { slug: planSlug, isActive: true } })
-        ?? await PricingPlan.findOne({ where: { slug: 'starter' } });
+        ?? await PricingPlan.findOne({ where: { isActive: true }, order: [['sortOrder', 'ASC']] });
 
-    if (pricingPlan)
+    if (!pricingPlan)
     {
-        await assignTenantPlan(tenant.id, pricingPlan.id, 'pending');
+        throw new Error('No active pricing plan is available');
     }
+
+    const passwordHash = await hashPassword(password);
+    const user = await sequelize.transaction(async function (transaction)
+    {
+        const tenant = await Tenant.create(
+            {
+                name: normalizedName,
+                slug: `${normalizedEmail.split('@')[0].replace(/[^a-z0-9]+/g, '-')}-${crypto.randomBytes(3).toString('hex')}`
+            },
+            { transaction }
+        );
+        const createdUser = await User.create(
+            {
+                tenantId: tenant.id,
+                name: normalizedName,
+                email: normalizedEmail,
+                password: passwordHash,
+                role: 'owner',
+                status: 'active'
+            },
+            { transaction }
+        );
+
+        await TenantSubscription.create(
+            { tenantId: tenant.id, pricingPlanId: pricingPlan.id, status: 'pending' },
+            { transaction }
+        );
+
+        return createdUser;
+    });
 
     await queueWelcomeOwnerEmail(user);
 
@@ -108,7 +150,7 @@ async function registerOwner(name: string, email: string, password: string, plan
 
 async function validateLoginCredentials(email: string, password: string)
 {
-    const user = await User.findOne({ where: { email, status: 'active' } });
+    const user = await User.findOne({ where: { email: normalizeEmail(email), status: 'active' } });
 
     if (!user || !(await verifyPassword(password, user.password ?? null)))
     {
@@ -133,6 +175,16 @@ function generateOtpCode()
 async function createLoginOtpChallenge(email: string, password: string, ipAddress?: string, userAgent?: string)
 {
     const user = await validateLoginCredentials(email, password);
+    const recentOtp = await LoginOtp.findOne(
+        { where: { userId: user.id, usedAt: null }, order: [['createdAt', 'DESC']] }
+    );
+
+    if (recentOtp && recentOtp.createdAt.getTime() > Date.now() - loginOtpResendCooldownMs)
+    {
+        throw new Error('A login code was already sent. Wait before requesting another.');
+    }
+
+    await LoginOtp.update({ usedAt: new Date() }, { where: { userId: user.id, usedAt: null } });
     const otpCode = generateOtpCode();
     const challengeId = crypto.randomBytes(24).toString('hex');
     const expiresAt = new Date(Date.now() + loginOtpMinutes * 60 * 1000);
@@ -195,8 +247,25 @@ async function verifyLoginOtpChallenge(challengeId: string, otpCode: string, ipA
         }
     );
 
-    if (!otp || otp.codeHash !== hashToken(otpCode))
+    if (!otp || otp.attemptCount >= loginOtpMaxAttempts)
     {
+        throw new Error('Invalid or expired login code');
+    }
+
+    const providedHash = Buffer.from(hashToken(otpCode));
+    const expectedHash = Buffer.from(otp.codeHash);
+    const matches = providedHash.length === expectedHash.length && crypto.timingSafeEqual(providedHash, expectedHash);
+
+    if (!matches)
+    {
+        const attemptCount = otp.attemptCount + 1;
+        await otp.update(
+            {
+                attemptCount,
+                lastAttemptAt: new Date(),
+                usedAt: attemptCount >= loginOtpMaxAttempts ? new Date() : null
+            }
+        );
         throw new Error('Invalid or expired login code');
     }
 
@@ -269,88 +338,12 @@ async function revokeSession(token: string)
     );
 }
 
-async function createInvitation(tenantId: number, invitedByUserId: number, email: string, role = 'member')
-{
-    const token = crypto.randomBytes(32).toString('hex');
-    const invitation = await TeamInvitation.create(
-        {
-            tenantId,
-            invitedByUserId,
-            email,
-            role,
-            tokenHash: hashToken(token),
-            status: 'pending',
-            expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-        }
-    );
-
-    return {
-        token,
-        invitation
-    };
-}
-
-async function acceptInvitation(token: string, name: string, password: string)
-{
-    const invitation = await TeamInvitation.findOne(
-        {
-            where:
-            {
-                tokenHash: hashToken(token),
-                status: 'pending',
-                expiresAt:
-                {
-                    [Op.gt]: new Date()
-                }
-            }
-        }
-    );
-
-    if (!invitation)
-    {
-        throw new Error('Invitation is invalid or expired');
-    }
-
-    const existingUser = await User.findOne({ where: { email: invitation.email } });
-    const user = existingUser
-        ? await existingUser.update(
-            {
-                tenantId: invitation.tenantId,
-                name,
-                password: await hashPassword(password),
-                role: invitation.role,
-                status: 'active'
-            }
-        )
-        : await User.create(
-            {
-                tenantId: invitation.tenantId,
-                name,
-                email: invitation.email,
-                password: await hashPassword(password),
-                role: invitation.role,
-                status: 'active'
-            }
-        );
-
-    await invitation.update(
-        {
-            status: 'accepted',
-            acceptedAt: new Date()
-        }
-    );
-
-    return user;
-}
-
 export {
     hashToken,
     registerOwner,
     loginUser,
     resolveSession,
     revokeSession,
-    createInvitation,
-    acceptInvitation,
     createLoginOtpChallenge,
     verifyLoginOtpChallenge
 };

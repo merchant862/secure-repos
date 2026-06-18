@@ -30,9 +30,9 @@
         </nav>
 
         <section class="public-hero">
-            <span class="badge brand">Contact</span>
-            <h1>Talk to us about GitHub security workflow.</h1>
-            <p class="muted">Send account, billing, GitHub App installation, scan, or report questions here. For security-sensitive data, describe the issue without pasting secrets or private code.</p>
+            <span class="public-kicker">Contact support</span>
+            <h1>Tell us what went wrong or what you need clarified.</h1>
+            <p class="muted">We can help with accounts, billing, GitHub App installation, scans, and reports. Describe security-sensitive issues without pasting secrets or private source code.</p>
         </section>
 
         <section class="contact-layout">
@@ -46,7 +46,7 @@
                     <input class="input" id="contact-email" type="email" name="email" autocomplete="email" required>
                 </div>
                 <div class="form-field">
-                    <label for="contact-company">Company or workspace</label>
+                    <label for="contact-company">Company or project (optional)</label>
                     <input class="input" id="contact-company" name="company" autocomplete="organization">
                 </div>
                 <div class="form-field">
@@ -62,17 +62,17 @@
 
             <aside class="contact-notes">
                 <article>
-                    <span class="badge success">Support</span>
+                    <span class="public-kicker">Direct email</span>
                     <h2>Email</h2>
                     <p><a href="mailto:<%= supportEmail %>"><%= supportEmail %></a></p>
                 </article>
                 <article>
-                    <span class="badge brand">Best context</span>
+                    <span class="public-kicker">Useful context</span>
                     <h2>Include what helps</h2>
-                    <p>Workspace email, GitHub organization, repository name if relevant, and the page or action where the issue happened.</p>
+                    <p>Your account email, repository name if relevant, and the page or action where the issue happened.</p>
                 </article>
                 <article>
-                    <span class="badge warning">Sensitive data</span>
+                    <span class="public-kicker">Sensitive data</span>
                     <h2>Do not paste secrets</h2>
                     <p>Never send access tokens, private keys, passwords, full card details, or private source code in support messages.</p>
                 </article>
@@ -82,7 +82,7 @@
         <footer class="landing-footer compact-footer">
             <div class="landing-footer-brand">
                 <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
-                <p class="muted small">Repository monitoring, scanner workflow, team accountability, and security reporting for small engineering teams.</p>
+                <p class="muted small">GitHub repository scanning, branch-level findings, remediation guidance, and exports for independent developers.</p>
             </div>
             <div class="landing-footer-grid">
                 <div>

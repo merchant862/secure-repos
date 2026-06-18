@@ -25,13 +25,10 @@ function adminPanelPageController(req: Request, res: Response)
     const page = requestedPage ?? 'overview';
     const pages: Record<string, string> =
     {
-        admins: 'Admins',
         overview: 'Overview',
         pricing: 'Pricing',
         provider: 'Provider',
-        repositories: 'Repositories',
-        scans: 'Scans',
-        tenants: 'Tenants'
+        settings: 'Settings'
     };
     const adminPage = pages[page] ? page : 'overview';
 

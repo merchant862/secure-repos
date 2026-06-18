@@ -9,7 +9,6 @@ function serializeAdmin(admin: Admin)
         id: admin.id,
         name: admin.name,
         email: admin.email,
-        role: admin.role,
         status: admin.status,
         lastLoginAt: admin.lastLoginAt,
         createdAt: admin.createdAt,
@@ -43,7 +42,6 @@ async function updateAdminController(req: AuthenticatedAdminRequest, res: Respon
     await admin.update(
         {
             name: typeof req.body.name === 'string' ? req.body.name : admin.name,
-            role: typeof req.body.role === 'string' ? req.body.role : admin.role,
             status: typeof req.body.status === 'string' ? req.body.status : admin.status
         }
     );

@@ -25,13 +25,11 @@
     }
 
     function getToken() {
-        return localStorage.getItem('security_platform_token') || '';
+        return document.querySelector('.app-shell') ? 'cookie-session' : '';
     }
 
     function setToken(token) {
-        if (token) {
-            localStorage.setItem('security_platform_token', token);
-        }
+        localStorage.removeItem('security_platform_token');
     }
 
     function getSafeNextPath() {
@@ -47,8 +45,7 @@
             '/reports',
             '/repositories',
             '/scans',
-            '/settings',
-            '/team'
+            '/settings'
         ];
 
         if (!next || !next.startsWith('/') || next.startsWith('//') || next.includes('\\')) {
@@ -96,14 +93,8 @@
     }
 
     async function apiFetch(path, options) {
-        const token = getToken();
         const headers = Object.assign({ 'Content-Type': 'application/json' }, options && options.headers ? options.headers : {});
-
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
-        }
-
-        const response = await fetch(path, Object.assign({}, options, { headers }));
+        const response = await fetch(path, Object.assign({}, options, { headers, credentials: 'same-origin' }));
         const payload = await response.json().catch(function () {
             return {};
         });
@@ -133,6 +124,7 @@
         const scanButton = event.target.closest('[data-repository-scan]');
         const repositoryFilterButton = event.target.closest('[data-repository-filter]');
         const repositoryPageButton = event.target.closest('[data-repository-page]');
+        const scanPageButton = event.target.closest('[data-scan-page]');
         const loadMoreButton = event.target.closest('[data-load-more]');
         const markReadButton = event.target.closest('[data-notification-read]');
         const mitigationButton = event.target.closest('[data-mitigation-open]');
@@ -195,6 +187,10 @@
 
         if (repositoryPageButton) {
             changeRepositoryPage(repositoryPageButton);
+        }
+
+        if (scanPageButton) {
+            changeScanPage(scanPageButton);
         }
 
         if (loadMoreButton) {
@@ -322,7 +318,7 @@
     const unreadCount = document.querySelector('[data-unread-count]');
     const pageState = {
         notifications: { cursor: null, hasMore: false },
-        scans: { cursor: null, hasMore: false },
+        scans: { cursor: null, previousCursors: [], nextCursor: null, page: 1, total: 0 },
         repositories: { cursor: null, previousCursors: [], nextCursor: null, filter: 'all', page: 1, total: 0 }
     };
     let mePayloadPromise = null;
@@ -473,10 +469,8 @@
             }
 
             const map = {
-                'invite-member': { path: '/api/user/team/invitations', method: 'POST' },
                 'notification-settings': { path: '/api/user/settings/notifications', method: 'PUT' },
                 'ignore-rule': { path: '/api/user/ignore-rules', method: 'POST' },
-                'accept-invitation': { path: '/api/auth/invitations/accept', method: 'POST' },
                 'cancel-subscription': { path: '/api/user/billing/cancel', method: 'POST' },
                 'contact-message': { path: '/api/contact', method: 'POST' }
             };
@@ -488,11 +482,6 @@
 
             try {
                 const payload = await apiFetch(target.path, { method: target.method, body: JSON.stringify(body) });
-                if (formType === 'accept-invitation') {
-                    setToken(payload.data && payload.data.token);
-                    window.location.href = '/onboarding';
-                    return;
-                }
                 showFormStatus(form, formType === 'contact-message' ? 'Message sent. We will reply by email.' : 'Saved successfully.');
                 if (formType !== 'notification-settings') {
                     form.reset();
@@ -509,16 +498,56 @@
             hydrateDashboard(),
             hydrateRepositories(),
             hydrateScans(false),
+            hydrateScanDetail(),
             hydrateRepositoryDetail(),
             hydrateFindings(),
-            hydrateTeamMembers(),
             hydrateNotificationsPage(),
             hydrateNotificationSettings(),
             hydrateAuditLogs(),
             hydrateTrend(),
             hydrateSessionSummary(),
-            hydrateProfile()
+            hydrateProfile(),
+            hydratePublicPricing()
         ]);
+    }
+
+    async function hydratePublicPricing() {
+        const container = document.querySelector('[data-public-pricing]');
+        if (!container) {
+            return;
+        }
+
+        try {
+            const payload = await apiFetch('/api/pricing');
+            const plans = payload.data || [];
+
+            container.innerHTML = plans.map(function (plan) {
+                const price = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: plan.currency || 'USD',
+                    minimumFractionDigits: 2
+                }).format(Number(plan.priceMonthlyCents || 0) / 100);
+                const features = (plan.features || []).filter((feature) => feature.isIncluded !== false);
+                const cardClass = plan.isHighlighted ? 'card card-body plan-card plan-featured' : 'card card-body plan-card';
+                const badgeClass = plan.isHighlighted ? 'badge success' : 'badge brand';
+                const badgeText = plan.isHighlighted ? 'Recommended' : plan.name;
+                const buttonClass = plan.isHighlighted ? 'button primary' : 'button';
+                const target = container.dataset.pricingTarget === 'billing'
+                    ? `/billing?planId=${encodeURIComponent(plan.id)}`
+                    : `/sign-up?plan=${encodeURIComponent(plan.slug)}`;
+
+                return `<article class="${cardClass}">
+                    <span class="${badgeClass}">${escapeHtml(badgeText)}</span>
+                    <h3>${escapeHtml(plan.name)}</h3>
+                    <div class="metric-value">${escapeHtml(price)}<span class="plan-period">/mo</span></div>
+                    <p class="muted small">${escapeHtml(plan.description || '')}</p>
+                    <ul class="plan-list">${features.map((feature) => `<li>${escapeHtml(feature.label)}</li>`).join('')}</ul>
+                    <a class="${buttonClass}" href="${target}">${escapeHtml(plan.ctaLabel || `Choose ${plan.name}`)}</a>
+                </article>`;
+            }).join('') || '<div class="empty-state">Plans are currently unavailable. Please contact support.</div>';
+        } catch (error) {
+            container.innerHTML = '<div class="empty-state">Pricing could not be loaded. Please refresh or contact support.</div>';
+        }
     }
 
     function markApiSurfacesUnauthenticated() {
@@ -781,7 +810,7 @@
         const badge = status === 'completed' ? 'success' : status === 'failed' ? 'danger' : status === 'running' ? 'warning' : 'brand';
         const repo = scan.repository?.fullName || scan.repository?.name || '-';
 
-        return `<tr><td>#${escapeHtml(scan.id)}</td><td>${escapeHtml(repo)}</td><td><span class="badge ${badge}">${escapeHtml(status)}</span></td><td>${escapeHtml(scan.triggerType || '-')}</td><td>${escapeHtml(total)}</td><td>${formatDate(scan.completedAt || scan.updatedAt || scan.createdAt)}</td></tr>`;
+        return `<tr><td>#${escapeHtml(scan.id)}</td><td>${escapeHtml(repo)}</td><td><span class="badge ${badge}">${escapeHtml(status)}</span></td><td>${escapeHtml(scan.triggerType || '-')}</td><td>${escapeHtml(total)}</td><td>${formatDate(scan.completedAt || scan.updatedAt || scan.createdAt)}</td><td><a class="button" href="/scans/${escapeHtml(scan.id)}">View details</a></td></tr>`;
     }
 
     function renderFindingRow(finding) {
@@ -873,33 +902,160 @@
         }
     }
 
-    async function hydrateScans(append) {
+    async function hydrateScans() {
         const table = document.querySelector('[data-api-table="scans"]');
         if (!table) {
             return;
         }
 
-        const cursor = append && pageState.scans.cursor ? `&cursor=${encodeURIComponent(pageState.scans.cursor)}` : '';
-        const payload = await apiFetch(`/api/user/scans?limit=25${cursor}`);
+        const scanState = pageState.scans;
+        const cursor = scanState.cursor ? `&cursor=${encodeURIComponent(scanState.cursor)}` : '';
+        const payload = await apiFetch(`/api/user/scans?limit=5${cursor}`);
         const scans = payload.data || [];
         const rows = scans.map(renderScanRow);
 
-        table.innerHTML = append
-            ? `${table.innerHTML}${rows.join('')}`
-            : (rows.join('') || '<tr><td colspan="6">No scans have run yet.</td></tr>');
+        table.innerHTML = rows.join('') || '<tr><td colspan="7">No scans have run yet.</td></tr>';
 
-        pageState.scans.cursor = payload.pagination?.nextCursor || null;
-        pageState.scans.hasMore = Boolean(pageState.scans.cursor);
+        scanState.nextCursor = payload.pagination?.nextCursor || null;
+        scanState.total = payload.total || scans.length;
 
         const total = document.querySelector('[data-scan-total]');
         if (total) {
-            total.textContent = `${payload.total || scans.length} scans`;
+            total.textContent = `${scanState.total} scans`;
         }
 
-        const more = document.querySelector('[data-load-more="scans"]');
-        if (more) {
-            more.hidden = !pageState.scans.hasMore;
+        renderScanPagination(scans.length);
+    }
+
+    function changeScanPage(button) {
+        const direction = button.dataset.scanPage;
+        const scanState = pageState.scans;
+
+        if (direction === 'next' && scanState.nextCursor) {
+            scanState.previousCursors.push(scanState.cursor);
+            scanState.cursor = scanState.nextCursor;
+            scanState.page += 1;
+            hydrateScans();
         }
+
+        if (direction === 'prev' && scanState.previousCursors.length) {
+            scanState.cursor = scanState.previousCursors.pop() || null;
+            scanState.page = Math.max(1, scanState.page - 1);
+            hydrateScans();
+        }
+    }
+
+    function renderScanPagination(visibleCount) {
+        const pagination = document.querySelector('[data-scan-pagination]');
+        if (!pagination) {
+            return;
+        }
+
+        const scanState = pageState.scans;
+        const summary = pagination.querySelector('[data-scan-page-summary]');
+        const previous = pagination.querySelector('[data-scan-page="prev"]');
+        const next = pagination.querySelector('[data-scan-page="next"]');
+
+        if (summary) {
+            summary.textContent = visibleCount
+                ? `Page ${scanState.page} · ${visibleCount} shown · ${scanState.total} scans`
+                : 'No scans found';
+        }
+        if (previous) {
+            previous.disabled = scanState.previousCursors.length === 0;
+        }
+        if (next) {
+            next.disabled = !scanState.nextCursor;
+        }
+    }
+
+    async function hydrateScanDetail() {
+        const root = document.querySelector('[data-scan-detail]');
+        if (!root) {
+            return;
+        }
+
+        const scanId = root.dataset.scanDetail;
+        const payload = await apiFetch(`/api/user/scans/${encodeURIComponent(scanId)}`);
+        const data = payload.data || {};
+        const scan = data.scan || {};
+        const repository = scan.repository || {};
+        const findings = data.findings || [];
+        const branchSummary = data.branchSummary || [];
+        const total = Number(scan.findingsCritical || 0) + Number(scan.findingsHigh || 0) + Number(scan.findingsMedium || 0) + Number(scan.findingsLow || 0);
+
+        document.querySelector('[data-scan-detail-title]').textContent = `Scan #${scan.id || scanId}`;
+        document.querySelector('[data-scan-detail-subtitle]').textContent = repository.fullName || repository.name || 'Repository scan';
+        document.querySelector('[data-scan-detail-metric="status"]').textContent = scan.status || '--';
+        document.querySelector('[data-scan-detail-metric="critical"]').textContent = scan.findingsCritical ?? 0;
+        document.querySelector('[data-scan-detail-metric="high"]').textContent = scan.findingsHigh ?? 0;
+        document.querySelector('[data-scan-detail-metric="total"]').textContent = total;
+
+        const info = document.querySelector('[data-scan-detail-info]');
+        if (info) {
+            info.innerHTML = [
+                ['Trigger', scan.triggerType || '-'],
+                ['Branch', scan.branch || '-'],
+                ['Commit', scan.commitSha || '-'],
+                ['Started', formatDateTime(scan.startedAt)],
+                ['Completed', formatDateTime(scan.completedAt)],
+                ['Created', formatDateTime(scan.createdAt)]
+            ].map(renderDetailItem).join('');
+        }
+
+        const repo = document.querySelector('[data-scan-detail-repository]');
+        if (repo) {
+            const repoUrl = getGithubRepositoryUrl(repository);
+            repo.innerHTML = [
+                ['Repository', repoUrl ? `<a href="${escapeHtml(repoUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(repository.fullName || repository.name || '-')}</a>` : escapeHtml(repository.fullName || repository.name || '-')],
+                ['Provider', repository.provider || 'github'],
+                ['Default branch', repository.defaultBranch || '-'],
+                ['Security score', repository.securityScore ?? '-']
+            ].map(renderDetailItem).join('');
+        }
+
+        const errorBox = document.querySelector('[data-scan-detail-error]');
+        if (errorBox && scan.errorMessage) {
+            errorBox.hidden = false;
+            errorBox.innerHTML = `<span class="badge danger">Error</span><p class="muted small" style="margin:8px 0 0">${escapeHtml(scan.errorMessage)}</p>`;
+        }
+
+        const findingCount = document.querySelector('[data-scan-detail-finding-count]');
+        if (findingCount) {
+            findingCount.textContent = `${findings.length} findings`;
+        }
+
+        const branchCount = document.querySelector('[data-scan-detail-branch-count]');
+        if (branchCount) {
+            branchCount.textContent = `${branchSummary.length} branches`;
+        }
+
+        const branchTable = document.querySelector('[data-scan-detail-branches]');
+        if (branchTable) {
+            branchTable.innerHTML = branchSummary.map(renderScanBranchRow).join('') || '<tr><td colspan="6">No branch findings were recorded for this scan.</td></tr>';
+        }
+
+        const findingsTable = document.querySelector('[data-scan-detail-findings]');
+        if (findingsTable) {
+            findingsTable.innerHTML = findings.map(renderScanFindingRow).join('') || '<tr><td colspan="5">No findings were recorded for this scan.</td></tr>';
+        }
+    }
+
+    function renderDetailItem(item) {
+        const [label, value] = item;
+
+        return `<div class="detail-row"><span>${escapeHtml(label)}</span><strong>${value}</strong></div>`;
+    }
+
+    function renderScanFindingRow(finding) {
+        const severity = String(finding.severity || 'medium');
+        const badge = severity === 'critical' ? 'danger' : severity === 'high' ? 'warning' : severity === 'low' ? 'success' : 'brand';
+
+        return `<tr><td><a href="/findings/${escapeHtml(finding.id)}">${escapeHtml(finding.title || finding.ruleId || 'Finding')}</a><div class="muted small">${escapeHtml(finding.ruleId || '')}</div></td><td>${escapeHtml(finding.branch || '-')}</td><td><span class="badge ${badge}">${escapeHtml(severity)}</span></td><td>${escapeHtml(finding.filePath || '-')}${finding.lineNumber ? `:${escapeHtml(finding.lineNumber)}` : ''}</td><td>${escapeHtml(finding.status || 'open')}</td></tr>`;
+    }
+
+    function renderScanBranchRow(branch) {
+        return `<tr><td>${escapeHtml(branch.branch || '-')}</td><td><span class="badge danger">${escapeHtml(branch.critical || 0)}</span></td><td><span class="badge warning">${escapeHtml(branch.high || 0)}</span></td><td>${escapeHtml(branch.medium || 0)}</td><td>${escapeHtml(branch.low || 0)}</td><td>${escapeHtml(branch.total || 0)}</td></tr>`;
     }
 
     async function hydrateRepositoryDetail() {
@@ -961,19 +1117,6 @@
             const repo = finding.repository?.name || finding.repositoryName || 'Repository';
             return `<article class="finding-item"><span class="badge ${badge}">${escapeHtml(severity)}</span><div><strong><a href="/findings/${finding.id}">${escapeHtml(finding.title || finding.ruleId || 'Finding')}</a></strong><p class="muted small">${escapeHtml(repo)} / ${escapeHtml(finding.filePath || '-')}</p></div><div class="row-actions"><button class="button" type="button">Assign</button><button class="button" type="button">Resolve</button></div></article>`;
         }).join('');
-    }
-
-    async function hydrateTeamMembers() {
-        const table = document.querySelector('[data-api-table="team-members"]');
-        if (!table) {
-            return;
-        }
-
-        const payload = await apiFetch('/api/user/team/members');
-        const members = payload.data || [];
-        table.innerHTML = members.map(function (member) {
-            return `<tr><td>${escapeHtml(member.name || '-')}</td><td>${escapeHtml(member.email || '-')}</td><td>${escapeHtml(member.role || 'member')}</td><td><span class="badge success">${escapeHtml(member.status || 'active')}</span></td><td>${formatDate(member.createdAt)}</td></tr>`;
-        }).join('') || '<tr><td colspan="5">No team members found.</td></tr>';
     }
 
     async function hydrateNotificationsPage() {
@@ -1039,9 +1182,6 @@
 
     async function loadMore(type, button) {
         if (type === 'scans') {
-            button.disabled = true;
-            await hydrateScans(true);
-            button.disabled = false;
             return;
         }
 

@@ -27,6 +27,8 @@ class Repository extends Model<InferAttributes<Repository>, InferCreationAttribu
     declare isActive: CreationOptional<boolean>;
     declare securityScore: CreationOptional<number>;
     declare baselineScanId: CreationOptional<number | null>;
+    declare nextScheduledScanAt: CreationOptional<Date | null>;
+    declare lastScheduledScanAt: CreationOptional<Date | null>;
     declare createdAt: CreationOptional<Date>;
     declare updatedAt: CreationOptional<Date>;
 }
@@ -111,6 +113,8 @@ function initRepositoryModel(sequelize: Sequelize)
                 type: DataTypes.BIGINT.UNSIGNED,
                 allowNull: true
             },
+            nextScheduledScanAt: { type: DataTypes.DATE, allowNull: true },
+            lastScheduledScanAt: { type: DataTypes.DATE, allowNull: true },
             createdAt:
             {
                 type: DataTypes.DATE,

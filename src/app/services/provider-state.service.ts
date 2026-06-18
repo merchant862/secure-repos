@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 
 import { env } from '../../bootstrap/env';
+import { ProviderOauthState } from '../../db/models';
 
 type ProviderState =
 {
@@ -8,6 +9,7 @@ type ProviderState =
     userId: number;
     provider: string;
     nonce: string;
+    expiresAt: number;
 };
 
 function getStateSecret(): string
@@ -43,23 +45,44 @@ function sign(value: string): string
     return base64Url(crypto.createHmac('sha256', secret).update(value).digest());
 }
 
-function createProviderState(input: Omit<ProviderState, 'nonce'>): string
+function hashNonce(nonce: string): string
 {
+    return crypto.createHash('sha256').update(nonce).digest('hex');
+}
+
+async function createProviderState(input: Omit<ProviderState, 'nonce' | 'expiresAt'>): Promise<string>
+{
+    const nonce = crypto.randomBytes(16).toString('hex');
+    const expiresAt = Date.now() + 10 * 60 * 1000;
     const payload = base64Url(JSON.stringify(
         {
             ...input,
-            nonce: crypto.randomBytes(16).toString('hex')
+            nonce,
+            expiresAt
         }
     ));
+
+    await ProviderOauthState.create(
+        {
+            nonceHash: hashNonce(nonce),
+            tenantId: input.tenantId,
+            userId: input.userId,
+            provider: input.provider,
+            expiresAt: new Date(expiresAt)
+        }
+    );
 
     return `${payload}.${sign(payload)}`;
 }
 
-function verifyProviderState(state: string, expectedProvider?: string): ProviderState
+async function verifyProviderState(state: string, expectedProvider?: string): Promise<ProviderState>
 {
     const [payload, signature] = state.split('.');
+    const expectedSignature = payload ? sign(payload) : '';
+    const providedBuffer = Buffer.from(signature ?? '');
+    const expectedBuffer = Buffer.from(expectedSignature);
 
-    if (!payload || !signature || sign(payload) !== signature)
+    if (!payload || !signature || providedBuffer.length !== expectedBuffer.length || !crypto.timingSafeEqual(providedBuffer, expectedBuffer))
     {
         throw new Error('Invalid provider state');
     }
@@ -69,6 +92,30 @@ function verifyProviderState(state: string, expectedProvider?: string): Provider
     if (expectedProvider && parsed.provider !== expectedProvider)
     {
         throw new Error('Provider state mismatch');
+    }
+
+    if (!Number.isFinite(parsed.expiresAt) || parsed.expiresAt <= Date.now())
+    {
+        throw new Error('Provider state expired');
+    }
+
+    const [consumed] = await ProviderOauthState.update(
+        { consumedAt: new Date() },
+        {
+            where:
+            {
+                nonceHash: hashNonce(parsed.nonce),
+                tenantId: parsed.tenantId,
+                userId: parsed.userId,
+                provider: parsed.provider,
+                consumedAt: null
+            }
+        }
+    );
+
+    if (consumed !== 1)
+    {
+        throw new Error('Provider state was already used or is invalid');
     }
 
     return parsed;

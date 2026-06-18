@@ -87,12 +87,20 @@ async function createIgnoreRuleController(req: AuthenticatedRequest, res: Respon
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
+    const ruleId = typeof req.body.ruleId === 'string' ? req.body.ruleId.trim() : '';
+    const filePattern = typeof req.body.filePattern === 'string' ? req.body.filePattern.trim() : '';
+
+    if (!ruleId && !filePattern)
+    {
+        return res.status(400).json({ message: 'ruleId or filePattern is required' });
+    }
+
     const rule = await IgnoreRule.create(
         {
             tenantId: user.tenantId,
             createdByUserId: user.id,
-            ruleId: req.body.ruleId ?? null,
-            filePattern: req.body.filePattern ?? null,
+            ruleId: ruleId || null,
+            filePattern: filePattern || null,
             reason: req.body.reason ?? null,
             isActive: true
         }

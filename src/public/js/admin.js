@@ -1,6 +1,4 @@
 (function () {
-    const tokenKey = 'secure_repos_admin_token';
-    const tokenExpiryKey = 'secure_repos_admin_expires_at';
     const pageLimit = 25;
     const root = document.documentElement;
     const savedTheme = localStorage.getItem('theme');
@@ -17,19 +15,17 @@
     let pricingPlans = [];
 
     function getToken() {
-        return localStorage.getItem(tokenKey) || '';
+        return document.body.matches('[data-admin-panel]') ? 'cookie-session' : '';
     }
 
     function setToken(token, expiresAt) {
-        localStorage.setItem(tokenKey, token);
-        if (expiresAt) {
-            localStorage.setItem(tokenExpiryKey, expiresAt);
-        }
+        localStorage.removeItem('secure_repos_admin_token');
+        localStorage.removeItem('secure_repos_admin_expires_at');
     }
 
     function clearToken() {
-        localStorage.removeItem(tokenKey);
-        localStorage.removeItem(tokenExpiryKey);
+        localStorage.removeItem('secure_repos_admin_token');
+        localStorage.removeItem('secure_repos_admin_expires_at');
     }
 
     function escapeHtml(value) {
@@ -50,6 +46,15 @@
         return new Date(value).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
+    function adminInitials(admin) {
+        const source = String(admin?.name || admin?.email || 'A').trim();
+        const parts = source.split(/\s+/).filter(Boolean);
+
+        return parts.length > 1
+            ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase()
+            : source.slice(0, 2).toUpperCase();
+    }
+
     function showStatus(message, isError) {
         document.querySelectorAll('[data-admin-status]').forEach(function (node) {
             node.textContent = message || '';
@@ -66,15 +71,13 @@
         document.body.classList.toggle('admin-menu-open', open);
     }
 
+    function setAdminActions(open) {
+        document.body.classList.toggle('admin-actions-open', open);
+    }
+
     async function adminFetch(path, options) {
-        const token = getToken();
         const headers = Object.assign({ 'Content-Type': 'application/json' }, options && options.headers ? options.headers : {});
-
-        if (token) {
-            headers.Authorization = `Bearer ${token}`;
-        }
-
-        const response = await fetch(path, Object.assign({}, options, { headers }));
+        const response = await fetch(path, Object.assign({}, options, { headers, credentials: 'same-origin' }));
         const payload = await response.json().catch(function () {
             return {};
         });
@@ -107,7 +110,7 @@
             try {
                 const body = Object.fromEntries(new FormData(loginForm).entries());
                 const payload = await adminFetch('/api/admin/auth/login', { method: 'POST', body: JSON.stringify(body) });
-                setToken(payload.data?.token, payload.data?.expiresAt);
+                setToken();
                 window.location.href = '/admin/overview';
             } catch (error) {
                 showStatus(error.message, true);
@@ -124,10 +127,6 @@
         return;
     }
 
-    if (!getToken()) {
-        window.location.href = '/admin/sign-in';
-        return;
-    }
 
     const currentPage = document.body.dataset.adminPage || 'overview';
 
@@ -182,42 +181,65 @@
         }).join('');
     }
 
+    function planFeaturesText(plan) {
+        return (plan.features || []).map(function (feature) {
+            return feature.label;
+        }).join('\n');
+    }
+
+    function currentPlan(planId) {
+        return pricingPlans.find((plan) => Number(plan.id) === Number(planId));
+    }
+
     async function hydrateAdmin() {
         const payload = await adminFetch('/api/admin/auth/me');
         const admin = payload.data;
         const identity = document.querySelector('[data-admin-identity]');
+        const avatar = document.querySelector('[data-admin-avatar]');
 
         if (identity && admin) {
-            identity.textContent = `${admin.name || admin.email} · ${admin.role}`;
+            identity.textContent = admin.name || admin.email;
+        }
+        if (avatar && admin) {
+            avatar.textContent = adminInitials(admin);
         }
     }
 
     async function hydratePlans() {
         const payload = await adminFetch('/api/admin/pricing-plans');
         pricingPlans = payload.data || [];
+        const activeCount = pricingPlans.filter((plan) => plan.isActive).length;
+        const planCount = document.querySelector('[data-plan-count]');
+        const createForm = document.querySelector('[data-admin-form="pricing-create"]');
+
+        if (planCount) {
+            planCount.textContent = `${activeCount} / 2 active`;
+        }
+        if (createForm) {
+            const button = createForm.querySelector('button[type="submit"]');
+            if (button) {
+                button.disabled = activeCount >= 2;
+                button.textContent = activeCount >= 2 ? 'Package limit reached' : 'Create plan';
+            }
+        }
+
         const rows = pricingPlans.map(function (plan) {
-            const status = plan.isActive ? 'Active' : 'Inactive';
+            const status = plan.isActive ? 'active' : 'inactive';
             const badge = plan.isActive ? 'success' : 'warning';
-            const limits = `${plan.repositoryLimit ?? 'Unlimited'} repos / ${plan.teamMemberLimit ?? 'Unlimited'} seats`;
-            const scanLimits = `${plan.manualScanDailyLimit ?? 'Unlimited'} manual/day · ${plan.manualScanCooldownMinutes ?? 0}m cooldown`;
             return `<tr>
-                <td>${plan.id}</td>
-                <td><strong>${escapeHtml(plan.name)}</strong><p class="muted small">${escapeHtml(plan.slug)}${plan.isHighlighted ? ' · highlighted' : ''}</p></td>
+                <td><a href="#" class="admin-plan-link" data-admin-action="open-plan" data-plan-id="${plan.id}">${escapeHtml(plan.name)}</a><p class="muted small" style="margin:4px 0 0">${escapeHtml(plan.slug)}${plan.isHighlighted ? ' · highlighted' : ''}</p></td>
                 <td>${money(plan.priceMonthlyCents, plan.currency)}</td>
-                <td>${escapeHtml(limits)}<p class="muted small">${escapeHtml(scanLimits)}</p></td>
                 <td><span class="badge ${badge}">${status}</span></td>
                 <td>
                     <div class="admin-inline-actions">
-                        <input class="input" type="number" min="0" placeholder="Daily" value="${plan.manualScanDailyLimit ?? ''}" data-plan-manual-limit="${plan.id}">
-                        <input class="input" type="number" min="0" placeholder="Cooldown" value="${plan.manualScanCooldownMinutes ?? 0}" data-plan-cooldown="${plan.id}">
-                        <button class="button" type="button" data-admin-action="update-plan-scan-limits" data-plan-id="${plan.id}">Apply limits</button>
-                        <button class="button danger" type="button" data-admin-action="deactivate-plan" data-plan-id="${plan.id}" ${plan.isActive ? '' : 'disabled'}>Deactivate</button>
+                        <button class="button" type="button" data-admin-action="open-plan" data-plan-id="${plan.id}">Details</button>
+                        <button class="button danger" type="button" data-admin-action="deactivate-plan" data-plan-id="${plan.id}">Delete</button>
                     </div>
                 </td>
             </tr>`;
         }).join('');
 
-        renderRows('plans', 6, rows, false);
+        renderRows('plans', 4, rows, false);
         return payload;
     }
 
@@ -258,57 +280,6 @@
         return payload;
     }
 
-    async function hydrateRepositories(append) {
-        const payload = await adminFetch(paginatedPath('/api/admin/repositories', 'repositories', append));
-        const repos = payload.data || [];
-        const rows = repos.map(function (repo) {
-            return `<tr>
-                <td>${repo.id}</td>
-                <td><strong>${escapeHtml(repo.fullName || repo.name)}</strong><p class="muted small">${escapeHtml(repo.defaultBranch || 'main')}</p></td>
-                <td>${escapeHtml(repo.provider || 'github')}</td>
-                <td>${repo.securityScore ?? '-'}</td>
-                <td><span class="badge ${repo.isActive ? 'success' : 'warning'}">${repo.isActive ? 'Active' : 'Inactive'}</span></td>
-                <td>
-                    <div class="admin-inline-actions">
-                        <button class="button" type="button" data-admin-action="scan-repository" data-repository-id="${repo.id}">Scan</button>
-                        <button class="button danger" type="button" data-admin-action="deactivate-repository" data-repository-id="${repo.id}" ${repo.isActive ? '' : 'disabled'}>Deactivate</button>
-                    </div>
-                </td>
-            </tr>`;
-        }).join('');
-
-        renderRows('repositories', 6, rows, append);
-        updatePager('repositories', payload);
-        return payload;
-    }
-
-    async function hydrateScans(append) {
-        const payload = await adminFetch(paginatedPath('/api/admin/scans', 'scans', append));
-        const scans = payload.data || [];
-        const rows = scans.map(function (scan) {
-            return `<tr>
-                <td>${scan.id}</td>
-                <td>${escapeHtml(scan.repository?.fullName || scan.repository?.name || '-')}</td>
-                <td><span class="badge brand">${escapeHtml(scan.status || '-')}</span></td>
-                <td>${escapeHtml(scan.trigger || '-')}</td>
-                <td>${formatDate(scan.createdAt)}</td>
-                <td><button class="button" type="button" data-admin-action="retry-scan" data-scan-id="${scan.id}">Retry</button></td>
-            </tr>`;
-        }).join('');
-
-        renderRows('scans', 6, rows, append);
-        updatePager('scans', payload);
-        return payload;
-    }
-
-    async function hydrateFindingsStat() {
-        return adminFetch('/api/admin/findings/critical?limit=1');
-    }
-
-    function stringifyJson(value) {
-        return JSON.stringify(value || {}, null, 2);
-    }
-
     async function hydrateProviderSettings() {
         const payload = await adminFetch('/api/admin/provider-settings/github');
         const provider = payload.data;
@@ -320,46 +291,25 @@
 
         form.displayName.value = provider.displayName || '';
         form.connectLabel.value = provider.connectLabel || '';
-        form.sortOrder.value = provider.sortOrder ?? 0;
         form.isEnabled.checked = Boolean(provider.isEnabled);
         form.setupInstructions.value = provider.setupInstructions || '';
-        form.scanDefaults.value = stringifyJson(provider.scanDefaults);
-        form.planAvailability.value = stringifyJson(provider.planAvailability);
-        form.metadata.value = stringifyJson(provider.metadata);
-        return payload;
-    }
-
-    async function hydrateAdmins() {
-        const payload = await adminFetch('/api/admin/admins');
-        const admins = payload.data || [];
-        const rows = admins.map(function (admin) {
-            return `<tr>
-                <td>${admin.id}</td>
-                <td><input class="input compact" data-admin-name="${admin.id}" value="${escapeHtml(admin.name)}"></td>
-                <td>${escapeHtml(admin.email)}</td>
-                <td><select class="input compact" data-admin-role="${admin.id}"><option value="admin" ${admin.role === 'admin' ? 'selected' : ''}>admin</option><option value="super_admin" ${admin.role === 'super_admin' ? 'selected' : ''}>super_admin</option></select></td>
-                <td><select class="input compact" data-admin-status-field="${admin.id}"><option value="active" ${admin.status === 'active' ? 'selected' : ''}>active</option><option value="disabled" ${admin.status === 'disabled' ? 'selected' : ''}>disabled</option></select></td>
-                <td>${formatDate(admin.lastLoginAt)}</td>
-                <td><button class="button" type="button" data-admin-action="update-admin" data-admin-id="${admin.id}">Update</button></td>
-            </tr>`;
-        }).join('');
-
-        renderRows('admins', 7, rows, false);
+        form.triggerFirstScan.checked = provider.scanDefaults?.triggerFirstScan !== false;
+        form.availableSoloStarter.checked = provider.planAvailability?.['solo-starter'] !== false;
+        form.availableSoloPro.checked = provider.planAvailability?.['solo-pro'] !== false;
         return payload;
     }
 
     async function hydrateOverview() {
-        const [plans, tenants, repos, findings] = await Promise.all([
+        const [plans, overview] = await Promise.all([
             hydratePlans(),
-            adminFetch('/api/admin/tenants?limit=1'),
-            adminFetch('/api/admin/repositories?limit=1'),
-            hydrateFindingsStat()
+            adminFetch('/api/admin/overview')
         ]);
+        const overviewData = overview.data || {};
 
         document.querySelector('[data-stat="plans"]').textContent = String((plans.data || []).length);
-        document.querySelector('[data-stat="tenants"]').textContent = String(tenants.total ?? 0);
-        document.querySelector('[data-stat="repos"]').textContent = String(repos.total ?? 0);
-        document.querySelector('[data-stat="findings"]').textContent = String(findings.total ?? 0);
+        document.querySelector('[data-stat="tenants"]').textContent = String(overviewData.tenants ?? 0);
+        document.querySelector('[data-stat="revenue"]').textContent = money(overviewData.estimatedMrrCents || 0, overviewData.estimatedMrrCurrency || 'USD');
+        await hydrateTenants(false);
     }
 
     async function hydrateCurrentPage() {
@@ -376,27 +326,11 @@
                 await hydratePlans();
             }
 
-            if (currentPage === 'tenants') {
-                await hydrateTenants(false);
-            }
-
-            if (currentPage === 'repositories') {
-                await hydrateRepositories(false);
-            }
-
-            if (currentPage === 'scans') {
-                await hydrateScans(false);
-            }
-
             if (currentPage === 'provider') {
                 await hydrateProviderSettings();
             }
 
-            if (currentPage === 'admins') {
-                await hydrateAdmins();
-            }
-
-            showStatus('Admin data loaded.');
+            showStatus('');
         } catch (error) {
             showStatus(error.message, true);
         }
@@ -417,7 +351,6 @@
             priceMonthlyCents: Number(data.priceMonthlyCents || 0),
             currency: data.currency || 'USD',
             repositoryLimit: data.repositoryLimit ? Number(data.repositoryLimit) : null,
-            teamMemberLimit: data.teamMemberLimit ? Number(data.teamMemberLimit) : null,
             manualScanDailyLimit: data.manualScanDailyLimit ? Number(data.manualScanDailyLimit) : null,
             manualScanCooldownMinutes: data.manualScanCooldownMinutes ? Number(data.manualScanCooldownMinutes) : 0,
             scanSchedule: data.scanSchedule || 'daily',
@@ -427,13 +360,73 @@
         };
     }
 
-    function parseJsonField(form, name) {
-        const value = form[name].value.trim();
-        return value ? JSON.parse(value) : {};
+    function planPayloadFromModal(form) {
+        const data = Object.fromEntries(new FormData(form).entries());
+        const features = String(data.features || '').split('\n').map(function (item) {
+            return item.trim();
+        }).filter(Boolean).map(function (label, index) {
+            return { label, isIncluded: true, sortOrder: (index + 1) * 10 };
+        });
+
+        return {
+            name: data.name,
+            slug: data.slug,
+            description: data.description || null,
+            priceMonthlyCents: Number(data.priceMonthlyCents || 0),
+            currency: data.currency || 'USD',
+            repositoryLimit: data.repositoryLimit ? Number(data.repositoryLimit) : null,
+            manualScanDailyLimit: data.manualScanDailyLimit ? Number(data.manualScanDailyLimit) : null,
+            manualScanCooldownMinutes: data.manualScanCooldownMinutes ? Number(data.manualScanCooldownMinutes) : 0,
+            scanSchedule: data.scanSchedule || 'daily',
+            sortOrder: Number(data.sortOrder || 0),
+            isActive: data.isActive === 'true',
+            isHighlighted: Boolean(form.querySelector('[name="isHighlighted"]')?.checked),
+            features
+        };
+    }
+
+    function fillPlanModal(planId) {
+        const plan = currentPlan(planId);
+        const overlay = document.querySelector('[data-plan-modal]');
+        const form = document.querySelector('[data-plan-modal-form]');
+        const title = document.querySelector('[data-plan-modal-title]');
+
+        if (!plan || !overlay || !form) {
+            return;
+        }
+
+        form.planId.value = plan.id;
+        form.name.value = plan.name || '';
+        form.slug.value = plan.slug || '';
+        form.priceMonthlyCents.value = plan.priceMonthlyCents ?? 0;
+        form.currency.value = plan.currency || 'USD';
+        form.repositoryLimit.value = plan.repositoryLimit ?? '';
+        form.manualScanDailyLimit.value = plan.manualScanDailyLimit ?? '';
+        form.manualScanCooldownMinutes.value = plan.manualScanCooldownMinutes ?? 0;
+        form.scanSchedule.value = plan.scanSchedule || 'daily';
+        form.sortOrder.value = plan.sortOrder ?? 0;
+        form.isActive.value = plan.isActive ? 'true' : 'false';
+        form.description.value = plan.description || '';
+        form.features.value = planFeaturesText(plan);
+        form.isHighlighted.checked = Boolean(plan.isHighlighted);
+
+        if (title) {
+            title.textContent = plan.name || 'Package details';
+        }
+
+        overlay.hidden = false;
+    }
+
+    function closePlanModal() {
+        const overlay = document.querySelector('[data-plan-modal]');
+
+        if (overlay) {
+            overlay.hidden = true;
+        }
     }
 
     document.addEventListener('submit', async function (event) {
-        const form = event.target.closest('[data-admin-form]');
+        const form = event.target.closest('[data-admin-form], [data-plan-modal-form]');
 
         if (!form) {
             return;
@@ -442,6 +435,15 @@
         event.preventDefault();
 
         try {
+            if (form.matches('[data-plan-modal-form]')) {
+                const planId = form.planId.value;
+                await adminFetch(`/api/admin/pricing-plans/${planId}`, { method: 'PUT', body: JSON.stringify(planPayloadFromModal(form)) });
+                closePlanModal();
+                await hydratePlans();
+                showStatus('Pricing plan updated.');
+                return;
+            }
+
             if (form.dataset.adminForm === 'pricing-create') {
                 await adminFetch('/api/admin/pricing-plans', { method: 'POST', body: JSON.stringify(pricingPayload(form)) });
                 form.reset();
@@ -453,16 +455,41 @@
                 const body = {
                     displayName: form.displayName.value,
                     connectLabel: form.connectLabel.value,
-                    sortOrder: Number(form.sortOrder.value || 0),
+                    sortOrder: 0,
                     isEnabled: Boolean(form.isEnabled.checked),
                     setupInstructions: form.setupInstructions.value || null,
-                    scanDefaults: parseJsonField(form, 'scanDefaults'),
-                    planAvailability: parseJsonField(form, 'planAvailability'),
-                    metadata: parseJsonField(form, 'metadata')
+                    scanDefaults: {
+                        triggerFirstScan: Boolean(form.triggerFirstScan.checked)
+                    },
+                    planAvailability: {
+                        'solo-starter': Boolean(form.availableSoloStarter.checked),
+                        'solo-pro': Boolean(form.availableSoloPro.checked)
+                    },
+                    metadata: {}
                 };
                 await adminFetch('/api/admin/provider-settings/github', { method: 'PUT', body: JSON.stringify(body) });
                 await hydrateProviderSettings();
                 showStatus('Provider settings saved.');
+            }
+
+            if (form.dataset.adminForm === 'password-change') {
+                if (form.newPassword.value !== form.confirmPassword.value) {
+                    throw new Error('New password and confirmation do not match.');
+                }
+
+                await adminFetch('/api/admin/auth/password', {
+                    method: 'PUT',
+                    body: JSON.stringify(
+                        {
+                            currentPassword: form.currentPassword.value,
+                            newPassword: form.newPassword.value
+                        }
+                    )
+                });
+                form.reset();
+                clearToken();
+                window.location.href = '/admin/sign-in';
+                return;
             }
         } catch (error) {
             showStatus(error.message, true);
@@ -474,12 +501,62 @@
         const refresh = event.target.closest('[data-admin-refresh]');
         const theme = event.target.closest('[data-admin-theme-toggle]');
         const menu = event.target.closest('[data-admin-menu-toggle]');
+        const actionsToggle = event.target.closest('[data-admin-actions-toggle]');
+        const actionsPanel = event.target.closest('[data-admin-actions]');
         const overlay = event.target.closest('[data-admin-menu-overlay]');
         const next = event.target.closest('[data-admin-page-next]');
         const action = event.target.closest('[data-admin-action]');
+        const modalClose = event.target.closest('[data-plan-modal-close]');
+        const modalOverlay = event.target.matches('[data-plan-modal]');
+        const modalDelete = event.target.closest('[data-plan-modal-delete]');
+        const passwordToggle = event.target.closest('[data-password-toggle]');
 
         if (theme) {
             toggleTheme();
+            setAdminActions(false);
+            return;
+        }
+
+        if (actionsToggle) {
+            setAdminActions(!document.body.classList.contains('admin-actions-open'));
+            return;
+        }
+
+        if (!actionsPanel) {
+            setAdminActions(false);
+        }
+
+        if (passwordToggle) {
+            const field = passwordToggle.closest('.password-field');
+            const input = field?.querySelector('input');
+
+            if (input) {
+                const visible = input.type === 'text';
+                input.type = visible ? 'password' : 'text';
+                passwordToggle.textContent = visible ? 'Show' : 'Hide';
+            }
+            return;
+        }
+
+        if (modalClose || modalOverlay) {
+            closePlanModal();
+            return;
+        }
+
+        if (modalDelete) {
+            const form = document.querySelector('[data-plan-modal-form]');
+            const planId = form?.planId.value;
+
+            if (planId) {
+                try {
+                    await adminFetch(`/api/admin/pricing-plans/${planId}`, { method: 'DELETE' });
+                    closePlanModal();
+                    await hydratePlans();
+                    showStatus('Pricing plan deleted.');
+                } catch (error) {
+                    showStatus(error.message, true);
+                }
+            }
             return;
         }
 
@@ -505,6 +582,7 @@
         }
 
         if (refresh) {
+            setAdminActions(false);
             hydrateCurrentPage();
             return;
         }
@@ -513,12 +591,6 @@
             const name = next.dataset.adminPageNext;
             if (name === 'tenants') {
                 await hydrateTenants(true);
-            }
-            if (name === 'repositories') {
-                await hydrateRepositories(true);
-            }
-            if (name === 'scans') {
-                await hydrateScans(true);
             }
             return;
         }
@@ -530,30 +602,16 @@
         try {
             const type = action.dataset.adminAction;
 
+            if (type === 'open-plan') {
+                event.preventDefault();
+                fillPlanModal(action.dataset.planId);
+                return;
+            }
+
             if (type === 'deactivate-plan') {
                 await adminFetch(`/api/admin/pricing-plans/${action.dataset.planId}`, { method: 'DELETE' });
                 await hydratePlans();
-                showStatus('Pricing plan deactivated.');
-            }
-
-            if (type === 'update-plan-scan-limits') {
-                const planId = action.dataset.planId;
-                const plan = pricingPlans.find((item) => Number(item.id) === Number(planId));
-                const daily = document.querySelector(`[data-plan-manual-limit="${planId}"]`).value;
-                const cooldown = document.querySelector(`[data-plan-cooldown="${planId}"]`).value;
-
-                await adminFetch(`/api/admin/pricing-plans/${planId}`, {
-                    method: 'PUT',
-                    body: JSON.stringify({
-                        name: plan.name,
-                        slug: plan.slug,
-                        priceMonthlyCents: plan.priceMonthlyCents,
-                        manualScanDailyLimit: daily ? Number(daily) : null,
-                        manualScanCooldownMinutes: cooldown ? Number(cooldown) : 0
-                    })
-                });
-                await hydratePlans();
-                showStatus('Manual scan limits updated.');
+                showStatus('Pricing plan deleted.');
             }
 
             if (type === 'assign-plan') {
@@ -571,38 +629,6 @@
                 showStatus('Tenant subscription cancelled.');
             }
 
-            if (type === 'scan-repository') {
-                await adminFetch(`/api/admin/repositories/${action.dataset.repositoryId}/scans`, { method: 'POST' });
-                showStatus('Repository scan queued.');
-            }
-
-            if (type === 'deactivate-repository') {
-                await adminFetch(`/api/admin/repositories/${action.dataset.repositoryId}`, { method: 'DELETE' });
-                await hydrateRepositories(false);
-                showStatus('Repository deactivated.');
-            }
-
-            if (type === 'run-all-scans') {
-                await adminFetch('/api/admin/scans/run-all', { method: 'POST' });
-                await hydrateScans(false);
-                showStatus('All repository scans queued.');
-            }
-
-            if (type === 'retry-scan') {
-                await adminFetch(`/api/admin/scans/${action.dataset.scanId}/retry`, { method: 'POST' });
-                await hydrateScans(false);
-                showStatus('Scan retry queued.');
-            }
-
-            if (type === 'update-admin') {
-                const adminId = action.dataset.adminId;
-                const name = document.querySelector(`[data-admin-name="${adminId}"]`).value;
-                const role = document.querySelector(`[data-admin-role="${adminId}"]`).value;
-                const status = document.querySelector(`[data-admin-status-field="${adminId}"]`).value;
-                await adminFetch(`/api/admin/admins/${adminId}`, { method: 'PUT', body: JSON.stringify({ name, role, status }) });
-                await hydrateAdmins();
-                showStatus('Admin updated.');
-            }
         } catch (error) {
             showStatus(error.message, true);
         }

@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 
 const appName = process.env.APP_NAME && process.env.APP_NAME.trim() !== '' ? process.env.APP_NAME : 'SecureRepos';
-const defaultDescription = 'SecureRepos helps GitHub teams scan repositories for secrets, risky configs, CI/CD issues, dependency risk, and security workflow gaps.';
+const defaultDescription = 'SecureRepos helps independent developers scan GitHub repositories for secrets, risky configuration, CI/CD issues, dependency concerns, and branch-level security findings.';
 const supportEmail = 'support@purple-flare.com';
 
 function getBaseUrl(req: Request): string
@@ -53,7 +53,7 @@ function demoPageController(req: Request, res: Response)
 {
     const requestedPage = Array.isArray(req.params.page) ? req.params.page[0] : req.params.page;
     const page = requestedPage ?? 'dashboard';
-    const allowedPages = ['dashboard', 'repositories', 'scans', 'findings', 'reports', 'team', 'settings', 'notifications', 'pricing', 'billing', 'profile', 'onboarding'];
+    const allowedPages = ['dashboard', 'repositories', 'scans', 'findings', 'reports', 'settings', 'notifications', 'pricing', 'billing', 'profile', 'onboarding'];
     const normalizedPage = allowedPages.includes(page) ? page : 'dashboard';
     const titles: Record<string, string> =
     {
@@ -67,15 +67,14 @@ function demoPageController(req: Request, res: Response)
         reports: 'Reports',
         repositories: 'Repositories',
         scans: 'Scans',
-        settings: 'Settings',
-        team: 'Team'
+        settings: 'Settings'
     };
 
     return res.render('demo/page',
     {
         title: `Demo ${titles[normalizedPage]}`,
         appName,
-        seo: publicSeo(req, `${titles[normalizedPage]} Demo | SecureRepos`, 'Explore a SecureRepos demo workspace for GitHub repository scanning, findings triage, security reports, team workflow, and app setup.', req.path),
+        seo: publicSeo(req, `${titles[normalizedPage]} Demo | SecureRepos`, 'Explore a SecureRepos product demo for GitHub repository scanning, branch-level findings, remediation guidance, reports, and app setup.', req.path),
         page: normalizedPage,
         pageTitle: titles[normalizedPage]
     });
@@ -107,7 +106,7 @@ function pricingPageController(req: Request, res: Response)
     {
         title: 'Pricing',
         appName,
-        seo: publicSeo(req, 'SecureRepos Pricing | GitHub Security Scanning Plans', 'Compare SecureRepos plans for GitHub repository security scanning, team seats, scheduled scans, reports, and security workflow coverage.')
+        seo: publicSeo(req, 'SecureRepos Pricing | GitHub Security Scanning Plans', 'Compare SecureRepos plans for solo GitHub repository security scanning, scheduled scans, branch-level findings, alerts, and reports.')
     });
 }
 
@@ -118,7 +117,7 @@ function faqPageController(req: Request, res: Response)
         title: 'FAQ',
         appName,
         supportEmail,
-        seo: publicSeo(req, 'SecureRepos FAQ | GitHub Security Scanner Questions', 'Answers about SecureRepos GitHub repository scanning, app access, findings, reports, team seats, billing, and support.', '/faqs')
+        seo: publicSeo(req, 'SecureRepos FAQ | GitHub Security Scanner Questions', 'Answers about SecureRepos GitHub repository scanning, app access, findings, reports, plans, billing, and support.', '/faqs')
     });
 }
 
@@ -148,14 +147,14 @@ function scansPageController(req: Request, res: Response)
     return res.render('dashboard/scans', { title: 'Scans', appName, seo: privateSeo() });
 }
 
+function scanDetailPageController(req: Request, res: Response)
+{
+    return res.render('dashboard/scan-detail', { title: 'Scan Detail', appName, scanId: req.params.scanId, seo: privateSeo() });
+}
+
 function reportsPageController(req: Request, res: Response)
 {
     return res.render('dashboard/reports', { title: 'Reports', appName, seo: privateSeo() });
-}
-
-function teamPageController(req: Request, res: Response)
-{
-    return res.render('dashboard/team', { title: 'Team', appName, seo: privateSeo() });
 }
 
 function settingsPageController(req: Request, res: Response)
@@ -193,11 +192,6 @@ function findingDetailPageController(req: Request, res: Response)
     return res.render('dashboard/finding-detail', { title: 'Finding Detail', appName, findingId: req.params.findingId, seo: privateSeo() });
 }
 
-function acceptInvitationPageController(req: Request, res: Response)
-{
-    return res.render('auth/accept-invitation', { title: 'Accept Invitation', appName, token: req.query.token ?? '', seo: privateSeo() });
-}
-
 function legalPlaceholderPageController(req: Request, res: Response)
 {
     const legalPages: Record<string, string> =
@@ -219,13 +213,12 @@ function legalPlaceholderPageController(req: Request, res: Response)
         supportEmail,
         websiteUrl: rootUrl,
         legalSlug: normalizedSlug,
-        seo: publicSeo(req, `${legalPages[normalizedSlug]} | SecureRepos`, `${legalPages[normalizedSlug]} for SecureRepos GitHub repository security scanning and workspace services.`)
+        seo: publicSeo(req, `${legalPages[normalizedSlug]} | SecureRepos`, `${legalPages[normalizedSlug]} for SecureRepos GitHub repository security scanning and account services.`)
     });
 }
 
 export
 {
-    acceptInvitationPageController,
     billingPageController,
     contactPageController,
     demoPageController,
@@ -241,9 +234,9 @@ export
     reportsPageController,
     repositoryDetailPageController,
     repositoriesPageController,
+    scanDetailPageController,
     scansPageController,
     settingsPageController,
     signInPageController,
-    signUpPageController,
-    teamPageController
+    signUpPageController
 };

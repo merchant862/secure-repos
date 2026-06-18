@@ -15,7 +15,6 @@ type PricingPlanInput =
     priceMonthlyCents?: number;
     currency?: string;
     repositoryLimit?: number | null;
-    teamMemberLimit?: number | null;
     manualScanDailyLimit?: number | null;
     manualScanCooldownMinutes?: number;
     scanSchedule?: string;
@@ -95,6 +94,26 @@ async function clearHighlightedPlanExcept(planId: number)
     );
 }
 
+async function assertActivePlanLimit(planId?: number)
+{
+    const activePlans = await PricingPlan.findAll(
+        {
+            where:
+            {
+                isActive: true
+            },
+            attributes: ['id']
+        }
+    );
+    const activePlanIds = activePlans.map((plan) => Number(plan.id));
+    const isAlreadyActive = planId ? activePlanIds.includes(planId) : false;
+
+    if (!isAlreadyActive && activePlanIds.length >= 2)
+    {
+        throw new Error('Only 2 active pricing packages are allowed.');
+    }
+}
+
 async function replacePlanFeatures(planId: number, features: PricingPlanFeatureInput[])
 {
     await PricingPlanFeature.destroy(
@@ -131,6 +150,11 @@ async function createPricingPlan(input: PricingPlanInput)
         throw new Error('name, slug, and priceMonthlyCents are required');
     }
 
+    if (input.isActive !== false)
+    {
+        await assertActivePlanLimit();
+    }
+
     const plan = await PricingPlan.create(
         {
             name: input.name,
@@ -139,7 +163,6 @@ async function createPricingPlan(input: PricingPlanInput)
             priceMonthlyCents: input.priceMonthlyCents,
             currency: input.currency ?? 'USD',
             repositoryLimit: input.repositoryLimit ?? null,
-            teamMemberLimit: input.teamMemberLimit ?? null,
             manualScanDailyLimit: input.manualScanDailyLimit ?? null,
             manualScanCooldownMinutes: input.manualScanCooldownMinutes ?? 15,
             scanSchedule: input.scanSchedule ?? 'daily',
@@ -169,6 +192,11 @@ async function updatePricingPlan(planId: number, input: PricingPlanInput)
         return null;
     }
 
+    if (input.isActive === true && !plan.isActive)
+    {
+        await assertActivePlanLimit(plan.id);
+    }
+
     await plan.update(
         {
             name: input.name ?? plan.name,
@@ -177,7 +205,6 @@ async function updatePricingPlan(planId: number, input: PricingPlanInput)
             priceMonthlyCents: input.priceMonthlyCents ?? plan.priceMonthlyCents,
             currency: input.currency ?? plan.currency,
             repositoryLimit: input.repositoryLimit === undefined ? plan.repositoryLimit : input.repositoryLimit,
-            teamMemberLimit: input.teamMemberLimit === undefined ? plan.teamMemberLimit : input.teamMemberLimit,
             manualScanDailyLimit: input.manualScanDailyLimit === undefined ? plan.manualScanDailyLimit : input.manualScanDailyLimit,
             manualScanCooldownMinutes: input.manualScanCooldownMinutes ?? plan.manualScanCooldownMinutes,
             scanSchedule: input.scanSchedule ?? plan.scanSchedule,
@@ -204,7 +231,7 @@ async function updatePricingPlan(planId: number, input: PricingPlanInput)
     return PricingPlan.findByPk(plan.id, { include: pricingPlanInclude() });
 }
 
-async function deactivatePricingPlan(planId: number)
+async function deletePricingPlan(planId: number)
 {
     const plan = await PricingPlan.findByPk(planId);
 
@@ -213,7 +240,8 @@ async function deactivatePricingPlan(planId: number)
         return null;
     }
 
-    await plan.update({ isActive: false, isHighlighted: false });
+    await replacePlanFeatures(plan.id, []);
+    await plan.destroy();
     return plan;
 }
 
@@ -226,5 +254,5 @@ export {
     listAllPricingPlans,
     createPricingPlan,
     updatePricingPlan,
-    deactivatePricingPlan
+    deletePricingPlan
 };

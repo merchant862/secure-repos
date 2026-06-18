@@ -1,36 +1,41 @@
 import { Finding, NotificationEvent, NotificationSetting, Repository, Scan, User } from '../../db/models';
+import { Op } from 'sequelize';
 import { ScannerFinding } from './scan-rules.service';
 import { createTenantNotification } from './in-app-notification.service';
+import { getTenantPlan } from './plan-limit.service';
 
 async function getTenantEmailRecipients(tenantId: number, fallbackUserId?: number): Promise<string[]>
 {
     const settings = await NotificationSetting.findOne({ where: { tenantId } });
-    const configured = settings?.emailRecipients as unknown;
-
-    if (Array.isArray(configured))
-    {
-        return configured.filter((email): email is string => typeof email === 'string' && email.includes('@'));
-    }
-
-    if (typeof configured === 'string')
-    {
-        return configured
-            .split(/[\s,;]+/)
-            .map((email) => email.trim())
-            .filter((email) => email.includes('@'));
-    }
-
-    if (configured && typeof configured === 'object' && Array.isArray((configured as { recipients?: unknown }).recipients))
-    {
-        return (configured as { recipients: unknown[] }).recipients.filter((email): email is string => typeof email === 'string' && email.includes('@'));
-    }
-
     const users = await User.findAll(
         {
             where: fallbackUserId ? { id: fallbackUserId, tenantId, status: 'active' } : { tenantId, status: 'active' },
             attributes: ['email']
         }
     );
+    const allowedEmails = new Set(users.map((user) => user.email.toLowerCase()));
+    const configured = settings?.emailRecipients as unknown;
+
+    if (Array.isArray(configured))
+    {
+        const valid = configured.filter((email): email is string => typeof email === 'string' && allowedEmails.has(email.toLowerCase()));
+        return valid.length > 0 ? valid : users.map((user) => user.email);
+    }
+
+    if (typeof configured === 'string')
+    {
+        const valid = configured
+            .split(/[\s,;]+/)
+            .map((email) => email.trim())
+            .filter((email) => allowedEmails.has(email.toLowerCase()));
+        return valid.length > 0 ? valid : users.map((user) => user.email);
+    }
+
+    if (configured && typeof configured === 'object' && Array.isArray((configured as { recipients?: unknown }).recipients))
+    {
+        const valid = (configured as { recipients: unknown[] }).recipients.filter((email): email is string => typeof email === 'string' && allowedEmails.has(email.toLowerCase()));
+        return valid.length > 0 ? valid : users.map((user) => user.email);
+    }
 
     return users.map((user) => user.email);
 }
@@ -69,7 +74,13 @@ async function queueSecurityAlert(
     findings: ScannerFinding[]
 )
 {
-    const severeFindings = findings.filter((finding) => finding.severity === 'critical' || finding.severity === 'high');
+    const [settings, plan] = await Promise.all(
+        [NotificationSetting.findOne({ where: { tenantId } }), getTenantPlan(tenantId)]
+    );
+    const allowHigh = plan?.slug === 'solo-pro' && settings?.instantHigh !== false;
+    const allowCritical = settings?.instantCritical !== false;
+    const severeFindings = findings.filter((finding) =>
+        (finding.severity === 'critical' && allowCritical) || (finding.severity === 'high' && allowHigh));
 
     if (severeFindings.length === 0)
     {
@@ -85,7 +96,13 @@ async function queueSecurityAlert(
             payload:
             {
                 repositoryFullName,
-                findings: severeFindings
+                findings: severeFindings.slice(0, 20).map((finding) => ({
+                    ruleId: finding.ruleId,
+                    severity: finding.severity,
+                    title: finding.title,
+                    filePath: finding.filePath,
+                    lineNumber: finding.lineNumber
+                }))
             }
         }
     );
@@ -338,7 +355,26 @@ async function queueWeeklyReportsForAllTenants()
     {
         if (tenantId > 0)
         {
-            await queueWeeklyReport(tenantId, summary);
+            const [settings, recentReport] = await Promise.all(
+                [
+                    NotificationSetting.findOne({ where: { tenantId } }),
+                    NotificationEvent.findOne(
+                        {
+                            where:
+                            {
+                                tenantId,
+                                type: 'weekly_report',
+                                createdAt: { [Op.gte]: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) }
+                            }
+                        }
+                    )
+                ]
+            );
+
+            if (settings?.weeklyReport !== false && !recentReport)
+            {
+                await queueWeeklyReport(tenantId, summary);
+            }
         }
     }
 }

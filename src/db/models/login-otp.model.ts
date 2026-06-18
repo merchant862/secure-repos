@@ -18,6 +18,8 @@ class LoginOtp extends Model<InferAttributes<LoginOtp>, InferCreationAttributes<
     declare codeHash: string;
     declare expiresAt: Date;
     declare usedAt: CreationOptional<Date | null>;
+    declare attemptCount: CreationOptional<number>;
+    declare lastAttemptAt: CreationOptional<Date | null>;
     declare ipAddress: CreationOptional<string | null>;
     declare userAgent: CreationOptional<string | null>;
     declare createdAt: CreationOptional<Date>;
@@ -60,6 +62,8 @@ function initLoginOtpModel(sequelize: Sequelize)
                 type: DataTypes.DATE,
                 allowNull: true
             },
+            attemptCount: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false, defaultValue: 0 },
+            lastAttemptAt: { type: DataTypes.DATE, allowNull: true },
             ipAddress:
             {
                 type: DataTypes.STRING(100),

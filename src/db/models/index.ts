@@ -2,7 +2,6 @@ import { Sequelize } from 'sequelize';
 
 import { User, initUserModel } from './user.model';
 import { UserSession, initUserSessionModel } from './user-session.model';
-import { TeamInvitation, initTeamInvitationModel } from './team-invitation.model';
 import { Tenant, initTenantModel } from './tenant.model';
 import { GithubInstallation, initGithubInstallationModel } from './github-installation.model';
 import { CodeHostConnection, initCodeHostConnectionModel } from './code-host-connection.model';
@@ -23,13 +22,14 @@ import { LoginOtp, initLoginOtpModel } from './login-otp.model';
 import { Admin, initAdminModel } from './admin.model';
 import { AdminSession, initAdminSessionModel } from './admin-session.model';
 import { ProviderSetting, initProviderSettingModel } from './provider-setting.model';
+import { ProviderOauthState, initProviderOauthStateModel } from './provider-oauth-state.model';
+import { FindingOccurrence, initFindingOccurrenceModel } from './finding-occurrence.model';
 
 function initModels(sequelize: Sequelize)
 {
     initTenantModel(sequelize);
     initUserModel(sequelize);
     initUserSessionModel(sequelize);
-    initTeamInvitationModel(sequelize);
     initGithubInstallationModel(sequelize);
     initCodeHostConnectionModel(sequelize);
     initRepositoryModel(sequelize);
@@ -49,6 +49,8 @@ function initModels(sequelize: Sequelize)
     initAdminModel(sequelize);
     initAdminSessionModel(sequelize);
     initProviderSettingModel(sequelize);
+    initProviderOauthStateModel(sequelize);
+    initFindingOccurrenceModel(sequelize);
 
     Tenant.hasMany(User, {
         foreignKey: 'tenantId',
@@ -88,26 +90,6 @@ function initModels(sequelize: Sequelize)
     AdminSession.belongsTo(Admin, {
         foreignKey: 'adminId',
         as: 'admin'
-    });
-
-    Tenant.hasMany(TeamInvitation, {
-        foreignKey: 'tenantId',
-        as: 'teamInvitations'
-    });
-
-    TeamInvitation.belongsTo(Tenant, {
-        foreignKey: 'tenantId',
-        as: 'tenant'
-    });
-
-    User.hasMany(TeamInvitation, {
-        foreignKey: 'invitedByUserId',
-        as: 'sentInvitations'
-    });
-
-    TeamInvitation.belongsTo(User, {
-        foreignKey: 'invitedByUserId',
-        as: 'invitedBy'
     });
 
     Tenant.hasMany(GithubInstallation, {
@@ -315,7 +297,6 @@ export
 {
     User,
     UserSession,
-    TeamInvitation,
     Tenant,
     GithubInstallation,
     CodeHostConnection,
@@ -336,5 +317,7 @@ export
     Admin,
     AdminSession,
     ProviderSetting,
+    ProviderOauthState,
+    FindingOccurrence,
     initModels
 };

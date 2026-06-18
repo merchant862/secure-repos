@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 
-import { acceptInvitation, createLoginOtpChallenge, loginUser, registerOwner, revokeSession, verifyLoginOtpChallenge } from '../../services/auth.service';
+import { createLoginOtpChallenge, loginUser, registerOwner, revokeSession, verifyLoginOtpChallenge } from '../../services/auth.service';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import { User } from '../../../db/models';
 
@@ -92,7 +92,6 @@ async function signupController(req: Request, res: Response)
                 message: 'Account created',
                 data:
                 {
-                    token: session.token,
                     user: serializeUser(user)
                 }
             }
@@ -155,7 +154,6 @@ async function loginOtpController(req: Request, res: Response)
                 message: 'Logged in',
                 data:
                 {
-                    token: session.token,
                     expiresAt: session.session.expiresAt
                 }
             }
@@ -206,44 +204,10 @@ async function logoutController(req: Request, res: Response)
     return res.json({ message: 'Logged out' });
 }
 
-async function acceptInvitationController(req: Request, res: Response)
-{
-    try
-    {
-        const { token, name, password } = req.body;
-
-        if (!token || !name || !password)
-        {
-            return res.status(400).json({ message: 'token, name, and password are required' });
-        }
-
-        const user = await acceptInvitation(token, name, password);
-        const session = await loginUser(user.email, password, req.ip, req.header('user-agent') ?? undefined);
-
-        setAuthCookie(res, session.token);
-
-        return res.json(
-            {
-                message: 'Invitation accepted',
-                data:
-                {
-                    token: session.token,
-                    user: serializeUser(user)
-                }
-            }
-        );
-    }
-    catch (error)
-    {
-        return res.status(400).json({ message: error instanceof Error ? error.message : 'Invitation could not be accepted' });
-    }
-}
-
 export {
     signupController,
     loginController,
     loginOtpController,
     meController,
-    logoutController,
-    acceptInvitationController
+    logoutController
 };

@@ -6,11 +6,13 @@ import https from 'https';
 import { getGithubConfig } from './github.config';
 import {
     GithubBlobResponse,
+    GithubBranchResponse,
     GithubConfig,
     GithubInstallationRepositoriesResponse,
     GithubInstallationResponse,
     GithubTreeResponse
 } from './github.types';
+import { env } from '../../bootstrap/env';
 
 let githubPrivateKeyCache: string | null = null;
 
@@ -159,6 +161,10 @@ function githubRequest<T>(pathName: string, options: { method?: string; token?: 
         );
 
         request.on('error', reject);
+        request.setTimeout(env.githubRequestTimeoutMs, function ()
+        {
+            request.destroy(new Error(`GitHub API request timed out after ${env.githubRequestTimeoutMs}ms`));
+        });
 
         if (body)
         {
@@ -215,6 +221,33 @@ async function fetchRepositoryTree(accessToken: string, fullName: string, branch
     );
 }
 
+async function fetchRepositoryBranches(accessToken: string, fullName: string): Promise<GithubBranchResponse[]>
+{
+    const branches: GithubBranchResponse[] = [];
+    let page = 1;
+
+    while (true)
+    {
+        const response = await githubRequest<GithubBranchResponse[]>(
+            `/repos/${fullName}/branches?per_page=100&page=${page}`,
+            {
+                token: accessToken
+            }
+        );
+
+        branches.push(...response);
+
+        if (response.length < 100)
+        {
+            break;
+        }
+
+        page += 1;
+    }
+
+    return branches;
+}
+
 async function fetchRepositoryBlob(accessToken: string, fullName: string, sha: string): Promise<GithubBlobResponse>
 {
     return githubRequest<GithubBlobResponse>(
@@ -261,6 +294,7 @@ export {
     createInstallationAccessToken,
     fetchGithubInstallation,
     fetchInstallationRepositories,
+    fetchRepositoryBranches,
     fetchRepositoryTree,
     fetchRepositoryBlob,
     verifyGithubWebhookSignature

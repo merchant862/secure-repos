@@ -1,13 +1,15 @@
 import { connectDatabase } from '../bootstrap/database';
 import { env } from '../bootstrap/env';
-import { enqueueAllActiveRepositories } from '../app/services/scan.service';
+import { enqueueDueScheduledScans } from '../app/services/scan.service';
 import { queueWeeklyReportsForAllTenants } from '../app/services/notification.service';
+import { runRetentionCleanup } from '../app/services/retention.service';
 
 async function runSchedulerTick()
 {
-    const scans = await enqueueAllActiveRepositories('scheduled');
+    const scans = await enqueueDueScheduledScans();
     console.log(`Scheduled ${scans.length} repository scans`);
     await queueWeeklyReportsForAllTenants();
+    await runRetentionCleanup();
 }
 
 async function start()
@@ -15,8 +17,6 @@ async function start()
     try
     {
         await connectDatabase();
-
-        await runSchedulerTick();
 
         setInterval(function ()
         {

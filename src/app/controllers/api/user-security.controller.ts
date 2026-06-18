@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { Op } from 'sequelize';
 
-import { CodeHostConnection, Finding, Repository, Scan, User } from '../../../db/models';
+import { CodeHostConnection, Finding, FindingOccurrence, Repository, Scan, User } from '../../../db/models';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import {
     getRepositoryChecklist,
@@ -12,6 +12,7 @@ import { enqueueRepositoryScan } from '../../services/scan.service';
 import { assertManualScanAllowed, getTenantPlan } from '../../services/plan-limit.service';
 import { recordAuditLog } from '../../services/audit.service';
 import { queueFindingAssignedEmail, queueFindingStatusEmail } from '../../services/notification.service';
+import { buildScanJsonReport, buildScanXlsxReport } from '../../services/report-export.service';
 
 async function getTenantRepositoryIds(tenantId: number)
 {
@@ -41,6 +42,13 @@ function paginationFromRequest(req: AuthenticatedRequest)
     };
 }
 
+async function tenantHistoryCutoff(tenantId: number)
+{
+    const plan = await getTenantPlan(tenantId);
+    const days = plan?.slug === 'solo-pro' ? 90 : 30;
+    return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
+}
+
 function repositoryStatusWhere(status: unknown)
 {
     if (status === 'critical')
@@ -54,6 +62,27 @@ function repositoryStatusWhere(status: unknown)
     }
 
     return {};
+}
+
+function buildBranchSummary(findings: Array<{ branch: string | null; severity: string }>)
+{
+    const summary = new Map<string, { branch: string; critical: number; high: number; medium: number; low: number; total: number }>();
+
+    for (const finding of findings)
+    {
+        const branch = finding.branch || 'unknown';
+        const current = summary.get(branch) ?? { branch, critical: 0, high: 0, medium: 0, low: 0, total: 0 };
+
+        if (finding.severity === 'critical' || finding.severity === 'high' || finding.severity === 'medium' || finding.severity === 'low')
+        {
+            current[finding.severity] += 1;
+        }
+
+        current.total += 1;
+        summary.set(branch, current);
+    }
+
+    return Array.from(summary.values()).sort((left, right) => left.branch.localeCompare(right.branch));
 }
 
 async function getTenantRepositories(tenantId: number)
@@ -273,9 +302,11 @@ async function listUserScansController(req: AuthenticatedRequest, res: Response)
     }
 
     const pagination = paginationFromRequest(req);
+    const historyCutoff = await tenantHistoryCutoff(user.tenantId);
     const where =
     {
         tenantId: user.tenantId,
+        createdAt: { [Op.gte]: historyCutoff },
         ...(pagination.cursor
             ? {
                 id:
@@ -293,7 +324,7 @@ async function listUserScansController(req: AuthenticatedRequest, res: Response)
             limit: pagination.limit + 1
         }
     );
-    const total = await Scan.count({ where: { tenantId: user.tenantId } });
+    const total = await Scan.count({ where: { tenantId: user.tenantId, createdAt: { [Op.gte]: historyCutoff } } });
 
     return res.json(
         {
@@ -306,6 +337,126 @@ async function listUserScansController(req: AuthenticatedRequest, res: Response)
             total
         }
     );
+}
+
+async function getUserScanController(req: AuthenticatedRequest, res: Response)
+{
+    const user = req.currentUser;
+    const scanId = Number(req.params.scanId);
+
+    if (!user)
+    {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!Number.isFinite(scanId))
+    {
+        return res.status(400).json({ message: 'Invalid scan id' });
+    }
+
+    const repositoryIds = await getTenantRepositoryIds(user.tenantId);
+    const scan = await Scan.findByPk(
+        scanId,
+        {
+            include:
+            [
+                {
+                    model: Repository,
+                    as: 'repository'
+                }
+            ]
+        }
+    );
+
+    const historyCutoff = await tenantHistoryCutoff(user.tenantId);
+    if (!scan || !repositoryIds.includes(scan.repositoryId) || scan.createdAt < historyCutoff)
+    {
+        return res.status(404).json({ message: 'Scan not found' });
+    }
+
+    const occurrences = await FindingOccurrence.findAll(
+        {
+            where: { scanId: scan.id },
+            order: [['branch', 'ASC'], ['severity', 'ASC'], ['createdAt', 'DESC']]
+        }
+    );
+    const findings = occurrences.length > 0
+        ? await Finding.findAll({ where: { id: { [Op.in]: occurrences.map((occurrence) => occurrence.findingId) } } })
+        : await Finding.findAll({ where: { scanId: scan.id }, order: [['branch', 'ASC'], ['severity', 'ASC'], ['createdAt', 'DESC']] });
+    const findingById = new Map(findings.map((finding) => [Number(finding.id), finding]));
+    const responseFindings = occurrences.length > 0
+        ? occurrences.map(function (occurrence)
+        {
+            const finding = findingById.get(Number(occurrence.findingId));
+            return {
+                ...occurrence.toJSON(),
+                id: occurrence.findingId,
+                status: finding?.status ?? 'open',
+                firstSeenAt: finding?.firstSeenAt ?? occurrence.createdAt,
+                lastSeenAt: finding?.lastSeenAt ?? occurrence.createdAt,
+                resolvedAt: finding?.resolvedAt ?? null
+            };
+        })
+        : findings;
+
+    return res.json(
+        {
+            data:
+            {
+                scan,
+                branchSummary: buildBranchSummary(responseFindings),
+                findings: responseFindings
+            }
+        }
+    );
+}
+
+async function exportUserScanController(req: AuthenticatedRequest, res: Response)
+{
+    const user = req.currentUser;
+    const scanId = Number(req.params.scanId);
+    const format = String(req.query.format || 'json').toLowerCase();
+
+    if (!user)
+    {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!Number.isFinite(scanId))
+    {
+        return res.status(400).json({ message: 'Invalid scan id' });
+    }
+
+    if (format !== 'json' && format !== 'xlsx')
+    {
+        return res.status(400).json({ message: 'Unsupported export format' });
+    }
+
+    const repositoryIds = await getTenantRepositoryIds(user.tenantId);
+    const scan = await Scan.findByPk(scanId);
+
+    const historyCutoff = await tenantHistoryCutoff(user.tenantId);
+    if (!scan || !repositoryIds.includes(scan.repositoryId) || scan.createdAt < historyCutoff)
+    {
+        return res.status(404).json({ message: 'Scan not found' });
+    }
+
+    const filename = `securerepos-scan-${scan.id}.${format}`;
+
+    if (format === 'xlsx')
+    {
+        const workbook = await buildScanXlsxReport(scan);
+
+        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+        return res.send(workbook);
+    }
+
+    const report = await buildScanJsonReport(scan);
+
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    return res.send(JSON.stringify(report, null, 2));
 }
 
 async function getUserRepositoryController(req: AuthenticatedRequest, res: Response)
@@ -587,6 +738,8 @@ export {
     getUserDashboardSummaryController,
     getUserRepositoryController,
     listUserScansController,
+    getUserScanController,
+    exportUserScanController,
     listUserFindingsController,
     updateUserFindingController,
     getUserRepositoryChecklistController,

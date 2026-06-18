@@ -7,9 +7,8 @@
             <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
             <div class="landing-nav-links">
                 <a href="#platform">Scans</a>
-                <a href="#workflow">Workflow</a>
+                <a href="#workflow">How it works</a>
                 <a href="#pricing">Pricing</a>
-                <a href="#access">Access</a>
                 <a href="/demo">Demo</a>
                 <a href="/faqs">FAQ</a>
                 <a href="/contact">Contact</a>
@@ -20,9 +19,8 @@
             </button>
             <div class="landing-mobile-menu" data-landing-menu>
                 <a href="#platform">Scans</a>
-                <a href="#workflow">Workflow</a>
+                <a href="#workflow">How it works</a>
                 <a href="#pricing">Pricing</a>
-                <a href="#access">Access</a>
                 <a href="/demo">Demo</a>
                 <a href="/faqs">FAQ</a>
                 <a href="/contact">Contact</a>
@@ -34,15 +32,14 @@
         </nav>
         <section class="landing-hero">
             <div class="landing-hero-copy">
-                <span class="badge brand">Repository security workspace</span>
-                <h1>Find risky repository changes before they reach customers.</h1>
-                <p class="muted">SecureRepos gives small GitHub teams a practical place to scan repositories, assign findings, and export security progress without buying a heavy enterprise suite.</p>
-                <div class="toolbar-actions" style="justify-content:flex-start"><a class="button primary" href="/sign-up">Create workspace</a><a class="button" href="/demo">View product demo</a></div>
+                <span class="badge brand">GitHub security for independent developers</span>
+                <h1>Know what is hiding in your repositories before it ships.</h1>
+                <p class="muted">SecureRepos checks supported files across active branches for exposed secrets, risky GitHub Actions, unsafe configuration, Docker issues, and dependency concerns. You get clear findings and practical next steps, without an enterprise security stack.</p>
+                <div class="toolbar-actions" style="justify-content:flex-start"><a class="button primary" href="/sign-up">Scan my repositories</a><a class="button" href="/demo">See a real dashboard</a></div>
                 <div class="landing-trust-row">
-                    <span>GitHub</span>
                     <span>GitHub App</span>
-                    <span>Push Webhooks</span>
-                    <span>Reports</span>
+                    <span>Branch-wide coverage</span>
+                    <span>No card required to view demo</span>
                 </div>
             </div>
             <div class="landing-visual-column">
@@ -59,96 +56,76 @@
             <div class="demo-frame">
                 <div class="demo-top"><span></span><span></span><span></span></div>
                 <div class="demo-frame-header">
-                    <div><strong>Member Dashboard</strong><p class="muted small">Repos, findings, and workflow in sync</p></div>
+                    <div><strong>Security overview</strong><p class="muted small">The repositories that need attention today</p></div>
                     <span class="badge success">86 score</span>
                 </div>
                 <div class="landing-demo-focus">
-                    <span class="badge danger">Today's Focus</span>
-                    <strong>Review 7 critical findings before deploy.</strong>
-                    <p class="muted small">Secrets, CI permissions, Dockerfile risk, and package flags stay visible at a glance.</p>
+                    <span class="badge danger">Needs attention</span>
+                    <strong>One exposed token and two unsafe workflow permissions.</strong>
+                    <p class="muted small">Each finding includes the branch, file, severity, and a practical remediation path.</p>
                 </div>
                 <div class="landing-demo-progress">
-                    <div><strong>74%</strong><span>weekly progress</span></div>
+                    <div><strong>74%</strong><span>repository health</span></div>
                     <div class="progress"><span style="width:74%"></span></div>
                 </div>
                 <div class="landing-demo-list">
                     <article><span class="badge brand">Secrets</span><p>API token pattern detected in checkout config</p></article>
                     <article><span class="badge warning">CI</span><p>Workflow grants broad write permissions</p></article>
-                    <article><span class="badge success">Report</span><p>Weekly posture export ready for review</p></article>
+                    <article><span class="badge success">Report</span><p>Branch-level scan report ready to export</p></article>
                 </div>
             </div>
             </div>
         </section>
         <section class="landing-band landing-band-dark" id="platform">
             <div class="landing-section-heading">
-                <span class="badge brand">Platform</span>
-                <h2>Clear security operations for teams that need direction, not noise.</h2>
-                <p class="muted">Connect once, scan the repositories that matter, and keep the next security action visible without opening a spreadsheet.</p>
+                <span class="badge brand">What it checks</span>
+                <h2>Useful checks for the code and configuration solo developers actually ship.</h2>
+                <p class="muted">Install the GitHub App, choose repositories within your plan, and review findings by repository and branch.</p>
             </div>
             <div class="grid grid-3 landing-features">
-                <article class="landing-feature-card"><span>01</span><strong>Repository Scans</strong><p class="muted small">Detect secrets, risky config, CI permission issues, Dockerfile gaps, and package concerns.</p></article>
-                <article class="landing-feature-card"><span>02</span><strong>Finding Ownership</strong><p class="muted small">Assign, resolve, snooze, ignore, and review findings with clear team accountability.</p></article>
-                <article class="landing-feature-card"><span>03</span><strong>Security Reports</strong><p class="muted small">Export posture summaries for customers, partners, and internal security reviews.</p></article>
+                <article class="landing-feature-card"><span>01</span><strong>Secrets and credentials</strong><p class="muted small">Catch common API keys, private keys, database URLs, and hardcoded credentials before they become incidents.</p></article>
+                <article class="landing-feature-card"><span>02</span><strong>CI and configuration</strong><p class="muted small">Review broad workflow permissions, unsafe scripts, risky Docker settings, and repository hygiene.</p></article>
+                <article class="landing-feature-card"><span>03</span><strong>Branch-level reports</strong><p class="muted small">See which branch and file produced a finding, then export the scan as JSON or XLSX.</p></article>
             </div>
         </section>
         <section class="landing-band landing-band-light">
             <div class="landing-section-heading">
-                <span class="badge success">Designed to feel useful from day one</span>
-                <h2>Everything important stays close to the team’s daily work.</h2>
+                <span class="badge success">Built to stay manageable</span>
+                <h2>Security checks that fit around the way you already use GitHub.</h2>
             </div>
             <div class="landing-experience-grid">
-                <article><strong>GitHub App access</strong><p>Teams install the GitHub App after signup so selected repositories stay tied to a real workspace.</p></article>
-                <article><strong>Visible progress</strong><p>Scores, open findings, scan activity, and reports show whether security work is actually moving.</p></article>
-                <article><strong>Focused workflow</strong><p>The product stays centered on scanning, triage, ownership, notification, and reporting.</p></article>
+                <article><strong>You choose the repositories</strong><p>Connect only the projects covered by your plan. SecureRepos does not need access to everything in your GitHub account.</p></article>
+                <article><strong>Findings stay understandable</strong><p>Severity, affected branch, file path, and remediation guidance are kept together.</p></article>
+                <article><strong>Limits stay predictable</strong><p>Repository and scan limits are clear in each plan. There are no unlimited tiers hiding infrastructure restrictions.</p></article>
             </div>
         </section>
         <section class="landing-band landing-band-dark" id="workflow">
             <div class="landing-section-heading">
-                <span class="badge brand">Daily workflow</span>
-                <h2>A simple security routine your team can follow every week.</h2>
+                <span class="badge brand">How it works</span>
+                <h2>From GitHub install to a useful report in four steps.</h2>
             </div>
             <div class="landing-step-grid">
-                <article><span>1</span><strong>Install GitHub App</strong><p class="muted small">Choose the GitHub repositories that should be monitored.</p></article>
-                <article><span>2</span><strong>Run scans</strong><p class="muted small">Review security checks for secrets, config, CI, Docker, and packages.</p></article>
-                <article><span>3</span><strong>Assign owners</strong><p class="muted small">Move findings into ownership instead of letting them sit in a backlog.</p></article>
-                <article><span>4</span><strong>Export progress</strong><p class="muted small">Generate reports that show what changed and what still needs attention.</p></article>
+                <article><span>1</span><strong>Create your account</strong><p class="muted small">Choose the plan that matches the number of repositories you actively maintain.</p></article>
+                <article><span>2</span><strong>Install the GitHub App</strong><p class="muted small">Select repositories within your package limit and keep access scoped.</p></article>
+                <article><span>3</span><strong>Review active branches</strong><p class="muted small">Each scan supports up to 50 branches and 2,000 scannable files per repository to keep scan time and GitHub API usage predictable.</p></article>
+                <article><span>4</span><strong>Fix and verify</strong><p class="muted small">Follow remediation guidance, rerun the scan, and export the result when needed.</p></article>
             </div>
         </section>
         <section class="landing-band landing-band-pricing" id="pricing">
             <div class="landing-section-heading">
                 <span class="badge warning">Pricing</span>
-                <h2>Simple plans for small teams and focused repository coverage.</h2>
-                <p class="muted">Final pricing can stay editable from the admin side, but the public page now shows the intended customer-facing structure.</p>
+                <h2>Two plans, both built for solo developers.</h2>
+                <p class="muted">Choose based on the repositories you maintain and how often you want automatic checks to run.</p>
             </div>
-            <div class="grid grid-3">
-                <article class="card card-body plan-card">
-                    <span class="badge brand">Starter</span>
-                    <div class="metric-value">$29<span class="plan-period">/mo</span></div>
-                    <p class="muted small">For solo builders and early repositories.</p>
-                    <ul class="plan-list"><li>5 repositories</li><li>1 team seat</li><li>Manual scans</li><li>Basic reports</li></ul>
-                    <a class="button" href="/sign-up">Choose Starter</a>
-                </article>
-                <article class="card card-body plan-card plan-featured">
-                    <span class="badge success">Recommended</span>
-                    <div class="metric-value">$79<span class="plan-period">/mo</span></div>
-                    <p class="muted small">For small teams that need workflow and ownership.</p>
-                    <ul class="plan-list"><li>50 repositories</li><li>12 team seats</li><li>Scheduled scans</li><li>Audit log and exports</li></ul>
-                    <a class="button primary" href="/sign-up">Choose Team</a>
-                </article>
-                <article class="card card-body plan-card">
-                    <span class="badge warning">Growth</span>
-                    <div class="metric-value">$149<span class="plan-period">/mo</span></div>
-                    <p class="muted small">For agencies and teams watching more repos.</p>
-                    <ul class="plan-list"><li>150 repositories</li><li>30 team seats</li><li>Priority scan queue</li><li>Advanced reports</li></ul>
-                    <a class="button" href="/sign-up">Choose Growth</a>
-                </article>
+            <div class="landing-pricing-grid" data-public-pricing>
+                <article class="card card-body plan-card"><p class="muted">Loading current plans...</p></article>
             </div>
         </section>
         <section class="landing-access" id="access">
             <div>
                 <span class="badge warning">Access model</span>
-                <h2>Signup first. Payment next. Provider connection after that.</h2>
-                <p class="muted">The workspace is created with email and password. After plan activation, users install the GitHub App and begin real scans. The public demo stays separate for product preview.</p>
+                <h2>See the product before you connect a repository.</h2>
+                <p class="muted">The public demo shows the dashboard and finding workflow without GitHub access. When you are ready, create an account, activate a plan, and install the GitHub App.</p>
             </div>
             <div class="landing-access-actions">
                 <a class="button primary" href="/sign-up">Create account</a>
@@ -158,7 +135,7 @@
         <footer class="landing-footer">
             <div class="landing-footer-brand">
                 <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
-                <p class="muted small">Repository monitoring, scanner workflow, team accountability, and security reporting for small engineering teams.</p>
+                <p class="muted small">GitHub repository security scanning, branch-level findings, practical remediation, and exportable reports for independent developers.</p>
                 <div class="payment-marks" aria-label="Accepted payment methods">
                     <span class="payment-mark visa">VISA</span>
                     <span class="payment-mark mastercard"><i></i><b></b></span>

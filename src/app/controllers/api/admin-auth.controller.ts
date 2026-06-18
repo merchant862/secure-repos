@@ -1,8 +1,16 @@
 import { Request, Response } from 'express';
 
 import { Admin } from '../../../db/models';
-import { AuthenticatedAdminRequest } from '../../middlewares/admin-api-auth.middleware';
-import { loginAdmin, revokeAdminSession } from '../../services/admin-auth.service';
+import { AuthenticatedAdminRequest, adminCookieName, getCookieValue } from '../../middlewares/admin-api-auth.middleware';
+import { changeAdminPassword, loginAdmin, revokeAdminSession } from '../../services/admin-auth.service';
+
+const adminCookieOptions =
+{
+    httpOnly: true,
+    sameSite: 'strict' as const,
+    secure: process.env.NODE_ENV === 'production',
+    path: '/'
+};
 
 function serializeAdmin(admin: Admin | undefined)
 {
@@ -15,7 +23,6 @@ function serializeAdmin(admin: Admin | undefined)
         id: admin.id,
         name: admin.name,
         email: admin.email,
-        role: admin.role,
         status: admin.status
     };
 }
@@ -32,13 +39,13 @@ async function adminLoginController(req: Request, res: Response)
         }
 
         const session = await loginAdmin(email, password, req.ip, req.header('user-agent') ?? undefined);
+        res.cookie(adminCookieName, session.token, { ...adminCookieOptions, maxAge: 12 * 60 * 60 * 1000 });
 
         return res.json(
             {
                 message: 'Admin logged in',
                 data:
                 {
-                    token: session.token,
                     expiresAt: session.session.expiresAt,
                     admin: serializeAdmin(session.admin)
                 }
@@ -59,18 +66,50 @@ function adminMeController(req: AuthenticatedAdminRequest, res: Response)
 async function adminLogoutController(req: Request, res: Response)
 {
     const authorization = req.header('authorization');
-    const token = authorization?.startsWith('Bearer ') ? authorization.slice('Bearer '.length) : '';
+    const token = authorization?.startsWith('Bearer ')
+        ? authorization.slice('Bearer '.length)
+        : getCookieValue(req, adminCookieName);
 
     if (token)
     {
         await revokeAdminSession(token);
     }
 
+    res.clearCookie(adminCookieName, adminCookieOptions);
+
     return res.json({ message: 'Admin logged out' });
+}
+
+async function adminChangePasswordController(req: AuthenticatedAdminRequest, res: Response)
+{
+    try
+    {
+        const { currentPassword, newPassword } = req.body;
+
+        if (!req.currentAdmin)
+        {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        if (!currentPassword || !newPassword)
+        {
+            return res.status(400).json({ message: 'currentPassword and newPassword are required' });
+        }
+
+        await changeAdminPassword(req.currentAdmin.id, currentPassword, newPassword);
+        res.clearCookie(adminCookieName, adminCookieOptions);
+
+        return res.json({ message: 'Admin password updated' });
+    }
+    catch (error)
+    {
+        return res.status(400).json({ message: error instanceof Error ? error.message : 'Password could not be updated' });
+    }
 }
 
 export {
     adminLoginController,
     adminMeController,
-    adminLogoutController
+    adminLogoutController,
+    adminChangePasswordController
 };

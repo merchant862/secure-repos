@@ -22,6 +22,7 @@ class Finding extends Model<InferAttributes<Finding>, InferCreationAttributes<Fi
     declare title: string;
     declare description: string;
     declare remediation: CreationOptional<string | null>;
+    declare branch: CreationOptional<string | null>;
     declare filePath: string;
     declare lineNumber: CreationOptional<number | null>;
     declare fingerprint: string;
@@ -79,6 +80,11 @@ function initFindingModel(sequelize: Sequelize)
             remediation:
             {
                 type: DataTypes.TEXT,
+                allowNull: true
+            },
+            branch:
+            {
+                type: DataTypes.STRING(150),
                 allowNull: true
             },
             filePath:

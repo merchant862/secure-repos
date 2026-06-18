@@ -84,6 +84,15 @@ type GithubTreeResponse =
     tree: GithubTreeItem[];
 };
 
+type GithubBranchResponse =
+{
+    name: string;
+    commit:
+    {
+        sha: string;
+    };
+};
+
 type GithubBlobResponse =
 {
     sha: string;
@@ -100,6 +109,7 @@ export type {
     GithubRepositoryPayload,
     GithubInstallationResponse,
     GithubInstallationRepositoriesResponse,
+    GithubBranchResponse,
     GithubTreeItem,
     GithubTreeResponse,
     GithubBlobResponse

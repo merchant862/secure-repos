@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName, seo }) %></head>
+<body data-force-theme="dark">
+    <main class="error-page-shell">
+        <nav class="error-page-nav">
+            <a class="brand" href="/" aria-label="<%= appName %> home"><%- include('../partials/brand-logo') %></a>
+            <a class="button compact" href="/">Home</a>
+        </nav>
+
+        <section class="error-page-content">
+            <div class="error-page-code" aria-hidden="true"><%= statusCode %></div>
+            <span class="public-kicker">Request could not be completed</span>
+            <h1><%= heading %></h1>
+            <p><%= message %></p>
+            <div class="error-page-actions">
+                <a class="button primary" href="/">Return home</a>
+                <a class="button" href="/contact">Contact support</a>
+            </div>
+        </section>
+
+        <footer class="error-page-footer">
+            <span><%= appName %></span>
+            <span>GitHub repository security for independent developers</span>
+        </footer>
+    </main>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

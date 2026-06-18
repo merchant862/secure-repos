@@ -7,7 +7,6 @@ type AdminSeedArgs =
     name: string;
     email: string;
     password: string;
-    role: string;
     status: string;
     updateExisting: boolean;
 };
@@ -21,7 +20,6 @@ Options:
   --name       Admin display name. Required.
   --email      Admin email address. Required.
   --password   Admin password. Required.
-  --role       Admin role. Default: super_admin.
   --status     Admin status. Default: active.
   --update     Update an existing admin with the same email.
   --help       Show this message.`);
@@ -31,7 +29,6 @@ function readArgs(argv: string[]): AdminSeedArgs
 {
     const values: Record<string, string | boolean> =
     {
-        role: 'super_admin',
         status: 'active',
         updateExisting: false
     };
@@ -72,7 +69,6 @@ function readArgs(argv: string[]): AdminSeedArgs
     const name = String(values.name ?? '').trim();
     const email = String(values.email ?? '').trim().toLowerCase();
     const password = String(values.password ?? '');
-    const role = String(values.role ?? 'super_admin').trim();
     const status = String(values.status ?? 'active').trim();
 
     if (!name || !email || !password)
@@ -94,7 +90,6 @@ function readArgs(argv: string[]): AdminSeedArgs
         name,
         email,
         password,
-        role,
         status,
         updateExisting: Boolean(values.updateExisting)
     };
@@ -108,7 +103,7 @@ async function main()
 
     const result = await seedAdmin(args);
 
-    console.log(`${result.created ? 'Created' : 'Updated'} admin: ${result.admin.email} (${result.admin.role}, ${result.admin.status})`);
+    console.log(`${result.created ? 'Created' : 'Updated'} admin: ${result.admin.email} (${result.admin.status})`);
 }
 
 main()

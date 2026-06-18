@@ -8,16 +8,16 @@
         <section class="auth-copy">
             <a class="brand" href="/" style="padding:0;color:#fff"><%- include('../partials/brand-logo') %></a>
             <div>
-                <h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Launch a security workspace in minutes.</h1>
-                <p style="color:#d0d5dd;max-width:560px">Install the GitHub App, invite your team, and move findings from discovered to resolved without a heavy enterprise tool.</p>
+                <h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Start checking your GitHub repositories in minutes.</h1>
+                <p style="color:#d0d5dd;max-width:560px">Choose a plan, install the GitHub App, and review branch-level findings without setting up a heavy security platform.</p>
             </div>
-            <p style="color:#98a2b3;margin:0">Plans, limits, and package points stay editable from admin APIs.</p>
+            <p style="color:#98a2b3;margin:0">Clear repository limits. Clear scan limits. No unlimited plan claims.</p>
         </section>
         <section class="auth-card">
             <div class="auth-card-inner">
                 <a class="muted small" href="/sign-in">Already have an account?</a>
-                <h1 style="margin:22px 0 8px">Create workspace</h1>
-                <p class="muted" style="margin:0 0 26px">Create the owner account first. Plan, payment, and GitHub setup come next.</p>
+                <h1 style="margin:22px 0 8px">Create account</h1>
+                <p class="muted" style="margin:0 0 26px">Create your account first. Plan activation and GitHub setup come next.</p>
                 <form method="post" action="/api/auth/signup">
                     <div class="form-field">
                         <label>Name</label>
@@ -29,7 +29,7 @@
                     </div>
                     <div class="form-field">
                         <label>Password</label>
-                        <input class="input" type="password" name="password" autocomplete="new-password" required>
+                        <input class="input" type="password" name="password" autocomplete="new-password" minlength="12" maxlength="128" required>
                     </div>
                     <button class="button primary" type="submit" style="width:100%">Create account</button>
                     <p class="muted small" data-form-status style="margin:12px 0 0"></p>

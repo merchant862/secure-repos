@@ -8,6 +8,8 @@ import {
 import { enqueueRepositoryScan } from './scan.service';
 import { assertRepositoryLimitAvailable } from './plan-limit.service';
 import { queueProviderStatusEmail } from './notification.service';
+import { getProviderSetting } from './provider-setting.service';
+import { sequelize } from '../../db/sequelize';
 
 function slugify(value: string): string
 {
@@ -38,28 +40,42 @@ async function findOrCreateTenant(accountLogin: string)
 
 async function upsertRepository(githubInstallation: GithubInstallation, repositoryPayload: GithubRepositoryPayload)
 {
-    const connection = await CodeHostConnection.findOne(
+    return sequelize.transaction(async function (transaction)
+    {
+        await Tenant.findByPk(githubInstallation.tenantId, { transaction, lock: transaction.LOCK.UPDATE });
+        const connection = await CodeHostConnection.findOne(
         {
             where:
             {
                 provider: 'github',
                 externalId: githubInstallation.githubInstallationId
-            }
+            },
+            transaction
         }
-    );
-    await assertRepositoryLimitAvailable(githubInstallation.tenantId, 'github', String(repositoryPayload.id));
+        );
+        await assertRepositoryLimitAvailable(githubInstallation.tenantId, 'github', String(repositoryPayload.id), transaction);
 
-    const existingRepository = await Repository.findOne(
+        const existingRepository = await Repository.findOne(
         {
             where:
             {
                 provider: 'github',
                 externalRepositoryId: String(repositoryPayload.id)
+            },
+            transaction
+        }
+        );
+
+        if (existingRepository?.githubInstallationId && existingRepository.githubInstallationId !== githubInstallation.id)
+        {
+            const existingInstallation = await GithubInstallation.findByPk(existingRepository.githubInstallationId, { transaction });
+            if (existingInstallation && existingInstallation.tenantId !== githubInstallation.tenantId)
+            {
+                throw new Error('Repository is already connected to another SecureRepos account');
             }
         }
-    );
 
-    const values =
+        const values =
     {
         githubInstallationId: githubInstallation.id,
         codeHostConnectionId: connection?.id ?? null,
@@ -74,13 +90,14 @@ async function upsertRepository(githubInstallation: GithubInstallation, reposito
         isActive: true
     };
 
-    if (existingRepository)
-    {
-        await existingRepository.update(values);
-        return existingRepository;
-    }
+        if (existingRepository)
+        {
+            await existingRepository.update(values, { transaction });
+            return existingRepository;
+        }
 
-    return Repository.create(values);
+        return Repository.create(values, { transaction });
+    });
 }
 
 function isRepositoryLimitError(error: unknown)
@@ -95,7 +112,6 @@ async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
         return [];
     }
 
-    const tenant = await findOrCreateTenant(payload.installation.account.login);
     const installationId = String(payload.installation.id);
     const existingInstallation = await GithubInstallation.findOne(
         {
@@ -105,6 +121,12 @@ async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
             }
         }
     );
+    if (!existingInstallation)
+    {
+        return [];
+    }
+    const tenant = await Tenant.findByPk(existingInstallation.tenantId);
+    if (!tenant) return [];
     const installationValues =
     {
         tenantId: tenant.id,
@@ -112,9 +134,7 @@ async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
         githubAccountLogin: payload.installation.account.login,
         githubAccountType: payload.installation.account.type
     };
-    const githubInstallation = existingInstallation
-        ? await existingInstallation.update(installationValues)
-        : await GithubInstallation.create(installationValues);
+    const githubInstallation = await existingInstallation.update(installationValues);
     const existingConnection = await CodeHostConnection.findOne(
         {
             where:
@@ -180,7 +200,9 @@ async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
 
         syncedRepositories.push(repository);
 
-        if (payload.action === 'created' || payload.action === 'added')
+        const providerSetting = await getProviderSetting('github');
+        const scanDefaults = providerSetting?.scanDefaults as { triggerFirstScan?: boolean } | null;
+        if ((payload.action === 'created' || payload.action === 'added') && scanDefaults?.triggerFirstScan !== false)
         {
             await enqueueRepositoryScan(repository.id, 'github_webhook');
         }
@@ -207,6 +229,10 @@ async function syncGithubInstallationForTenant(tenantId: number, installationId:
             }
         }
     );
+    if (existingInstallation && existingInstallation.tenantId !== tenant.id)
+    {
+        throw new Error('This GitHub installation is already connected to another account');
+    }
     const githubInstallation = existingInstallation
         ? await existingInstallation.update(
             {
@@ -263,8 +289,12 @@ async function syncGithubInstallationForTenant(tenantId: number, installationId:
     const accessToken = await createInstallationAccessToken(installationId);
     const repositoriesResponse = await fetchInstallationRepositories(accessToken);
     const repositories: Repository[] = [];
+    const providerSetting = await getProviderSetting('github');
+    const scanDefaults = providerSetting?.scanDefaults as { triggerFirstScan?: boolean } | null;
 
-    for (const repositoryPayload of repositoriesResponse.repositories)
+    const selectedRepositories = [...repositoriesResponse.repositories].sort((left, right) => left.full_name.localeCompare(right.full_name));
+
+    for (const repositoryPayload of selectedRepositories)
     {
         let repository: Repository;
 
@@ -283,7 +313,10 @@ async function syncGithubInstallationForTenant(tenantId: number, installationId:
         }
 
         repositories.push(repository);
-        await enqueueRepositoryScan(repository.id, 'github_initial_sync');
+        if (scanDefaults?.triggerFirstScan !== false)
+        {
+            await enqueueRepositoryScan(repository.id, 'github_initial_sync');
+        }
     }
 
     await queueProviderStatusEmail(tenant.id, 'github', installation.account.login, 'connected');

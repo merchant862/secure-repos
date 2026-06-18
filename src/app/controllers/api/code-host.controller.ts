@@ -3,7 +3,8 @@ import { Response } from 'express';
 import { buildGithubAppInstallUrl } from '../../../modules/github/github.service';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import { createProviderState } from '../../services/provider-state.service';
-import { assertProviderEnabled } from '../../services/provider-setting.service';
+import { assertProviderAvailableForPlan } from '../../services/provider-setting.service';
+import { getTenantPlan } from '../../services/plan-limit.service';
 
 function isGithubProvider(value: string)
 {
@@ -31,14 +32,16 @@ async function getProviderConnectUrlController(req: AuthenticatedRequest, res: R
 
     try
     {
-        await assertProviderEnabled(provider);
+        const plan = await getTenantPlan(user.tenantId);
+        if (!plan) throw new Error('An active pricing plan is required');
+        await assertProviderAvailableForPlan(provider, plan.slug);
     }
     catch (error)
     {
         return res.status(403).json({ message: error instanceof Error ? error.message : 'Provider is disabled' });
     }
 
-    const state = createProviderState(
+    const state = await createProviderState(
         {
             tenantId: user.tenantId,
             userId: user.id,

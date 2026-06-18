@@ -1,8 +1,8 @@
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 
 import { PricingPlan, Repository, Scan, TenantSubscription } from '../../db/models';
 
-async function getTenantPlan(tenantId: number)
+async function getTenantPlan(tenantId: number, transaction?: Transaction)
 {
     const subscription = await TenantSubscription.findOne(
         {
@@ -16,7 +16,8 @@ async function getTenantPlan(tenantId: number)
                     model: PricingPlan,
                     as: 'pricingPlan'
                 }
-            ]
+            ],
+            transaction
         }
     );
 
@@ -31,14 +32,15 @@ async function getTenantPlan(tenantId: number)
         {
             where:
             {
-                slug: 'starter',
                 isActive: true
-            }
+            },
+            order: [['sortOrder', 'ASC']],
+            transaction
         }
     );
 }
 
-async function assertRepositoryLimitAvailable(tenantId: number, provider: string, externalRepositoryId: string)
+async function assertRepositoryLimitAvailable(tenantId: number, provider: string, externalRepositoryId: string, transaction?: Transaction)
 {
     const existing = await Repository.findOne(
         {
@@ -46,7 +48,8 @@ async function assertRepositoryLimitAvailable(tenantId: number, provider: string
             {
                 provider,
                 externalRepositoryId
-            }
+            },
+            transaction
         }
     );
 
@@ -55,7 +58,7 @@ async function assertRepositoryLimitAvailable(tenantId: number, provider: string
         return;
     }
 
-    const plan = await getTenantPlan(tenantId);
+    const plan = await getTenantPlan(tenantId, transaction);
 
     if (!plan || plan.repositoryLimit === null)
     {
@@ -78,7 +81,8 @@ async function assertRepositoryLimitAvailable(tenantId: number, provider: string
                         tenantId
                     }
                 }
-            ]
+            ],
+            transaction
         }
     );
 

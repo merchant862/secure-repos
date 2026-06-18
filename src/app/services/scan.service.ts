@@ -1,15 +1,19 @@
 import { Op } from 'sequelize';
 
-import { Finding, GithubInstallation, Repository, Scan } from '../../db/models';
-import { fetchRepositoryBlob, fetchRepositoryTree, createInstallationAccessToken } from '../../modules/github/github.service';
-import { GithubTreeItem } from '../../modules/github/github.types';
+import { Finding, FindingOccurrence, GithubInstallation, Repository, Scan } from '../../db/models';
+import crypto from 'crypto';
+import { env } from '../../bootstrap/env';
+
+import { fetchRepositoryBlob, fetchRepositoryBranches, fetchRepositoryTree, createInstallationAccessToken } from '../../modules/github/github.service';
+import { GithubBranchResponse, GithubTreeItem } from '../../modules/github/github.types';
 import { queueScanFailedEmail, queueScanSummaryEmail, queueSecurityAlert } from './notification.service';
 import { refreshRepositorySecurityScore } from './security-posture.service';
 import { filterIgnoredFindings } from './ignore-rule.service';
-import { RepositoryFile, scanFiles } from './scan-rules.service';
+import { RepositoryFile, ScannerFinding, scanFiles } from './scan-rules.service';
+import { getTenantPlan } from './plan-limit.service';
+import { sequelize } from '../../db/sequelize';
 
 const maxFileSizeBytes = 300 * 1024;
-const maxFilesPerScan = 500;
 const textFileExtensions = new Set(
     [
         '.js',
@@ -92,7 +96,9 @@ function decodeBlobContent(content: string, encoding: string): string
 
 async function enqueueRepositoryScan(repositoryId: number, triggerType: string)
 {
-    const repository = await Repository.findByPk(repositoryId);
+    return sequelize.transaction(async function (transaction)
+    {
+    const repository = await Repository.findByPk(repositoryId, { transaction, lock: transaction.LOCK.UPDATE });
 
     if (!repository || !repository.isActive)
     {
@@ -100,13 +106,40 @@ async function enqueueRepositoryScan(repositoryId: number, triggerType: string)
     }
 
     const githubInstallation = repository.githubInstallationId
-        ? await GithubInstallation.findByPk(repository.githubInstallationId)
+        ? await GithubInstallation.findByPk(repository.githubInstallationId, { transaction })
         : null;
     const tenantId = githubInstallation?.tenantId;
 
     if (!tenantId)
     {
         return null;
+    }
+
+    if (triggerType === 'push')
+    {
+        const plan = await getTenantPlan(tenantId, transaction);
+        const debounceMinutes = Math.max(10, Number(plan?.manualScanCooldownMinutes ?? 15));
+        const recentPushScan = await Scan.findOne(
+            {
+                where:
+                {
+                    repositoryId,
+                    triggerType: 'push',
+                    createdAt: { [Op.gte]: new Date(Date.now() - debounceMinutes * 60 * 1000) }
+                },
+                transaction
+            }
+        );
+        if (recentPushScan) return null;
+    }
+
+    const existing = await Scan.findOne(
+        { where: { repositoryId, status: { [Op.in]: ['queued', 'running', 'retry'] } }, transaction }
+    );
+
+    if (existing)
+    {
+        return existing;
     }
 
     return Scan.create(
@@ -116,8 +149,54 @@ async function enqueueRepositoryScan(repositoryId: number, triggerType: string)
             status: 'queued',
             triggerType,
             branch: repository.defaultBranch
-        }
+        },
+        { transaction }
     );
+    });
+}
+
+function scheduleIntervalMs(schedule: string)
+{
+    if (schedule === 'weekly') return 7 * 24 * 60 * 60 * 1000;
+    if (schedule === 'every_4_days') return 4 * 24 * 60 * 60 * 1000;
+    return 24 * 60 * 60 * 1000;
+}
+
+async function enqueueDueScheduledScans(now = new Date())
+{
+    const repositories = await Repository.findAll({ where: { isActive: true } });
+    const queued: Scan[] = [];
+
+    for (const repository of repositories)
+    {
+        const installation = repository.githubInstallationId
+            ? await GithubInstallation.findByPk(repository.githubInstallationId)
+            : null;
+        if (!installation) continue;
+
+        const plan = await getTenantPlan(installation.tenantId);
+        if (!plan) continue;
+
+        const latestCompleted = await Scan.findOne(
+            { where: { repositoryId: repository.id, status: 'completed' }, order: [['completedAt', 'DESC']] }
+        );
+        const base = repository.lastScheduledScanAt ?? latestCompleted?.completedAt ?? repository.createdAt;
+        const nextDue = repository.nextScheduledScanAt ?? new Date(base.getTime() + scheduleIntervalMs(plan.scanSchedule));
+
+        if (nextDue > now)
+        {
+            if (!repository.nextScheduledScanAt) await repository.update({ nextScheduledScanAt: nextDue });
+            continue;
+        }
+
+        const scan = await enqueueRepositoryScan(repository.id, 'scheduled');
+        if (scan && scan.triggerType === 'scheduled') queued.push(scan);
+        await repository.update(
+            { lastScheduledScanAt: now, nextScheduledScanAt: new Date(now.getTime() + scheduleIntervalMs(plan.scanSchedule)) }
+        );
+    }
+
+    return queued;
 }
 
 async function enqueueAllActiveRepositories(triggerType: string)
@@ -161,11 +240,65 @@ async function getNextQueuedScan()
     );
 }
 
-async function fetchScannableFiles(repository: Repository, accessToken: string): Promise<RepositoryFile[]>
+function branchFingerprint(branch: string, fingerprint: string)
 {
-    const branch = repository.defaultBranch || 'main';
-    const tree = await fetchRepositoryTree(accessToken, repository.fullName, branch);
-    const treeItems = tree.tree.filter(shouldScanTreeItem).slice(0, maxFilesPerScan);
+    return crypto
+        .createHash('sha256')
+        .update(`${branch}:${fingerprint}`)
+        .digest('hex');
+}
+
+function findingBranch(finding: ScannerFinding)
+{
+    const metadata = finding.metadata as { branch?: unknown } | undefined;
+
+    return typeof metadata?.branch === 'string' ? metadata.branch : null;
+}
+
+function normalizeBranches(repository: Repository, branches: GithubBranchResponse[])
+{
+    const fallbackBranch = repository.defaultBranch || 'main';
+    const branchMap = new Map<string, GithubBranchResponse>();
+
+    for (const branch of branches)
+    {
+        branchMap.set(branch.name, branch);
+    }
+
+    if (!branchMap.has(fallbackBranch))
+    {
+        branchMap.set(
+            fallbackBranch,
+            {
+                name: fallbackBranch,
+                commit:
+                {
+                    sha: fallbackBranch
+                }
+            }
+        );
+    }
+
+    return Array.from(branchMap.values()).sort(function (left, right)
+    {
+        if (left.name === fallbackBranch)
+        {
+            return -1;
+        }
+
+        if (right.name === fallbackBranch)
+        {
+            return 1;
+        }
+
+        return left.name.localeCompare(right.name);
+    });
+}
+
+async function fetchScannableFilesForBranch(repository: Repository, accessToken: string, branch: GithubBranchResponse, remainingFiles: number): Promise<RepositoryFile[]>
+{
+    const tree = await fetchRepositoryTree(accessToken, repository.fullName, branch.commit.sha || branch.name);
+    const treeItems = tree.tree.filter(shouldScanTreeItem).slice(0, Math.min(env.scanMaxFilesPerBranch, remainingFiles));
     const files: RepositoryFile[] = [];
 
     for (const item of treeItems)
@@ -182,21 +315,67 @@ async function fetchScannableFiles(repository: Repository, accessToken: string):
     return files;
 }
 
-async function fetchScannableFilesForRepository(repository: Repository): Promise<RepositoryFile[]>
+async function scanGithubRepositoryBranches(repository: Repository): Promise<ScannerFinding[]>
+{
+    const githubInstallation = repository.githubInstallationId
+        ? await GithubInstallation.findByPk(repository.githubInstallationId)
+        : null;
+
+    if (!githubInstallation)
+    {
+        throw new Error('GitHub installation not found for repository');
+    }
+
+    const accessToken = await createInstallationAccessToken(githubInstallation.githubInstallationId);
+    const branches = normalizeBranches(repository, await fetchRepositoryBranches(accessToken, repository.fullName));
+    const findings: ScannerFinding[] = [];
+    const startedAt = Date.now();
+    let scannedFiles = 0;
+
+    if (branches.length > env.scanMaxBranches)
+    {
+        throw new Error(`Repository has ${branches.length} branches; the safe scan limit is ${env.scanMaxBranches}. Archive stale branches or increase SCAN_MAX_BRANCHES.`);
+    }
+
+    for (const branch of branches)
+    {
+        if (Date.now() - startedAt > env.scanMaxDurationMs)
+        {
+            throw new Error(`Scan exceeded the ${Math.ceil(env.scanMaxDurationMs / 60000)} minute safety limit.`);
+        }
+
+        const remainingFiles = env.scanMaxFiles - scannedFiles;
+        if (remainingFiles <= 0)
+        {
+            throw new Error(`Repository exceeded the ${env.scanMaxFiles} file scan budget.`);
+        }
+
+        const files = await fetchScannableFilesForBranch(repository, accessToken, branch, remainingFiles);
+        scannedFiles += files.length;
+        const branchFindings = scanFiles(files).map(function (finding)
+        {
+            return {
+                ...finding,
+                fingerprint: branchFingerprint(branch.name, finding.fingerprint),
+                metadata:
+                {
+                    ...(finding.metadata ?? {}),
+                    branch: branch.name
+                }
+            };
+        });
+
+        findings.push(...branchFindings);
+    }
+
+    return findings;
+}
+
+async function scanRepositoryBranches(repository: Repository): Promise<ScannerFinding[]>
 {
     if (repository.provider === 'github')
     {
-        const githubInstallation = repository.githubInstallationId
-            ? await GithubInstallation.findByPk(repository.githubInstallationId)
-            : null;
-
-        if (!githubInstallation)
-        {
-            throw new Error('GitHub installation not found for repository');
-        }
-
-        const accessToken = await createInstallationAccessToken(githubInstallation.githubInstallationId);
-        return fetchScannableFiles(repository, accessToken);
+        return scanGithubRepositoryBranches(repository);
     }
 
     throw new Error('Only GitHub repositories are supported');
@@ -224,8 +403,7 @@ async function processScan(scan: Scan)
             throw new Error('Repository not found for scan');
         }
 
-        const files = await fetchScannableFilesForRepository(repository);
-        const scannerFindings = await filterIgnoredFindings(scan.tenantId, scanFiles(files));
+        const scannerFindings = await filterIgnoredFindings(scan.tenantId, await scanRepositoryBranches(repository));
         const dedupedFindings = Array.from(
             new Map(scannerFindings.map((finding) => [finding.fingerprint, finding])).values()
         );
@@ -320,23 +498,53 @@ async function processScan(scan: Scan)
                 .map(function (finding)
                 {
                     return {
-                    scanId: scan.id,
-                    repositoryId: repository.id,
-                    ruleId: finding.ruleId,
-                    severity: finding.severity,
-                    title: finding.title,
-                    description: finding.description,
-                    remediation: finding.remediation,
-                    filePath: finding.filePath,
-                    lineNumber: finding.lineNumber,
-                    fingerprint: finding.fingerprint,
-                    status: 'open',
-                    firstSeenAt: new Date(),
-                    lastSeenAt: new Date(),
-                    metadata: finding.metadata ?? null
+                        scanId: scan.id,
+                        repositoryId: repository.id,
+                        ruleId: finding.ruleId,
+                        severity: finding.severity,
+                        title: finding.title,
+                        description: finding.description,
+                        remediation: finding.remediation,
+                        branch: findingBranch(finding),
+                        filePath: finding.filePath,
+                        lineNumber: finding.lineNumber,
+                        fingerprint: finding.fingerprint,
+                        status: 'open',
+                        firstSeenAt: new Date(),
+                        lastSeenAt: new Date(),
+                        metadata: finding.metadata ?? null
                     };
                 })
         );
+
+        const currentFindings = currentFingerprints.length > 0
+            ? await Finding.findAll(
+                { where: { repositoryId: repository.id, fingerprint: { [Op.in]: currentFingerprints } } }
+            )
+            : [];
+
+        if (currentFindings.length > 0)
+        {
+            await FindingOccurrence.bulkCreate(
+                currentFindings.map(function (finding)
+                {
+                    return {
+                        scanId: scan.id,
+                        findingId: finding.id,
+                        repositoryId: repository.id,
+                        branch: finding.branch,
+                        severity: finding.severity,
+                        ruleId: finding.ruleId,
+                        title: finding.title,
+                        description: finding.description,
+                        remediation: finding.remediation,
+                        filePath: finding.filePath,
+                        lineNumber: finding.lineNumber
+                    };
+                }),
+                { ignoreDuplicates: true }
+            );
+        }
 
         await scan.update(
             {
@@ -428,6 +636,7 @@ async function runScanWorkerLoop(pollMs: number)
 export {
     enqueueRepositoryScan,
     enqueueAllActiveRepositories,
+    enqueueDueScheduledScans,
     processScan,
     runScanWorkerOnce,
     runScanWorkerLoop

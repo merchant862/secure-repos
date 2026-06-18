@@ -9,7 +9,6 @@ class PricingPlan extends Model<InferAttributes<PricingPlan>, InferCreationAttri
     declare priceMonthlyCents: number;
     declare currency: CreationOptional<string>;
     declare repositoryLimit: CreationOptional<number | null>;
-    declare teamMemberLimit: CreationOptional<number | null>;
     declare manualScanDailyLimit: CreationOptional<number | null>;
     declare manualScanCooldownMinutes: CreationOptional<number>;
     declare scanSchedule: CreationOptional<string>;
@@ -59,11 +58,6 @@ function initPricingPlanModel(sequelize: Sequelize)
                 defaultValue: 'USD'
             },
             repositoryLimit:
-            {
-                type: DataTypes.INTEGER.UNSIGNED,
-                allowNull: true
-            },
-            teamMemberLimit:
             {
                 type: DataTypes.INTEGER.UNSIGNED,
                 allowNull: true

@@ -48,16 +48,6 @@ npm run seed:admin -- \
   --password "StrongPassword123!"
 ```
 
-Create a non-super admin:
-
-```bash
-npm run seed:admin -- \
-  --name "Admin User" \
-  --email "admin2@example.com" \
-  --password "StrongPassword123!" \
-  --role "admin"
-```
-
 Update an existing admin with the same email:
 
 ```bash
@@ -65,7 +55,6 @@ npm run seed:admin -- \
   --name "Saif Ali" \
   --email "admin@example.com" \
   --password "NewStrongPassword123!" \
-  --role "super_admin" \
   --status "active" \
   --update
 ```
@@ -76,7 +65,6 @@ Seeder options:
 --name       Admin display name. Required.
 --email      Admin email address. Required.
 --password   Admin password. Required.
---role       Admin role. Default: super_admin.
 --status     Admin status. Default: active.
 --update     Update an existing admin with the same email.
 --help       Show usage.
@@ -101,14 +89,11 @@ Admin UI routes:
 /admin/sign-in
 /admin/overview
 /admin/pricing
-/admin/tenants
-/admin/repositories
-/admin/scans
 /admin/provider
-/admin/admins
+/admin/settings
 ```
 
-The admin panel can manage pricing plans, tenants, repositories, scans, provider settings, and existing admin name/role/status values. Admin creation and password changes remain seed-only.
+The admin panel can manage pricing plans, tenant plan assignments from overview, and provider settings. Admin creation and password changes remain seed-only.
 
 Tenant, repository, scan, and critical finding admin APIs return cursor pagination metadata:
 
@@ -157,7 +142,6 @@ These pages require a user session:
 /repositories
 /findings
 /reports
-/team
 /settings
 /notifications
 /billing

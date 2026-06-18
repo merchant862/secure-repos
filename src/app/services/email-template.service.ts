@@ -102,19 +102,6 @@ ${button('Open workspace', `${getAppUrl()}/dashboard`)}`
     );
 }
 
-function renderTeamInvitation(payload: EmailTemplatePayload)
-{
-    const inviteUrl = `${getAppUrl()}/invitations/accept?token=${encodeURIComponent(String(payload.inviteToken ?? ''))}`;
-
-    return baseTemplate(
-        'You have been invited to SecureRepos',
-        'Join your repository security workspace.',
-        `<h1 style="margin:0 0 12px;color:#ffffff;font-size:28px;line-height:1.15">Join the security workspace</h1>
-<p style="margin:0 0 20px;color:#d0d5dd;line-height:1.65">${escapeHtml(payload.invitedBy || 'A workspace owner')} invited you to collaborate on repository security findings.</p>
-${button('Accept invitation', inviteUrl)}`
-    );
-}
-
 function renderSecurityAlert(payload: EmailTemplatePayload)
 {
     const findings = Array.isArray(payload.findings) ? payload.findings as Array<Record<string, unknown>> : [];
@@ -244,7 +231,6 @@ function renderEmailTemplate(type: string, payload: EmailTemplatePayload)
     {
         login_otp: renderLoginOtp,
         welcome_owner: renderWelcomeOwner,
-        team_invitation: renderTeamInvitation,
         security_alert: renderSecurityAlert,
         weekly_report: renderWeeklyReport,
         scan_summary: renderScanSummary,

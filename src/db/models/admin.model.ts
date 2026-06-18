@@ -13,7 +13,6 @@ class Admin extends Model<InferAttributes<Admin>, InferCreationAttributes<Admin>
     declare name: string;
     declare email: string;
     declare password: string;
-    declare role: CreationOptional<string>;
     declare status: CreationOptional<string>;
     declare lastLoginAt: CreationOptional<Date | null>;
     declare createdAt: CreationOptional<Date>;
@@ -45,12 +44,6 @@ function initAdminModel(sequelize: Sequelize)
             {
                 type: DataTypes.STRING(255),
                 allowNull: false
-            },
-            role:
-            {
-                type: DataTypes.STRING(30),
-                allowNull: false,
-                defaultValue: 'admin'
             },
             status:
             {

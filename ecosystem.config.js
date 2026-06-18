@@ -35,7 +35,6 @@ module.exports =
 
         app('securerepos-email-login-otp', 'dist/src/main/start-login-otp-email-worker.js'),
         app('securerepos-email-welcome', 'dist/src/main/start-welcome-email-worker.js'),
-        app('securerepos-email-team-invite', 'dist/src/main/start-team-invite-email-worker.js'),
         app('securerepos-email-security-alert', 'dist/src/main/start-security-alert-email-worker.js'),
         app('securerepos-email-weekly-report', 'dist/src/main/start-weekly-report-email-worker.js'),
         app('securerepos-email-scan-summary', 'dist/src/main/start-scan-summary-email-worker.js'),

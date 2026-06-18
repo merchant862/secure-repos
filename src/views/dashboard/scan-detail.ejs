@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
+<body>
+    <div class="app-shell">
+        <%- include('../partials/sidebar', { appName, activePage: 'scans' }) %>
+        <div class="main-area">
+            <%- include('../partials/navbar', { title, appName, eyebrow: `Scan #${scanId}` }) %>
+            <main class="content">
+                <section class="page-toolbar" data-scan-detail="<%= scanId %>">
+                    <div>
+                        <h2 data-scan-detail-title>Scan detail</h2>
+                        <p class="muted" data-scan-detail-subtitle>Loading scan status, repository, and findings.</p>
+                    </div>
+                    <div class="toolbar-actions">
+                        <a class="button" href="/api/user/scans/<%= scanId %>/export?format=json">Export JSON</a>
+                        <a class="button" href="/api/user/scans/<%= scanId %>/export?format=xlsx">Export XLSX</a>
+                        <a class="button" href="/scans">Back to scans</a>
+                        <a class="button primary" href="/repositories">Queue another scan</a>
+                    </div>
+                </section>
+
+                <section class="grid grid-4">
+                    <article class="card card-body"><span class="badge brand">Status</span><div class="metric-value" data-scan-detail-metric="status" style="font-size:24px">--</div><div class="metric-label">current state</div></article>
+                    <article class="card card-body"><span class="badge danger">Critical</span><div class="metric-value" data-scan-detail-metric="critical">--</div><div class="metric-label">findings</div></article>
+                    <article class="card card-body"><span class="badge warning">High</span><div class="metric-value" data-scan-detail-metric="high">--</div><div class="metric-label">findings</div></article>
+                    <article class="card card-body"><span class="badge success">Total</span><div class="metric-value" data-scan-detail-metric="total">--</div><div class="metric-label">findings</div></article>
+                </section>
+
+                <section class="grid grid-2" style="margin-top:18px">
+                    <article class="card">
+                        <div class="card-header"><h2 class="card-title">Run Information</h2></div>
+                        <div class="card-body scan-detail-list" data-scan-detail-info>
+                            <div class="empty-state">Loading scan information...</div>
+                        </div>
+                    </article>
+                    <article class="card">
+                        <div class="card-header"><h2 class="card-title">Repository</h2></div>
+                        <div class="card-body scan-detail-list" data-scan-detail-repository>
+                            <div class="empty-state">Loading repository information...</div>
+                        </div>
+                    </article>
+                </section>
+
+                <section class="card card-body" data-scan-detail-error hidden style="margin-top:18px"></section>
+
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header">
+                        <h2 class="card-title">Branch Breakdown</h2>
+                        <span class="badge brand" data-scan-detail-branch-count>0 branches</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Branch</th><th>Critical</th><th>High</th><th>Medium</th><th>Low</th><th>Total</th></tr></thead>
+                            <tbody data-scan-detail-branches>
+                                <tr><td colspan="6">Loading branch data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header">
+                        <h2 class="card-title">Findings From This Scan</h2>
+                        <span class="badge brand" data-scan-detail-finding-count>0 findings</span>
+                    </div>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Finding</th><th>Branch</th><th>Severity</th><th>File</th><th>Status</th></tr></thead>
+                            <tbody data-scan-detail-findings>
+                                <tr><td colspan="5">Loading findings...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+                <%- include('../partials/footer') %>
+            </main>
+        </div>
+    </div>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

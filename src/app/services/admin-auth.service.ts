@@ -41,7 +41,7 @@ async function verifyAdminPassword(password: string, hashedPassword: string): Pr
     return crypto.timingSafeEqual(derivedKey, storedBuffer);
 }
 
-async function seedAdmin(input: { name: string; email: string; password: string; role?: string; status?: string; updateExisting?: boolean })
+async function seedAdmin(input: { name: string; email: string; password: string; status?: string; updateExisting?: boolean })
 {
     const existing = await Admin.findOne({ where: { email: input.email } });
     const values =
@@ -49,7 +49,6 @@ async function seedAdmin(input: { name: string; email: string; password: string;
         name: input.name,
         email: input.email,
         password: await hashAdminPassword(input.password),
-        role: input.role ?? 'super_admin',
         status: input.status ?? 'active'
     };
 
@@ -161,9 +160,38 @@ async function revokeAdminSession(token: string)
     );
 }
 
+async function changeAdminPassword(adminId: number, currentPassword: string, newPassword: string)
+{
+    if (newPassword.length < 12 || newPassword.length > 128)
+    {
+        throw new Error('New password must be between 12 and 128 characters.');
+    }
+
+    const admin = await Admin.findByPk(adminId);
+
+    if (!admin)
+    {
+        throw new Error('Admin account not found.');
+    }
+
+    if (!(await verifyAdminPassword(currentPassword, admin.password)))
+    {
+        throw new Error('Current password is incorrect.');
+    }
+
+    await admin.update({ password: await hashAdminPassword(newPassword) });
+    await AdminSession.update(
+        { revokedAt: new Date() },
+        { where: { adminId: admin.id, revokedAt: null } }
+    );
+
+    return admin;
+}
+
 export {
     seedAdmin,
     loginAdmin,
     resolveAdminSession,
-    revokeAdminSession
+    revokeAdminSession,
+    changeAdminPassword
 };

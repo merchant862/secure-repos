@@ -11,6 +11,34 @@ describe('Application routes', function ()
         expect(response.body.message).toBe('Unauthorized');
     });
 
+    it('should set browser security headers', async function ()
+    {
+        const response = await request(app).get('/');
+
+        expect(response.header['content-security-policy']).toContain("frame-ancestors 'none'");
+        expect(response.header['x-content-type-options']).toBe('nosniff');
+        expect(response.header['x-frame-options']).toBe('DENY');
+    });
+
+    it('should reject cross-origin API writes', async function ()
+    {
+        const response = await request(app)
+            .post('/api/contact')
+            .set('Origin', 'https://attacker.example')
+            .send({ name: 'Test', email: 'test@example.com', message: 'test' });
+
+        expect(response.status).toBe(403);
+        expect(response.body.message).toBe('Cross-origin request rejected');
+    });
+
+    it('should not expose removed team routes', async function ()
+    {
+        const response = await request(app).get('/team');
+        expect(response.status).toBe(404);
+        expect(response.type).toContain('html');
+        expect(response.text).toContain('Page not found');
+    });
+
     it('should redirect unauthenticated dashboard pages to sign in', async function ()
     {
         const response = await request(app).get('/dashboard');
@@ -27,7 +55,7 @@ describe('Application routes', function ()
         expect(response.header.location).toBe('/sign-in?next=%2Fdashboard%3Fnext%3Dhttps%253A%252F%252F169.254.169.254%252Flatest%252Fmeta-data');
     });
 
-    it('should render admin sign in and panel shells', async function ()
+    it('should render admin sign in and protect panel shells', async function ()
     {
         const signInResponse = await request(app).get('/admin/sign-in');
         const panelResponse = await request(app).get('/admin/overview');
@@ -35,10 +63,10 @@ describe('Application routes', function ()
 
         expect(signInResponse.status).toBe(200);
         expect(signInResponse.text).toContain('Admin sign in');
-        expect(panelResponse.status).toBe(200);
-        expect(panelResponse.text).toContain('Overview');
-        expect(pricingResponse.status).toBe(200);
-        expect(pricingResponse.text).toContain('Create Pricing Plan');
+        expect(panelResponse.status).toBe(302);
+        expect(panelResponse.header.location).toBe('/admin/sign-in');
+        expect(pricingResponse.status).toBe(302);
+        expect(pricingResponse.header.location).toBe('/admin/sign-in');
     });
 
     it('should redirect github install callback with installation_id back to dashboard', async function ()

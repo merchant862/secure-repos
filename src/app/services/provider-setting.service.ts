@@ -7,9 +7,9 @@ const defaultProviders =
         displayName: 'GitHub',
         sortOrder: 10,
         connectLabel: 'Connect GitHub',
-        setupInstructions: 'Install the GitHub App and select repositories for scanning.',
+        setupInstructions: 'Install the SecureRepos GitHub App and select no more repositories than your plan allows. If you grant access to additional repositories, SecureRepos fills the available plan slots in a stable order and keeps that selection locked until your subscription cycle changes.',
         scanDefaults: { triggerFirstScan: true },
-        planAvailability: { starter: true, team: true, growth: true },
+        planAvailability: { 'solo-starter': true, 'solo-pro': true },
         metadata: { authMode: 'github_app' }
     }
 ];
@@ -34,6 +34,10 @@ async function ensureDefaultProviderSettings()
                     isEnabled: true
                 }
             );
+        }
+        else if (existing.setupInstructions === 'Install the GitHub App and select repositories for scanning.')
+        {
+            await existing.update({ setupInstructions: provider.setupInstructions, planAvailability: provider.planAvailability });
         }
     }
 }
@@ -82,6 +86,19 @@ async function assertProviderEnabled(provider: string)
     return setting;
 }
 
+async function assertProviderAvailableForPlan(provider: string, planSlug: string)
+{
+    const setting = await assertProviderEnabled(provider);
+    const availability = setting.planAvailability as Record<string, unknown> | null;
+
+    if (availability && availability[planSlug] === false)
+    {
+        throw new Error(`${setting.displayName} is not available on this plan`);
+    }
+
+    return setting;
+}
+
 async function updateProviderSetting(provider: string, input: Record<string, unknown>)
 {
     if (!isSupportedProvider(provider))
@@ -117,6 +134,7 @@ async function updateProviderSetting(provider: string, input: Record<string, unk
 
 export {
     assertProviderEnabled,
+    assertProviderAvailableForPlan,
     listProviderSettings,
     getProviderSetting,
     updateProviderSetting

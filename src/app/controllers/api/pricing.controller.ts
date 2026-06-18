@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 
 import {
     createPricingPlan,
-    deactivatePricingPlan,
+    deletePricingPlan,
     listActivePricingPlans,
     listAllPricingPlans,
     PricingPlanInput,
@@ -110,23 +110,34 @@ async function deactivateAdminPricingPlanController(req: Request, res: Response)
         );
     }
 
-    const plan = await deactivatePricingPlan(planId);
-
-    if (!plan)
+    try
     {
-        return res.status(404).json(
+        const plan = await deletePricingPlan(planId);
+
+        if (!plan)
+        {
+            return res.status(404).json(
+                {
+                    message: 'Pricing plan not found'
+                }
+            );
+        }
+
+        return res.json(
             {
-                message: 'Pricing plan not found'
+                message: 'Pricing plan deleted',
+                data: plan
             }
         );
     }
-
-    return res.json(
-        {
-            message: 'Pricing plan deactivated',
-            data: plan
-        }
-    );
+    catch (error)
+    {
+        return res.status(400).json(
+            {
+                message: 'Pricing plan could not be deleted. Remove assigned subscriptions first.'
+            }
+        );
+    }
 }
 
 export {

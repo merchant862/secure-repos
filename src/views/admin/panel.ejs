@@ -10,11 +10,8 @@
             <nav class="admin-nav">
                 <a href="/admin/overview" class="nav-link <%= adminPage === 'overview' ? 'active' : '' %>">Overview</a>
                 <a href="/admin/pricing" class="nav-link <%= adminPage === 'pricing' ? 'active' : '' %>">Pricing</a>
-                <a href="/admin/tenants" class="nav-link <%= adminPage === 'tenants' ? 'active' : '' %>">Tenants</a>
-                <a href="/admin/repositories" class="nav-link <%= adminPage === 'repositories' ? 'active' : '' %>">Repositories</a>
-                <a href="/admin/scans" class="nav-link <%= adminPage === 'scans' ? 'active' : '' %>">Scans</a>
                 <a href="/admin/provider" class="nav-link <%= adminPage === 'provider' ? 'active' : '' %>">Provider</a>
-                <a href="/admin/admins" class="nav-link <%= adminPage === 'admins' ? 'active' : '' %>">Admins</a>
+                <a href="/admin/settings" class="nav-link <%= adminPage === 'settings' ? 'active' : '' %>">Settings</a>
             </nav>
         </aside>
         <main class="admin-main">
@@ -26,10 +23,15 @@
                         <h1 class="page-title"><%= pageTitle %></h1>
                     </div>
                 </div>
-                <div class="toolbar-actions">
+                <button class="admin-avatar-toggle" type="button" data-admin-actions-toggle aria-label="Open admin profile actions" title="Admin profile" data-admin-avatar>A</button>
+                <div class="toolbar-actions admin-header-actions" data-admin-actions>
                     <span class="badge brand" data-admin-identity>Loading</span>
-                    <button class="button" type="button" data-admin-theme-toggle>Theme</button>
-                    <button class="button" type="button" data-admin-refresh>Refresh</button>
+                    <button class="icon-button" type="button" data-admin-theme-toggle aria-label="Toggle theme" title="Toggle theme">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                    </button>
+                    <button class="icon-button" type="button" data-admin-refresh aria-label="Refresh data" title="Refresh data">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M20 11a8 8 0 1 0 2 5.3"/><path d="M20 4v7h-7"/></svg>
+                    </button>
                     <button class="button danger" type="button" data-admin-logout>Logout</button>
                 </div>
             </header>
@@ -38,27 +40,26 @@
                 <p class="muted small" data-admin-status style="margin:0 0 16px"></p>
 
                 <% if (adminPage === 'overview') { %>
-                    <section class="grid grid-4">
+                    <section class="grid grid-3">
                         <article class="card card-body"><span class="badge brand">Tenants</span><div class="metric-value" data-stat="tenants">--</div><div class="metric-label">workspaces</div></article>
                         <article class="card card-body"><span class="badge success">Plans</span><div class="metric-value" data-stat="plans">--</div><div class="metric-label">pricing records</div></article>
-                        <article class="card card-body"><span class="badge warning">Repos</span><div class="metric-value" data-stat="repos">--</div><div class="metric-label">active repository records</div></article>
-                        <article class="card card-body"><span class="badge danger">Critical</span><div class="metric-value" data-stat="findings">--</div><div class="metric-label">open high risk findings</div></article>
+                        <article class="card card-body"><span class="badge warning">Estimated MRR</span><div class="metric-value" data-stat="revenue">--</div><div class="metric-label">active plan value, not captured revenue</div></article>
                     </section>
-                    <section class="grid grid-3 admin-section">
-                        <a class="card card-body admin-jump-card" href="/admin/pricing"><strong>Pricing</strong><p class="muted small">Create, highlight, and deactivate packages.</p></a>
-                        <a class="card card-body admin-jump-card" href="/admin/tenants"><strong>Tenants</strong><p class="muted small">Assign plans and cancel workspace subscriptions.</p></a>
-                        <a class="card card-body admin-jump-card" href="/admin/repositories"><strong>Repositories</strong><p class="muted small">Run scans and deactivate repository records.</p></a>
+                    <section class="card admin-section">
+                        <div class="card-header"><h2 class="card-title">Tenants</h2><span class="badge brand">Cursor paginated</span></div>
+                        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Plan</th><th>Status</th><th>Provider</th><th>Actions</th></tr></thead><tbody data-admin-table="tenants"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
+                        <div class="admin-pagination"><button class="button" type="button" data-admin-page-next="tenants">Load more</button></div>
                     </section>
                 <% } %>
 
                 <% if (adminPage === 'pricing') { %>
                     <section class="grid" style="gap:18px">
                         <article class="card">
-                            <div class="card-header"><h2 class="card-title">Pricing Plans</h2></div>
-                            <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Price</th><th>Limits</th><th>Status</th><th></th></tr></thead><tbody data-admin-table="plans"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
+                            <div class="card-header"><div><h2 class="card-title">Pricing Plans</h2><p class="muted small" style="margin:4px 0 0">Maximum 2 active packages. Only one package can be highlighted.</p></div><span class="badge brand" data-plan-count>0 / 2 active</span></div>
+                            <div class="table-wrap"><table><thead><tr><th>Package</th><th>Price</th><th>Status</th><th></th></tr></thead><tbody data-admin-table="plans"><tr><td colspan="4">Loading...</td></tr></tbody></table></div>
                         </article>
                         <article class="card">
-                            <div class="card-header"><h2 class="card-title">Create Pricing Plan</h2><span class="badge brand">Editable</span></div>
+                            <div class="card-header"><h2 class="card-title">Create Pricing Plan</h2><span class="badge brand">Solo packages only</span></div>
                             <form class="card-body admin-form" data-admin-form="pricing-create">
                                 <div class="grid grid-2">
                                     <div class="form-field"><label>Name</label><input class="input" name="name" required></div>
@@ -66,7 +67,6 @@
                                     <div class="form-field"><label>Monthly price cents</label><input class="input" name="priceMonthlyCents" type="number" min="0" required></div>
                                     <div class="form-field"><label>Currency</label><input class="input" name="currency" value="USD"></div>
                                     <div class="form-field"><label>Repository limit</label><input class="input" name="repositoryLimit" type="number" min="0"></div>
-                                    <div class="form-field"><label>Team member limit</label><input class="input" name="teamMemberLimit" type="number" min="0"></div>
                                     <div class="form-field"><label>Manual scans per day</label><input class="input" name="manualScanDailyLimit" type="number" min="0" placeholder="Blank for unlimited"></div>
                                     <div class="form-field"><label>Manual scan cooldown minutes</label><input class="input" name="manualScanCooldownMinutes" type="number" min="0" value="15"></div>
                                     <div class="form-field"><label>Scan schedule</label><input class="input" name="scanSchedule" value="daily"></div>
@@ -79,30 +79,38 @@
                             </form>
                         </article>
                     </section>
-                <% } %>
 
-                <% if (adminPage === 'tenants') { %>
-                    <section class="card">
-                        <div class="card-header"><h2 class="card-title">Tenants</h2><span class="badge brand">Cursor paginated</span></div>
-                        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Plan</th><th>Status</th><th>Provider</th><th>Actions</th></tr></thead><tbody data-admin-table="tenants"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
-                        <div class="admin-pagination"><button class="button" type="button" data-admin-page-next="tenants">Load more</button></div>
-                    </section>
-                <% } %>
-
-                <% if (adminPage === 'repositories') { %>
-                    <section class="card">
-                        <div class="card-header"><h2 class="card-title">Repositories</h2><span class="badge warning">Admin removal only</span></div>
-                        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Repository</th><th>Provider</th><th>Score</th><th>Active</th><th>Actions</th></tr></thead><tbody data-admin-table="repositories"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
-                        <div class="admin-pagination"><button class="button" type="button" data-admin-page-next="repositories">Load more</button></div>
-                    </section>
-                <% } %>
-
-                <% if (adminPage === 'scans') { %>
-                    <section class="card">
-                        <div class="card-header"><h2 class="card-title">Scans</h2><button class="button primary" type="button" data-admin-action="run-all-scans">Run all scans</button></div>
-                        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Repository</th><th>Status</th><th>Trigger</th><th>Created</th><th>Actions</th></tr></thead><tbody data-admin-table="scans"><tr><td colspan="6">Loading...</td></tr></tbody></table></div>
-                        <div class="admin-pagination"><button class="button" type="button" data-admin-page-next="scans">Load more</button></div>
-                    </section>
+                    <div class="admin-modal-overlay" data-plan-modal hidden>
+                        <form class="admin-modal" data-plan-modal-form>
+                            <div class="card-header">
+                                <div><h2 class="card-title" data-plan-modal-title>Package details</h2><p class="muted small" style="margin:4px 0 0">Update package limits, copy, features, and highlight state.</p></div>
+                                <button class="icon-button" type="button" data-plan-modal-close aria-label="Close package details">×</button>
+                            </div>
+                            <div class="card-body admin-form">
+                                <input type="hidden" name="planId">
+                                <div class="grid grid-2">
+                                    <div class="form-field"><label>Name</label><input class="input" name="name" required></div>
+                                    <div class="form-field"><label>Slug</label><input class="input" name="slug" required></div>
+                                    <div class="form-field"><label>Monthly price cents</label><input class="input" name="priceMonthlyCents" type="number" min="0" required></div>
+                                    <div class="form-field"><label>Currency</label><input class="input" name="currency"></div>
+                                    <div class="form-field"><label>Repository limit</label><input class="input" name="repositoryLimit" type="number" min="0"></div>
+                                    <div class="form-field"><label>Manual scans per day</label><input class="input" name="manualScanDailyLimit" type="number" min="0"></div>
+                                    <div class="form-field"><label>Manual cooldown minutes</label><input class="input" name="manualScanCooldownMinutes" type="number" min="0"></div>
+                                    <div class="form-field"><label>Scan schedule</label><input class="input" name="scanSchedule"></div>
+                                    <div class="form-field"><label>Sort order</label><input class="input" name="sortOrder" type="number" min="0"></div>
+                                    <div class="form-field"><label>Status</label><select class="input" name="isActive"><option value="true">active</option><option value="false">inactive</option></select></div>
+                                </div>
+                                <div class="form-field"><label>Description</label><textarea class="input" name="description" rows="3"></textarea></div>
+                                <div class="form-field"><label>Features, one per line</label><textarea class="input" name="features" rows="6"></textarea></div>
+                                <label class="checkbox-row"><input type="checkbox" name="isHighlighted"> Highlight this package</label>
+                                <div class="toolbar-actions" style="justify-content:flex-start">
+                                    <button class="button primary" type="submit">Update package</button>
+                                    <button class="button" type="button" data-plan-modal-close>Cancel</button>
+                                    <button class="button danger" type="button" data-plan-modal-delete>Delete package</button>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
                 <% } %>
 
                 <% if (adminPage === 'provider') { %>
@@ -112,26 +120,40 @@
                             <div class="grid grid-2">
                                 <div class="form-field"><label>Display name</label><input class="input" name="displayName"></div>
                                 <div class="form-field"><label>Connect label</label><input class="input" name="connectLabel"></div>
-                                <div class="form-field"><label>Sort order</label><input class="input" name="sortOrder" type="number"></div>
                                 <label class="checkbox-row"><input type="checkbox" name="isEnabled"> Enabled</label>
+                                <label class="checkbox-row"><input type="checkbox" name="triggerFirstScan"> Trigger first scan after install</label>
+                                <label class="checkbox-row"><input type="checkbox" name="availableSoloStarter"> Available on Solo Starter</label>
+                                <label class="checkbox-row"><input type="checkbox" name="availableSoloPro"> Available on Solo Pro</label>
                             </div>
                             <div class="form-field"><label>Setup instructions</label><textarea class="input" name="setupInstructions" rows="3"></textarea></div>
-                            <div class="grid grid-3">
-                                <div class="form-field"><label>Scan defaults JSON</label><textarea class="input" name="scanDefaults" rows="5"></textarea></div>
-                                <div class="form-field"><label>Plan availability JSON</label><textarea class="input" name="planAvailability" rows="5"></textarea></div>
-                                <div class="form-field"><label>Metadata JSON</label><textarea class="input" name="metadata" rows="5"></textarea></div>
-                            </div>
                             <button class="button primary" type="submit">Save provider settings</button>
                         </form>
                     </section>
                 <% } %>
 
-                <% if (adminPage === 'admins') { %>
+                <% if (adminPage === 'settings') { %>
                     <section class="card">
-                        <div class="card-header"><div><h2 class="card-title">Admins</h2><p class="muted small" style="margin:4px 0 0">Admin creation and password updates are seed-only.</p></div><code>npm run seed:admin</code></div>
-                        <div class="table-wrap"><table><thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Last login</th><th>Actions</th></tr></thead><tbody data-admin-table="admins"><tr><td colspan="7">Loading...</td></tr></tbody></table></div>
+                        <div class="card-header"><div><h2 class="card-title">Admin Password</h2><p class="muted small" style="margin:4px 0 0">Update the password for the currently signed-in admin account.</p></div><span class="badge brand">Secure</span></div>
+                        <form class="card-body admin-form" data-admin-form="password-change">
+                            <div class="form-field">
+                                <label>Current password</label>
+                                <div class="password-field"><input class="input" type="password" name="currentPassword" autocomplete="current-password" required><button class="button compact" type="button" data-password-toggle>Show</button></div>
+                            </div>
+                            <div class="grid grid-2">
+                                <div class="form-field">
+                                    <label>New password</label>
+                                    <div class="password-field"><input class="input" type="password" name="newPassword" autocomplete="new-password" minlength="12" maxlength="128" required><button class="button compact" type="button" data-password-toggle>Show</button></div>
+                                </div>
+                                <div class="form-field">
+                                    <label>Confirm new password</label>
+                                    <div class="password-field"><input class="input" type="password" name="confirmPassword" autocomplete="new-password" minlength="12" maxlength="128" required><button class="button compact" type="button" data-password-toggle>Show</button></div>
+                                </div>
+                            </div>
+                            <button class="button primary" type="submit">Update password</button>
+                        </form>
                     </section>
                 <% } %>
+
             </section>
         </main>
     </div>

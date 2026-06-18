@@ -12,7 +12,7 @@
                         <h2>Repository scans</h2>
                         <p class="muted">Review queued, running, completed, and failed scans across your connected repositories.</p>
                     </div>
-                    <a class="button primary" href="/repositories">Queue scan</a>
+                    <a class="button primary" href="/repositories">Choose repository to scan</a>
                 </section>
 
                 <section class="card">
@@ -26,15 +26,19 @@
                     <div class="table-wrap">
                         <table>
                             <thead>
-                                <tr><th>ID</th><th>Repository</th><th>Status</th><th>Trigger</th><th>Findings</th><th>Completed</th></tr>
+                                <tr><th>ID</th><th>Repository</th><th>Status</th><th>Trigger</th><th>Findings</th><th>Completed</th><th></th></tr>
                             </thead>
                             <tbody data-api-table="scans">
-                                <tr><td colspan="6">Loading scans...</td></tr>
+                                <tr><td colspan="7">Loading scans...</td></tr>
                             </tbody>
                         </table>
                     </div>
-                    <div class="card-body" style="border-top:1px solid var(--border)">
-                        <button class="button" type="button" data-load-more="scans" hidden>Load more</button>
+                    <div class="table-pagination" data-scan-pagination>
+                        <span class="muted small" data-scan-page-summary>Loading scans...</span>
+                        <div class="toolbar-actions">
+                            <button class="button" type="button" data-scan-page="prev" disabled>Previous</button>
+                            <button class="button" type="button" data-scan-page="next" disabled>Next</button>
+                        </div>
                     </div>
                 </section>
                 <%- include('../partials/footer') %>

@@ -9,7 +9,7 @@
             <a class="brand" href="/" style="padding:0;color:#fff"><%- include('../partials/brand-logo') %></a>
             <div>
                 <h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Secure Repos admin control.</h1>
-                <p style="color:#d0d5dd;max-width:560px">Manage plans, tenants, repositories, scans, provider settings, and admin accounts from one operational console.</p>
+                <p style="color:#d0d5dd;max-width:560px">Manage pricing, tenant plan assignments, provider settings, and admin account security from one operational console.</p>
             </div>
             <p style="color:#98a2b3;margin:0">Admin accounts are created only through the seed command.</p>
         </section>
@@ -25,7 +25,7 @@
                     </div>
                     <div class="form-field">
                         <label>Password</label>
-                        <input class="input" type="password" name="password" autocomplete="current-password" required>
+                        <input class="input" type="password" name="password" autocomplete="current-password" maxlength="128" required>
                     </div>
                     <button class="button primary" type="submit" style="width:100%">Sign in</button>
                     <p class="muted small" data-admin-status style="margin:12px 0 0"></p>

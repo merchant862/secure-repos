@@ -39,7 +39,12 @@ const env =
 
     adminApiToken: getEnv('ADMIN_API_TOKEN', ''),
     scanWorkerPollMs: Number(getEnv('SCAN_WORKER_POLL_MS', '5000')),
-    scanSchedulerIntervalMs: Number(getEnv('SCAN_SCHEDULER_INTERVAL_MS', '86400000')),
+    scanSchedulerIntervalMs: Number(getEnv('SCAN_SCHEDULER_INTERVAL_MS', '300000')),
+    scanMaxBranches: Number(getEnv('SCAN_MAX_BRANCHES', '50')),
+    scanMaxFiles: Number(getEnv('SCAN_MAX_FILES', '2000')),
+    scanMaxFilesPerBranch: Number(getEnv('SCAN_MAX_FILES_PER_BRANCH', '250')),
+    scanMaxDurationMs: Number(getEnv('SCAN_MAX_DURATION_MS', '600000')),
+    githubRequestTimeoutMs: Number(getEnv('GITHUB_REQUEST_TIMEOUT_MS', '20000')),
     notificationWorkerPollMs: Number(getEnv('NOTIFICATION_WORKER_POLL_MS', '10000')),
     notificationDeliveryMode: getEnv('NOTIFICATION_DELIVERY_MODE', 'log'),
     resendApiKey: getEnv('RESEND_API_KEY', ''),

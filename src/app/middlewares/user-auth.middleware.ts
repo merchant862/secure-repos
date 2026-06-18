@@ -20,8 +20,7 @@ const allowedNextPathPrefixes =
     '/reports',
     '/repositories',
     '/scans',
-    '/settings',
-    '/team'
+    '/settings'
 ];
 
 function getCookieValue(req: Request, name: string): string
