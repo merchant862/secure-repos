@@ -11,7 +11,7 @@ function securityHeadersMiddleware(req: Request, res: Response, next: NextFuncti
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
-        "img-src 'self' data: https://github.com https://avatars.githubusercontent.com",
+        "img-src 'self' data: https://github.com https://avatars.githubusercontent.com https://cdn.jsdelivr.net",
         "script-src 'self'",
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
         "connect-src 'self'",

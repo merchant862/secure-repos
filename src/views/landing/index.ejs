@@ -7,6 +7,7 @@
             <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
             <div class="landing-nav-links">
                 <a href="#platform">Scans</a>
+                <a href="#languages">Languages</a>
                 <a href="#workflow">How it works</a>
                 <a href="#pricing">Pricing</a>
                 <a href="/demo">Demo</a>
@@ -19,6 +20,7 @@
             </button>
             <div class="landing-mobile-menu" data-landing-menu>
                 <a href="#platform">Scans</a>
+                <a href="#languages">Languages</a>
                 <a href="#workflow">How it works</a>
                 <a href="#pricing">Pricing</a>
                 <a href="/demo">Demo</a>
@@ -33,13 +35,13 @@
         <section class="landing-hero">
             <div class="landing-hero-copy">
                 <span class="badge brand">GitHub security for independent developers</span>
-                <h1>Know what is hiding in your repositories before it ships.</h1>
-                <p class="muted">SecureRepos checks supported files across active branches for exposed secrets, risky GitHub Actions, unsafe configuration, Docker issues, and dependency concerns. You get clear findings and practical next steps, without an enterprise security stack.</p>
-                <div class="toolbar-actions" style="justify-content:flex-start"><a class="button primary" href="/sign-up">Scan my repositories</a><a class="button" href="/demo">See a real dashboard</a></div>
-                <div class="landing-trust-row">
-                    <span>GitHub App</span>
-                    <span>Branch-wide coverage</span>
-                    <span>No card required to view demo</span>
+                <h1>Find exposed secrets and risky repo configs before they ship.</h1>
+                <p class="muted">SecureRepos connects through a GitHub App, scans selected repositories across active branches, and turns risky files, workflows, dependency alerts, and leaked credentials into clear remediation work.</p>
+                <div class="toolbar-actions" style="justify-content:flex-start"><a class="button primary" href="/sign-up">Create account</a><a class="button" href="/demo">View demo workspace</a></div>
+                <div class="landing-hero-metrics" aria-label="SecureRepos scan coverage">
+                    <span><strong>30+</strong><small>languages and config formats</small></span>
+                    <span><strong>50</strong><small>branches per repository scan</small></span>
+                    <span><strong>JSON/XLSX</strong><small>exportable reports</small></span>
                 </div>
             </div>
             <div class="landing-visual-column">
@@ -76,11 +78,33 @@
             </div>
             </div>
         </section>
-        <section class="landing-band landing-band-dark" id="platform">
+        <section class="landing-scan-flow" aria-label="SecureRepos scan workflow">
+            <article>
+                <span>01</span>
+                <strong>Connect read-only GitHub access</strong>
+                <p>Select only the repositories covered by your plan.</p>
+            </article>
+            <article>
+                <span>02</span>
+                <strong>Scan branches and supported files</strong>
+                <p>Secrets, CI/CD, Docker, dependency alerts, and config risk are checked together.</p>
+            </article>
+            <article>
+                <span>03</span>
+                <strong>Prioritize findings</strong>
+                <p>Severity, branch, file path, and remediation stay in one review queue.</p>
+            </article>
+            <article>
+                <span>04</span>
+                <strong>Export the report</strong>
+                <p>Download JSON or XLSX when you need evidence for cleanup or review.</p>
+            </article>
+        </section>
+        <section class="landing-band landing-band-light" id="platform">
             <div class="landing-section-heading">
                 <span class="badge brand">What it checks</span>
-                <h2>Useful checks for the code and configuration solo developers actually ship.</h2>
-                <p class="muted">Install the GitHub App, choose repositories within your plan, and review findings by repository and branch.</p>
+                <h2>Security checks focused on the files that usually cause real cleanup work.</h2>
+                <p class="muted">Install the GitHub App, select repositories within your plan, then review findings by repository, branch, severity, and remediation path.</p>
             </div>
             <div class="grid grid-3 landing-features">
                 <article class="landing-feature-card"><span>01</span><strong>Secrets and credentials</strong><p class="muted small">Catch common API keys, private keys, database URLs, and hardcoded credentials before they become incidents.</p></article>
@@ -88,10 +112,71 @@
                 <article class="landing-feature-card"><span>03</span><strong>Branch-level reports</strong><p class="muted small">See which branch and file produced a finding, then export the scan as JSON or XLSX.</p></article>
             </div>
         </section>
+        <section class="landing-band landing-band-dark landing-language-band" id="languages">
+            <div class="landing-language-intro">
+                <div class="landing-section-heading">
+                    <span class="badge success">30+ languages and config formats</span>
+                    <h2>Broad lightweight coverage without turning scans into a heavy SAST pipeline.</h2>
+                    <p class="muted">SecureRepos reads supported text files through your GitHub App installation and checks for leaked credentials, risky command execution patterns, CI/CD mistakes, Docker and dependency hygiene, and GitHub-native Dependabot or secret scanning alerts.</p>
+                </div>
+                <div class="landing-scan-note">
+                    <strong>What the scanner focuses on</strong>
+                    <span>Secrets</span>
+                    <span>Configuration risk</span>
+                    <span>CI/CD permissions</span>
+                    <span>Dependency alerts</span>
+                    <span>Lightweight code-risk patterns</span>
+                </div>
+            </div>
+            <div class="language-carousel" aria-label="Supported languages and file formats">
+                <% const languageLogos = [
+                    ['JavaScript', 'javascript/javascript-original.svg'],
+                    ['TypeScript', 'typescript/typescript-original.svg'],
+                    ['PHP', 'php/php-original.svg'],
+                    ['Python', 'python/python-original.svg'],
+                    ['Ruby', 'ruby/ruby-original.svg'],
+                    ['Go', 'go/go-original.svg'],
+                    ['Java', 'java/java-original.svg'],
+                    ['Kotlin', 'kotlin/kotlin-original.svg'],
+                    ['C#', 'csharp/csharp-original.svg'],
+                    ['Rust', 'rust/rust-original.svg'],
+                    ['C', 'c/c-original.svg'],
+                    ['C++', 'cplusplus/cplusplus-original.svg'],
+                    ['Swift', 'swift/swift-original.svg'],
+                    ['Scala', 'scala/scala-original.svg'],
+                    ['Dart', 'dart/dart-original.svg'],
+                    ['Lua', 'lua/lua-original.svg'],
+                    ['Perl', 'perl/perl-original.svg'],
+                    ['Elixir', 'elixir/elixir-original.svg'],
+                    ['Erlang', 'erlang/erlang-original.svg'],
+                    ['Clojure', 'clojure/clojure-original.svg'],
+                    ['Haskell', 'haskell/haskell-original.svg'],
+                    ['R', 'r/r-original.svg'],
+                    ['Julia', 'julia/julia-original.svg'],
+                    ['Groovy', 'groovy/groovy-original.svg'],
+                    ['HTML5', 'html5/html5-original.svg'],
+                    ['CSS3', 'css3/css3-original.svg'],
+                    ['Vue', 'vuejs/vuejs-original.svg'],
+                    ['Svelte', 'svelte/svelte-original.svg'],
+                    ['Docker', 'docker/docker-original.svg'],
+                    ['Terraform', 'terraform/terraform-original.svg']
+                ]; %>
+                <% for (let row = 0; row < 2; row += 1) { %>
+                    <div class="language-carousel-track" aria-hidden="<%= row === 1 ? 'true' : 'false' %>">
+                        <% languageLogos.forEach(function (item) { %>
+                            <span class="language-logo-card">
+                                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/<%= item[1] %>" alt="<%= item[0] %> logo" loading="lazy">
+                                <b><%= item[0] %></b>
+                            </span>
+                        <% }); %>
+                    </div>
+                <% } %>
+            </div>
+        </section>
         <section class="landing-band landing-band-light">
             <div class="landing-section-heading">
                 <span class="badge success">Built to stay manageable</span>
-                <h2>Security checks that fit around the way you already use GitHub.</h2>
+                <h2>Built for solo developers who need useful signal, not another security backlog.</h2>
             </div>
             <div class="landing-experience-grid">
                 <article><strong>You choose the repositories</strong><p>Connect only the projects covered by your plan. SecureRepos does not need access to everything in your GitHub account.</p></article>
@@ -102,7 +187,7 @@
         <section class="landing-band landing-band-dark" id="workflow">
             <div class="landing-section-heading">
                 <span class="badge brand">How it works</span>
-                <h2>From GitHub install to a useful report in four steps.</h2>
+                <h2>Connect GitHub, scan selected repositories, fix what matters.</h2>
             </div>
             <div class="landing-step-grid">
                 <article><span>1</span><strong>Create your account</strong><p class="muted small">Choose the plan that matches the number of repositories you actively maintain.</p></article>
@@ -111,7 +196,7 @@
                 <article><span>4</span><strong>Fix and verify</strong><p class="muted small">Follow remediation guidance, rerun the scan, and export the result when needed.</p></article>
             </div>
         </section>
-        <section class="landing-band landing-band-pricing" id="pricing">
+        <section class="landing-band landing-band-pricing landing-band-light" id="pricing">
             <div class="landing-section-heading">
                 <span class="badge warning">Pricing</span>
                 <h2>Two plans, both built for solo developers.</h2>
@@ -121,7 +206,7 @@
                 <article class="card card-body plan-card"><p class="muted">Loading current plans...</p></article>
             </div>
         </section>
-        <section class="landing-access" id="access">
+        <section class="landing-access landing-access-dark" id="access">
             <div>
                 <span class="badge warning">Access model</span>
                 <h2>See the product before you connect a repository.</h2>
@@ -136,17 +221,6 @@
             <div class="landing-footer-brand">
                 <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
                 <p class="muted small">GitHub repository security scanning, branch-level findings, practical remediation, and exportable reports for independent developers.</p>
-                <div class="payment-marks" aria-label="Accepted payment methods">
-                    <span class="payment-mark visa">VISA</span>
-                    <span class="payment-mark mastercard"><i></i><b></b></span>
-                    <span class="payment-mark amex">AMEX</span>
-                    <span class="payment-mark discover">DISCOVER</span>
-                    <span class="payment-mark diners">DINERS</span>
-                    <span class="payment-mark jcb">JCB</span>
-                    <span class="payment-mark unionpay">UP</span>
-                    <span class="payment-mark maestro">MAESTRO</span>
-                    <span class="payment-mark elo">ELO</span>
-                </div>
             </div>
             <div class="landing-footer-grid">
                 <div>
@@ -174,7 +248,6 @@
         </footer>
         <div class="landing-footer-bottom">
             <span>© <%= new Date().getFullYear() %> <%= appName %>. All rights reserved.</span>
-            <span>Hosted card checkout will be handled by the selected payment provider.</span>
         </div>
         <button class="back-to-top" type="button" aria-label="Back to top" data-back-to-top>
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5l7 7-1.4 1.4-4.6-4.6V20h-2V8.8l-4.6 4.6L5 12l7-7z"></path></svg>

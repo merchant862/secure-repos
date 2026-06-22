@@ -8,8 +8,10 @@ import {
     GithubBlobResponse,
     GithubBranchResponse,
     GithubConfig,
+    GithubDependabotAlertResponse,
     GithubInstallationRepositoriesResponse,
     GithubInstallationResponse,
+    GithubSecretScanningAlertResponse,
     GithubTreeResponse
 } from './github.types';
 import { env } from '../../bootstrap/env';
@@ -258,6 +260,34 @@ async function fetchRepositoryBlob(accessToken: string, fullName: string, sha: s
     );
 }
 
+async function fetchOpenDependabotAlerts(accessToken: string, fullName: string): Promise<GithubDependabotAlertResponse[]>
+{
+    return githubRequest<GithubDependabotAlertResponse[]>(
+        `/repos/${fullName}/dependabot/alerts?state=open&per_page=100`,
+        {
+            token: accessToken
+        }
+    ).catch(function (error)
+    {
+        console.warn(`GitHub Dependabot alerts unavailable for ${fullName}:`, error instanceof Error ? error.message : error);
+        return [];
+    });
+}
+
+async function fetchOpenSecretScanningAlerts(accessToken: string, fullName: string): Promise<GithubSecretScanningAlertResponse[]>
+{
+    return githubRequest<GithubSecretScanningAlertResponse[]>(
+        `/repos/${fullName}/secret-scanning/alerts?state=open&per_page=100`,
+        {
+            token: accessToken
+        }
+    ).catch(function (error)
+    {
+        console.warn(`GitHub secret scanning alerts unavailable for ${fullName}:`, error instanceof Error ? error.message : error);
+        return [];
+    });
+}
+
 function verifyGithubWebhookSignature(payload: Buffer, signature256?: string): boolean
 {
     if (!signature256)
@@ -297,5 +327,7 @@ export {
     fetchRepositoryBranches,
     fetchRepositoryTree,
     fetchRepositoryBlob,
+    fetchOpenDependabotAlerts,
+    fetchOpenSecretScanningAlerts,
     verifyGithubWebhookSignature
 };

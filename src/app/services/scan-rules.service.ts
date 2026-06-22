@@ -446,6 +446,329 @@ function scanDockerCompose(file: RepositoryFile, findings: ScannerFinding[])
     }
 }
 
+function scanCodeRiskPatterns(file: RepositoryFile, findings: ScannerFinding[])
+{
+    const lowerPath = file.path.toLowerCase();
+    const content = file.content;
+
+    if (/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(lowerPath))
+    {
+        const evalMatch = /\beval\s*\(/.exec(content);
+        if (evalMatch)
+        {
+            pushFinding(
+                findings,
+                'code.javascript-eval',
+                'medium',
+                'JavaScript eval usage detected',
+                'eval executes strings as code and can become dangerous when user-controlled values reach it.',
+                'Replace eval with explicit parsing, a safe expression evaluator, or direct function calls. Never pass user-controlled data into eval.',
+                file.path,
+                getLineNumber(content, evalMatch.index),
+                evalMatch[0],
+                content
+            );
+        }
+
+        const childProcessMatch = /require\s*\(\s*['"]child_process['"]\s*\)|from\s+['"]child_process['"]/.exec(content);
+        const execMatch = /\.(exec|execSync)\s*\(/.exec(content);
+        if (childProcessMatch && execMatch)
+        {
+            pushFinding(
+                findings,
+                'code.node-command-execution',
+                'high',
+                'Node command execution API used',
+                'child_process exec-style APIs can introduce command injection if command strings include user-controlled input.',
+                'Use spawn or execFile with argument arrays, validate all inputs, and avoid building shell commands with string concatenation.',
+                file.path,
+                getLineNumber(content, execMatch.index),
+                execMatch[0],
+                content
+            );
+        }
+    }
+
+    if (lowerPath.endsWith('.php'))
+    {
+        const phpEvalMatch = /\beval\s*\(/i.exec(content);
+        if (phpEvalMatch)
+        {
+            pushFinding(
+                findings,
+                'code.php-eval',
+                'high',
+                'PHP eval usage detected',
+                'PHP eval executes dynamic code and is frequently involved in remote code execution vulnerabilities.',
+                'Remove eval usage. Replace dynamic execution with explicit routing, whitelisted callbacks, or safe template rendering.',
+                file.path,
+                getLineNumber(content, phpEvalMatch.index),
+                phpEvalMatch[0],
+                content
+            );
+        }
+
+        const phpShellMatch = /\b(shell_exec|exec|passthru|system|proc_open|popen)\s*\(/i.exec(content);
+        const phpInputMatch = /\$_(GET|POST|REQUEST|COOKIE|SERVER)\b/i.exec(content);
+        if (phpShellMatch && phpInputMatch)
+        {
+            pushFinding(
+                findings,
+                'code.php-user-input-command',
+                'high',
+                'PHP command execution near request input',
+                'A PHP command execution function appears in a file that also reads request-controlled input.',
+                'Avoid shell execution for request paths. If unavoidable, whitelist commands, escape arguments with escapeshellarg, and validate input strictly.',
+                file.path,
+                getLineNumber(content, phpShellMatch.index),
+                phpShellMatch[0],
+                content
+            );
+        }
+    }
+
+    if (lowerPath.endsWith('.py'))
+    {
+        const shellTrueMatch = /subprocess\.(run|call|check_call|check_output|Popen)\s*\([\s\S]{0,220}shell\s*=\s*True/.exec(content);
+        if (shellTrueMatch)
+        {
+            pushFinding(
+                findings,
+                'code.python-subprocess-shell',
+                'medium',
+                'Python subprocess shell mode detected',
+                'subprocess with shell=True can become command injection if any part of the command is influenced by user input.',
+                'Pass commands as argument arrays with shell=False and validate any external input before using it in command execution.',
+                file.path,
+                getLineNumber(content, shellTrueMatch.index),
+                shellTrueMatch[0].slice(0, 80),
+                content
+            );
+        }
+    }
+
+    if (lowerPath.endsWith('.cs'))
+    {
+        const processStartMatch = /\bProcess\.Start\s*\(/.exec(content);
+        const requestInputMatch = /\bRequest\.(Query|Form|Body|Cookies|Headers)\b/.exec(content);
+        if (processStartMatch && requestInputMatch)
+        {
+            pushFinding(
+                findings,
+                'code.csharp-user-input-process-start',
+                'high',
+                'C# process execution near request input',
+                'Process.Start appears in a file that also reads request-controlled input, which can lead to command execution bugs.',
+                'Avoid launching processes from request input. Use fixed commands, strict allowlists, and ProcessStartInfo.ArgumentList instead of command strings.',
+                file.path,
+                getLineNumber(content, processStartMatch.index),
+                processStartMatch[0],
+                content
+            );
+        }
+    }
+
+    if (/\.(java|kt)$/.test(lowerPath))
+    {
+        const runtimeExecMatch = /\bRuntime\.getRuntime\(\)\.exec\s*\(|\bProcessBuilder\s*\(/.exec(content);
+        if (runtimeExecMatch)
+        {
+            pushFinding(
+                findings,
+                'code.jvm-command-execution',
+                'medium',
+                'JVM command execution API used',
+                'Runtime.exec or ProcessBuilder can become risky when command arguments include untrusted input.',
+                'Use fixed executable paths, pass arguments separately, validate inputs with allowlists, and avoid shell wrappers.',
+                file.path,
+                getLineNumber(content, runtimeExecMatch.index),
+                runtimeExecMatch[0],
+                content
+            );
+        }
+    }
+
+    if (lowerPath.endsWith('.go'))
+    {
+        const goExecMatch = /\bexec\.Command\s*\(/.exec(content);
+        if (goExecMatch)
+        {
+            pushFinding(
+                findings,
+                'code.go-command-execution',
+                'medium',
+                'Go command execution API used',
+                'exec.Command can become risky if executable names or arguments are influenced by untrusted input.',
+                'Use fixed executable paths, pass arguments separately, and validate all external input with strict allowlists.',
+                file.path,
+                getLineNumber(content, goExecMatch.index),
+                goExecMatch[0],
+                content
+            );
+        }
+    }
+
+    if (lowerPath.endsWith('.rs'))
+    {
+        const rustCommandMatch = /\bCommand::new\s*\(/.exec(content);
+        if (rustCommandMatch)
+        {
+            pushFinding(
+                findings,
+                'code.rust-command-execution',
+                'medium',
+                'Rust command execution API used',
+                'std::process::Command can become risky if commands or arguments are built from untrusted input.',
+                'Use fixed executable paths, pass arguments with arg/args, and validate any external input before command execution.',
+                file.path,
+                getLineNumber(content, rustCommandMatch.index),
+                rustCommandMatch[0],
+                content
+            );
+        }
+    }
+
+    if (/\.(c|h|cc|cpp|cxx|hpp|m|mm)$/.test(lowerPath))
+    {
+        const nativeShellMatch = /\b(system|popen)\s*\(/.exec(content);
+        if (nativeShellMatch)
+        {
+            pushFinding(
+                findings,
+                'code.native-shell-execution',
+                'medium',
+                'Native shell execution API used',
+                'system or popen can introduce command injection when command strings include untrusted input.',
+                'Avoid shell execution where possible. Use safer process APIs, fixed commands, and strict input validation.',
+                file.path,
+                getLineNumber(content, nativeShellMatch.index),
+                nativeShellMatch[0],
+                content
+            );
+        }
+    }
+
+    if (lowerPath.endsWith('.swift'))
+    {
+        const swiftProcessMatch = /\bProcess\s*\(\s*\)|\bNSTask\s*\(\s*\)/.exec(content);
+        if (swiftProcessMatch)
+        {
+            pushFinding(
+                findings,
+                'code.swift-process-execution',
+                'medium',
+                'Swift process execution API used',
+                'Process/NSTask can become risky if executable paths or arguments are influenced by untrusted input.',
+                'Use fixed executable paths, pass arguments separately, and validate user-controlled values with allowlists.',
+                file.path,
+                getLineNumber(content, swiftProcessMatch.index),
+                swiftProcessMatch[0],
+                content
+            );
+        }
+    }
+
+    if (/\.(scala|sc)$/.test(lowerPath))
+    {
+        const scalaShellMatch = /\bimport\s+scala\.sys\.process|\.!\s*(?:\n|$)|\.!!\s*(?:\n|$)/.exec(content);
+        if (scalaShellMatch)
+        {
+            pushFinding(
+                findings,
+                'code.scala-process-execution',
+                'medium',
+                'Scala process execution helper used',
+                'scala.sys.process helpers can execute shell commands and become risky with untrusted input.',
+                'Prefer safe library APIs. If process execution is required, use fixed commands and validate arguments strictly.',
+                file.path,
+                getLineNumber(content, scalaShellMatch.index),
+                scalaShellMatch[0].slice(0, 80),
+                content
+            );
+        }
+    }
+
+    if (/\.(rb)$/.test(lowerPath))
+    {
+        const rubyShellMatch = /`[^`]+`|%x\s*[\({]|\bsystem\s*\(|\bexec\s*\(/.exec(content);
+        if (rubyShellMatch)
+        {
+            pushFinding(
+                findings,
+                'code.ruby-command-execution',
+                'medium',
+                'Ruby command execution API used',
+                'Ruby shell execution helpers can become command injection if command strings include untrusted input.',
+                'Prefer safe library calls, pass arguments separately where possible, and validate any external input with strict allowlists.',
+                file.path,
+                getLineNumber(content, rubyShellMatch.index),
+                rubyShellMatch[0].slice(0, 80),
+                content
+            );
+        }
+    }
+
+    if (/\.(pl|pm)$/.test(lowerPath))
+    {
+        const perlShellMatch = /`[^`]+`|\bsystem\s*\(|\bexec\s*\(|\bopen\s*\([^,\n]+,\s*["'][|]/.exec(content);
+        if (perlShellMatch)
+        {
+            pushFinding(
+                findings,
+                'code.perl-command-execution',
+                'medium',
+                'Perl command execution API used',
+                'Perl shell helpers can execute commands and become risky when command strings include untrusted input.',
+                'Avoid shell interpolation. Use list-form system/exec where possible and validate external input strictly.',
+                file.path,
+                getLineNumber(content, perlShellMatch.index),
+                perlShellMatch[0].slice(0, 80),
+                content
+            );
+        }
+    }
+
+    if (lowerPath.endsWith('.lua'))
+    {
+        const luaShellMatch = /\bos\.execute\s*\(|\bio\.popen\s*\(/.exec(content);
+        if (luaShellMatch)
+        {
+            pushFinding(
+                findings,
+                'code.lua-command-execution',
+                'medium',
+                'Lua command execution API used',
+                'Lua command execution helpers can introduce command injection if command strings include untrusted input.',
+                'Avoid shell execution for user-controlled values. Use fixed commands and validate all arguments before execution.',
+                file.path,
+                getLineNumber(content, luaShellMatch.index),
+                luaShellMatch[0],
+                content
+            );
+        }
+    }
+
+    if (/\.(dart)$/.test(lowerPath))
+    {
+        const dartProcessMatch = /\bProcess\.(run|start)\s*\(/.exec(content);
+        if (dartProcessMatch)
+        {
+            pushFinding(
+                findings,
+                'code.dart-process-execution',
+                'medium',
+                'Dart process execution API used',
+                'Process.run or Process.start can become risky if executable paths or arguments come from untrusted input.',
+                'Use fixed executable paths, pass arguments separately, and validate any external input with allowlists.',
+                file.path,
+                getLineNumber(content, dartProcessMatch.index),
+                dartProcessMatch[0],
+                content
+            );
+        }
+    }
+}
+
 function scanFiles(files: RepositoryFile[]): ScannerFinding[]
 {
     const findings: ScannerFinding[] = [];
@@ -458,6 +781,7 @@ function scanFiles(files: RepositoryFile[]): ScannerFinding[]
         scanDockerfile(file, findings);
         scanGithubActions(file, findings);
         scanDockerCompose(file, findings);
+        scanCodeRiskPatterns(file, findings);
     }
 
     return findings;

@@ -4,8 +4,15 @@ import { Finding, FindingOccurrence, GithubInstallation, Repository, Scan } from
 import crypto from 'crypto';
 import { env } from '../../bootstrap/env';
 
-import { fetchRepositoryBlob, fetchRepositoryBranches, fetchRepositoryTree, createInstallationAccessToken } from '../../modules/github/github.service';
-import { GithubBranchResponse, GithubTreeItem } from '../../modules/github/github.types';
+import {
+    fetchOpenDependabotAlerts,
+    fetchOpenSecretScanningAlerts,
+    fetchRepositoryBlob,
+    fetchRepositoryBranches,
+    fetchRepositoryTree,
+    createInstallationAccessToken
+} from '../../modules/github/github.service';
+import { GithubBranchResponse, GithubDependabotAlertResponse, GithubSecretScanningAlertResponse, GithubTreeItem } from '../../modules/github/github.types';
 import { queueScanFailedEmail, queueScanSummaryEmail, queueSecurityAlert } from './notification.service';
 import { refreshRepositorySecurityScore } from './security-posture.service';
 import { filterIgnoredFindings } from './ignore-rule.service';
@@ -17,10 +24,22 @@ const maxFileSizeBytes = 300 * 1024;
 const textFileExtensions = new Set(
     [
         '.js',
+        '.mjs',
+        '.cjs',
         '.ts',
         '.tsx',
         '.jsx',
+        '.vue',
+        '.svelte',
+        '.astro',
+        '.html',
+        '.htm',
+        '.css',
+        '.scss',
+        '.sass',
+        '.less',
         '.json',
+        '.json5',
         '.env',
         '.yml',
         '.yaml',
@@ -28,22 +47,67 @@ const textFileExtensions = new Set(
         '.ini',
         '.conf',
         '.config',
+        '.properties',
+        '.gradle',
+        '.tf',
+        '.tfvars',
+        '.hcl',
         '.xml',
         '.md',
+        '.mdx',
         '.txt',
         '.sh',
         '.bash',
         '.zsh',
+        '.fish',
+        '.ps1',
+        '.bat',
+        '.cmd',
         '.py',
+        '.pyw',
         '.php',
         '.rb',
         '.go',
         '.java',
+        '.kt',
+        '.kts',
         '.cs',
         '.rs',
+        '.c',
+        '.h',
+        '.cc',
+        '.cpp',
+        '.cxx',
+        '.hpp',
+        '.m',
+        '.mm',
+        '.swift',
+        '.scala',
+        '.sc',
+        '.dart',
+        '.lua',
+        '.pl',
+        '.pm',
+        '.ex',
+        '.exs',
+        '.erl',
+        '.hrl',
+        '.clj',
+        '.cljs',
+        '.hs',
+        '.r',
+        '.R',
+        '.jl',
+        '.groovy',
         '.sql',
+        '.graphql',
+        '.gql',
+        '.proto',
         '.pem',
         '.key',
+        '.p12',
+        '.crt',
+        '.cer',
         '.dockerfile'
     ]
 );
@@ -255,6 +319,87 @@ function findingBranch(finding: ScannerFinding)
     return typeof metadata?.branch === 'string' ? metadata.branch : null;
 }
 
+function normalizeGithubSeverity(severity?: string): ScannerFinding['severity']
+{
+    if (severity === 'critical' || severity === 'high' || severity === 'medium' || severity === 'low')
+    {
+        return severity;
+    }
+
+    return 'medium';
+}
+
+function nativeFindingFingerprint(source: string, repositoryFullName: string, id: string | number)
+{
+    return crypto
+        .createHash('sha256')
+        .update(`${source}:${repositoryFullName}:${id}`)
+        .digest('hex');
+}
+
+function mapDependabotAlert(repository: Repository, alert: GithubDependabotAlertResponse): ScannerFinding
+{
+    const dependencyName = alert.dependency?.package?.name ?? 'dependency';
+    const ecosystem = alert.dependency?.package?.ecosystem ?? 'package';
+    const advisoryId = alert.security_advisory?.ghsa_id ?? alert.security_advisory?.cve_id ?? `alert-${alert.number}`;
+    const vulnerableRange = alert.security_vulnerability?.vulnerable_version_range;
+    const patchedVersion = alert.security_vulnerability?.first_patched_version?.identifier;
+    const severity = normalizeGithubSeverity(alert.security_advisory?.severity ?? alert.security_vulnerability?.severity);
+    const filePath = alert.dependency?.manifest_path || 'dependency manifest';
+
+    return {
+        ruleId: 'github.dependabot-alert',
+        severity,
+        title: `Dependabot alert: ${dependencyName}`,
+        description: alert.security_advisory?.summary ?? `GitHub reported an open Dependabot alert for ${dependencyName}.`,
+        remediation: patchedVersion
+            ? `Update ${dependencyName} to ${patchedVersion} or later. Review the GitHub advisory and verify the dependency is no longer vulnerable.`
+            : `Review the GitHub Dependabot alert for ${dependencyName}, update or replace the vulnerable dependency, then run a new scan.`,
+        filePath,
+        lineNumber: null,
+        fingerprint: nativeFindingFingerprint('github.dependabot-alert', repository.fullName, advisoryId),
+        metadata:
+        {
+            source: 'github_dependabot',
+            githubAlertNumber: alert.number,
+            advisoryId,
+            ecosystem,
+            dependencyName,
+            vulnerableRange,
+            patchedVersion,
+            htmlUrl: alert.html_url
+        }
+    };
+}
+
+function mapSecretScanningAlert(repository: Repository, alert: GithubSecretScanningAlertResponse): ScannerFinding
+{
+    const secretType = alert.secret_type_display_name || alert.secret_type || 'secret';
+    const location = alert.first_location_detected;
+
+    return {
+        ruleId: 'github.secret-scanning-alert',
+        severity: alert.publicly_leaked || alert.validity === 'active' ? 'critical' : 'high',
+        title: `GitHub secret scanning alert: ${secretType}`,
+        description: `GitHub reported an open secret scanning alert for ${secretType}.`,
+        remediation: 'Open the GitHub secret scanning alert, rotate or revoke the exposed credential, remove it from history where needed, and confirm the alert is resolved.',
+        filePath: location?.path || 'GitHub secret scanning alert',
+        lineNumber: location?.start_line ?? null,
+        fingerprint: nativeFindingFingerprint('github.secret-scanning-alert', repository.fullName, alert.number),
+        metadata:
+        {
+            source: 'github_secret_scanning',
+            githubAlertNumber: alert.number,
+            secretType: alert.secret_type,
+            secretTypeDisplayName: alert.secret_type_display_name,
+            validity: alert.validity,
+            publiclyLeaked: alert.publicly_leaked,
+            commitSha: location?.commit_sha,
+            htmlUrl: alert.html_url
+        }
+    };
+}
+
 function normalizeBranches(repository: Repository, branches: GithubBranchResponse[])
 {
     const fallbackBranch = repository.defaultBranch || 'main';
@@ -328,6 +473,12 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
 
     const accessToken = await createInstallationAccessToken(githubInstallation.githubInstallationId);
     const branches = normalizeBranches(repository, await fetchRepositoryBranches(accessToken, repository.fullName));
+    const [dependabotAlerts, secretScanningAlerts] = await Promise.all(
+        [
+            fetchOpenDependabotAlerts(accessToken, repository.fullName),
+            fetchOpenSecretScanningAlerts(accessToken, repository.fullName)
+        ]
+    );
     const findings: ScannerFinding[] = [];
     const startedAt = Date.now();
     let scannedFiles = 0;
@@ -367,6 +518,9 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
 
         findings.push(...branchFindings);
     }
+
+    findings.push(...dependabotAlerts.map((alert) => mapDependabotAlert(repository, alert)));
+    findings.push(...secretScanningAlerts.map((alert) => mapSecretScanningAlert(repository, alert)));
 
     return findings;
 }

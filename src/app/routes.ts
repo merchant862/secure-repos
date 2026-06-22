@@ -120,6 +120,11 @@ const contactRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, scope: 
 
 router.use('/api', sameOriginApiMiddleware);
 
+router.get('/test-500', function testServerErrorRoute()
+{
+    throw new Error('Temporary 500 page test');
+});
+
 router.get('/', landingPageController);
 router.get('/terms', legalPlaceholderPageController);
 router.get('/privacy', legalPlaceholderPageController);
