@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 
 const appName = process.env.APP_NAME && process.env.APP_NAME.trim() !== '' ? process.env.APP_NAME : 'SecureRepos';
 const defaultDescription = 'SecureRepos helps independent developers scan GitHub repositories for secrets, risky configuration, CI/CD issues, dependency concerns, and branch-level security findings.';
-const supportEmail = 'support@purple-flare.com';
+const supportEmail = 'support@securerepos.com';
 
 function getBaseUrl(req: Request): string
 {
