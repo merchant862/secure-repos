@@ -160,13 +160,33 @@ async function getRepositoryChecklist(repositoryId: number)
             key: 'container_non_root',
             label: 'Containers avoid default root execution',
             passed: !ruleIds.has('container.no-user')
+        },
+        {
+            key: 'dependency_risk_reviewed',
+            label: 'Dependencies avoid known risky packages and vulnerable versions',
+            passed: !Array.from(ruleIds).some((ruleId) => ruleId.startsWith('dependency.') || ruleId === 'github.dependabot-alert')
+        },
+        {
+            key: 'iac_hardened',
+            label: 'Infrastructure templates avoid public or privileged defaults',
+            passed: !Array.from(ruleIds).some((ruleId) => ruleId.startsWith('iac.'))
+        },
+        {
+            key: 'framework_auth_hardened',
+            label: 'Framework and auth settings avoid risky defaults',
+            passed: !Array.from(ruleIds).some((ruleId) => ruleId.startsWith('framework.') || ruleId.startsWith('auth.'))
+        },
+        {
+            key: 'business_logic_reviewed',
+            label: 'Auth and billing logic has no review-blocking TODOs',
+            passed: !Array.from(ruleIds).some((ruleId) => ruleId.startsWith('business.'))
         }
     ];
 }
 
 async function updateFindingWorkflow(
     findingId: number,
-    input: { status?: string; assignedToUserId?: number | null; ignoredUntil?: Date | null }
+    input: { status?: string; ignoredUntil?: Date | null }
 )
 {
     const finding = await Finding.findByPk(findingId);
@@ -179,9 +199,8 @@ async function updateFindingWorkflow(
     await finding.update(
         {
             status: input.status ?? finding.status,
-            assignedToUserId: input.assignedToUserId === undefined ? finding.assignedToUserId : input.assignedToUserId,
             ignoredUntil: input.ignoredUntil === undefined ? finding.ignoredUntil : input.ignoredUntil,
-            resolvedAt: input.status === 'resolved' ? new Date() : finding.resolvedAt
+            resolvedAt: input.status === 'resolved' ? new Date() : input.status === 'open' ? null : finding.resolvedAt
         }
     );
 

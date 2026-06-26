@@ -15,7 +15,6 @@
     "start:email:weekly-report": "node dist/src/main/start-weekly-report-email-worker.js",
     "start:email:scan-summary": "node dist/src/main/start-scan-summary-email-worker.js",
     "start:email:scan-failed": "node dist/src/main/start-scan-failed-email-worker.js",
-    "start:email:finding-assigned": "node dist/src/main/start-finding-assigned-email-worker.js",
     "start:email:finding-status": "node dist/src/main/start-finding-status-email-worker.js",
     "start:email:provider-status": "node dist/src/main/start-provider-status-email-worker.js",
     "start:email:repo-access-failed": "node dist/src/main/start-repository-access-failed-email-worker.js",

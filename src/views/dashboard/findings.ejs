@@ -10,19 +10,24 @@
                 <section class="page-toolbar">
                     <div>
                         <h2>Finding triage</h2>
-                        <p class="muted">Assign, resolve, ignore, or snooze findings from scanner results.</p>
+                        <p class="muted">Resolve, ignore, or snooze findings from scanner results.</p>
                     </div>
                     <div class="toolbar-actions">
-                        <select class="input compact"><option>Open</option><option>Resolved</option><option>Ignored</option></select>
-                        <button class="button primary" type="button">Bulk assign</button>
+                        <select class="input compact" data-findings-status-filter>
+                            <option value="open">Open</option>
+                            <option value="snoozed">Snoozed</option>
+                            <option value="resolved">Resolved</option>
+                            <option value="ignored">Ignored</option>
+                            <option value="all">All</option>
+                        </select>
                     </div>
                 </section>
 
                 <section class="grid grid-4">
-                    <article class="card card-body"><span class="badge danger">Critical</span><div class="metric-value">--</div><div class="metric-label">must fix</div></article>
-                    <article class="card card-body"><span class="badge warning">High</span><div class="metric-value">--</div><div class="metric-label">needs owner</div></article>
-                    <article class="card card-body"><span class="badge brand">Snoozed</span><div class="metric-value">--</div><div class="metric-label">time boxed</div></article>
-                    <article class="card card-body"><span class="badge success">Resolved</span><div class="metric-value">--</div><div class="metric-label">this month</div></article>
+                    <article class="card card-body"><span class="badge danger">Critical</span><div class="metric-value" data-finding-metric="critical">--</div><div class="metric-label">must fix</div></article>
+                    <article class="card card-body"><span class="badge warning">High</span><div class="metric-value" data-finding-metric="high">--</div><div class="metric-label">needs owner</div></article>
+                    <article class="card card-body"><span class="badge brand">Snoozed</span><div class="metric-value" data-finding-metric="snoozed">--</div><div class="metric-label">time boxed</div></article>
+                    <article class="card card-body"><span class="badge success">Resolved</span><div class="metric-value" data-finding-metric="resolved">--</div><div class="metric-label">this month</div></article>
                 </section>
 
                 <section class="card" style="margin-top:18px">

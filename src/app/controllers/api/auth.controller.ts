@@ -1,8 +1,11 @@
 import { Request, Response } from 'express';
 
-import { createLoginOtpChallenge, loginUser, registerOwner, revokeSession, verifyLoginOtpChallenge } from '../../services/auth.service';
+import { createLoginOtpChallenge, createPasswordResetRequest, loginUser, registerOwner, resetPasswordWithToken, revokeSession, verifyLoginOtpChallenge } from '../../services/auth.service';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import { User } from '../../../db/models';
+import { createCheckoutToken, verifyCheckoutToken } from '../../services/paddle.service';
+import { queueCheckoutLinkEmail } from '../../services/notification.service';
+import { env } from '../../../bootstrap/env';
 
 const authCookieName = process.env.AUTH_COOKIE_NAME && process.env.AUTH_COOKIE_NAME.trim() !== ''
     ? process.env.AUTH_COOKIE_NAME
@@ -75,24 +78,36 @@ async function signupController(req: Request, res: Response)
 {
     try
     {
-        const { name, email, password, planSlug } = req.body;
+        const { name, email, password, checkoutToken } = req.body;
+        let planSlug = req.body.planSlug ?? 'solo-starter';
 
         if (!name || !email || !password)
         {
             return res.status(400).json({ message: 'name, email, and password are required' });
         }
 
-        const user = await registerOwner(name, email, password, planSlug ?? 'starter');
+        if (checkoutToken)
+        {
+            planSlug = await verifyCheckoutToken(String(checkoutToken));
+        }
+
+        const user = await registerOwner(name, email, password, planSlug);
         const session = await loginUser(email, password, req.ip, req.header('user-agent') ?? undefined);
+        const selectedCheckoutToken = createCheckoutToken(planSlug);
+        const checkoutUrl = `${env.appUrl.replace(/\/$/, '')}/checkout?t=${encodeURIComponent(selectedCheckoutToken)}`;
+        const planName = String(planSlug).split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
+
+        await queueCheckoutLinkEmail(user, checkoutUrl, planName);
 
         setAuthCookie(res, session.token);
 
         return res.status(201).json(
             {
-                message: 'Account created',
+                message: 'Account created. Check your email for the checkout link.',
                 data:
                 {
-                    user: serializeUser(user)
+                    user: serializeUser(user),
+                    checkoutLinkSent: true
                 }
             }
         );
@@ -165,6 +180,41 @@ async function loginOtpController(req: Request, res: Response)
     }
 }
 
+async function passwordResetRequestController(req: Request, res: Response)
+{
+    const { email } = req.body;
+
+    if (!email)
+    {
+        return res.status(400).json({ message: 'email is required' });
+    }
+
+    await createPasswordResetRequest(String(email), req.ip, req.header('user-agent') ?? undefined);
+
+    return res.json({ message: 'If that email exists, a password reset link has been sent.' });
+}
+
+async function passwordResetConfirmController(req: Request, res: Response)
+{
+    try
+    {
+        const { token, password } = req.body;
+
+        if (!token || !password)
+        {
+            return res.status(400).json({ message: 'token and password are required' });
+        }
+
+        await resetPasswordWithToken(String(token), String(password));
+
+        return res.json({ message: 'Password reset successful. Sign in with your new password.' });
+    }
+    catch (error)
+    {
+        return res.status(400).json({ message: error instanceof Error ? error.message : 'Password could not be reset' });
+    }
+}
+
 function meController(req: AuthenticatedRequest, res: Response)
 {
     const session = req.currentSession;
@@ -208,6 +258,8 @@ export {
     signupController,
     loginController,
     loginOtpController,
+    passwordResetRequestController,
+    passwordResetConfirmController,
     meController,
     logoutController
 };

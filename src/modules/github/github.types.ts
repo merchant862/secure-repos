@@ -145,6 +145,18 @@ type GithubSecretScanningAlertResponse =
     };
 };
 
+type GithubCheckRunConclusion = 'success' | 'neutral' | 'failure' | 'cancelled' | 'timed_out' | 'action_required';
+
+type GithubCheckRunAnnotation =
+{
+    path: string;
+    start_line: number;
+    end_line: number;
+    annotation_level: 'notice' | 'warning' | 'failure';
+    message: string;
+    title?: string;
+};
+
 export type {
     GithubConfig,
     GithubInstallCallbackQuery,
@@ -158,5 +170,7 @@ export type {
     GithubTreeResponse,
     GithubBlobResponse,
     GithubDependabotAlertResponse,
-    GithubSecretScanningAlertResponse
+    GithubSecretScanningAlertResponse,
+    GithubCheckRunAnnotation,
+    GithubCheckRunConclusion
 };

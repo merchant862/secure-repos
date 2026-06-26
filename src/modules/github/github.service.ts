@@ -11,6 +11,8 @@ import {
     GithubDependabotAlertResponse,
     GithubInstallationRepositoriesResponse,
     GithubInstallationResponse,
+    GithubCheckRunAnnotation,
+    GithubCheckRunConclusion,
     GithubSecretScanningAlertResponse,
     GithubTreeResponse
 } from './github.types';
@@ -288,6 +290,44 @@ async function fetchOpenSecretScanningAlerts(accessToken: string, fullName: stri
     });
 }
 
+async function createRepositoryCheckRun(
+    accessToken: string,
+    fullName: string,
+    input: {
+        name: string;
+        headSha: string;
+        conclusion: GithubCheckRunConclusion;
+        title: string;
+        summary: string;
+        text?: string;
+        annotations?: GithubCheckRunAnnotation[];
+    }
+)
+{
+    return githubRequest(
+        `/repos/${fullName}/check-runs`,
+        {
+            method: 'POST',
+            token: accessToken,
+            body:
+            {
+                name: input.name,
+                head_sha: input.headSha,
+                status: 'completed',
+                conclusion: input.conclusion,
+                completed_at: new Date().toISOString(),
+                output:
+                {
+                    title: input.title,
+                    summary: input.summary,
+                    text: input.text,
+                    annotations: input.annotations?.slice(0, 50)
+                }
+            }
+        }
+    );
+}
+
 function verifyGithubWebhookSignature(payload: Buffer, signature256?: string): boolean
 {
     if (!signature256)
@@ -329,5 +369,6 @@ export {
     fetchRepositoryBlob,
     fetchOpenDependabotAlerts,
     fetchOpenSecretScanningAlerts,
+    createRepositoryCheckRun,
     verifyGithubWebhookSignature
 };

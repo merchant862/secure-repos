@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { Op } from 'sequelize';
 
-import { CodeHostConnection, Finding, FindingOccurrence, Repository, Scan, User } from '../../../db/models';
+import { CodeHostConnection, Finding, FindingOccurrence, Repository, Scan } from '../../../db/models';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import {
     getRepositoryChecklist,
@@ -11,7 +11,7 @@ import {
 import { enqueueRepositoryScan } from '../../services/scan.service';
 import { assertManualScanAllowed, getTenantPlan } from '../../services/plan-limit.service';
 import { recordAuditLog } from '../../services/audit.service';
-import { queueFindingAssignedEmail, queueFindingStatusEmail } from '../../services/notification.service';
+import { queueFindingStatusEmail } from '../../services/notification.service';
 import { buildScanJsonReport, buildScanXlsxReport } from '../../services/report-export.service';
 
 async function getTenantRepositoryIds(tenantId: number)
@@ -191,7 +191,7 @@ async function getUserDashboardSummaryController(req: AuthenticatedRequest, res:
     const repositories = await getTenantRepositories(user.tenantId);
     const repositoryIds = repositories.map((repository) => repository.id);
     const openFindingWhere = { repositoryId: repositoryIds, status: 'open' };
-    const [openFindings, criticalFindings, queuedScans, recentFindings, recentScans] = await Promise.all(
+    const [openFindings, criticalFindings, queuedScans, totalScans, recentFindings, recentScans] = await Promise.all(
         [
             repositoryIds.length ? Finding.count({ where: openFindingWhere }) : 0,
             repositoryIds.length ? Finding.count({ where: { ...openFindingWhere, severity: 'critical' } }) : 0,
@@ -207,6 +207,7 @@ async function getUserDashboardSummaryController(req: AuthenticatedRequest, res:
                     }
                 }
             ),
+            Scan.count({ where: { tenantId: user.tenantId } }),
             repositoryIds.length
                 ? Finding.findAll(
                     {
@@ -280,6 +281,7 @@ async function getUserDashboardSummaryController(req: AuthenticatedRequest, res:
                     openFindings,
                     criticalFindings,
                     queuedScans,
+                    scans: totalScans,
                     averageScore: score
                 },
                 severityCounts,
@@ -515,26 +517,59 @@ async function listUserFindingsController(req: AuthenticatedRequest, res: Respon
     }
 
     const repositoryIds = await getTenantRepositoryIds(user.tenantId);
-    const findings = await Finding.findAll(
-        {
-            where:
-            {
-                repositoryId: repositoryIds,
-                status: req.query.status ? String(req.query.status) : 'open'
-            },
-            include:
-            [
-                {
-                    model: Repository,
-                    as: 'repository'
-                }
-            ],
-            order: [['createdAt', 'DESC']],
-            limit: 200
-        }
+    const status = String(req.query.status || 'open');
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+    const baseWhere = { repositoryId: repositoryIds };
+    const statusWhere = status === 'all'
+        ? {}
+        : status === 'snoozed'
+            ? { ignoredUntil: { [Op.gt]: now } }
+            : { status };
+    const [findings, criticalCount, highCount, snoozedCount, resolvedThisMonth] = await Promise.all(
+        [
+            repositoryIds.length
+                ? Finding.findAll(
+                    {
+                        where:
+                        {
+                            ...baseWhere,
+                            ...statusWhere
+                        },
+                        include:
+                        [
+                            {
+                                model: Repository,
+                                as: 'repository'
+                            }
+                        ],
+                        order: [['createdAt', 'DESC']],
+                        limit: 200
+                    }
+                )
+                : [],
+            repositoryIds.length ? Finding.count({ where: { ...baseWhere, status: 'open', severity: 'critical' } }) : 0,
+            repositoryIds.length ? Finding.count({ where: { ...baseWhere, status: 'open', severity: 'high' } }) : 0,
+            repositoryIds.length ? Finding.count({ where: { ...baseWhere, ignoredUntil: { [Op.gt]: now } } }) : 0,
+            repositoryIds.length ? Finding.count({ where: { ...baseWhere, status: 'resolved', resolvedAt: { [Op.gte]: monthStart } } }) : 0
+        ]
     );
 
-    return res.json({ data: findings });
+    return res.json(
+        {
+            data: findings,
+            meta:
+            {
+                summary:
+                {
+                    critical: criticalCount,
+                    high: highCount,
+                    snoozed: snoozedCount,
+                    resolvedThisMonth
+                }
+            }
+        }
+    );
 }
 
 async function updateUserFindingController(req: AuthenticatedRequest, res: Response)
@@ -560,14 +595,28 @@ async function updateUserFindingController(req: AuthenticatedRequest, res: Respo
         return res.status(404).json({ message: 'Finding not found' });
     }
 
-    const previousAssignedToUserId = existingFinding.assignedToUserId;
     const previousStatus = existingFinding.status;
+    const nextStatus = req.body.status === undefined ? undefined : String(req.body.status);
+    const allowedStatuses = new Set(['open', 'resolved', 'ignored']);
+    const ignoredUntil = req.body.ignoredUntil
+        ? new Date(req.body.ignoredUntil)
+        : req.body.ignoredUntil === null ? null : undefined;
+
+    if (nextStatus !== undefined && !allowedStatuses.has(nextStatus))
+    {
+        return res.status(400).json({ message: 'Invalid finding status' });
+    }
+
+    if (ignoredUntil instanceof Date && Number.isNaN(ignoredUntil.getTime()))
+    {
+        return res.status(400).json({ message: 'Invalid ignored until date' });
+    }
+
     const finding = await updateFindingWorkflow(
         findingId,
         {
-            status: req.body.status,
-            assignedToUserId: req.body.assignedToUserId === undefined ? undefined : Number(req.body.assignedToUserId),
-            ignoredUntil: req.body.ignoredUntil ? new Date(req.body.ignoredUntil) : req.body.ignoredUntil === null ? null : undefined
+            status: nextStatus,
+            ignoredUntil
         }
     );
 
@@ -588,19 +637,9 @@ async function updateUserFindingController(req: AuthenticatedRequest, res: Respo
     );
     const repository = await Repository.findByPk(finding.repositoryId);
 
-    if (repository && finding.assignedToUserId && finding.assignedToUserId !== previousAssignedToUserId)
+    if (repository && nextStatus && nextStatus !== previousStatus)
     {
-        const assignedUser = await User.findOne({ where: { id: finding.assignedToUserId, tenantId: user.tenantId, status: 'active' } });
-
-        if (assignedUser)
-        {
-            await queueFindingAssignedEmail(finding, repository, assignedUser);
-        }
-    }
-
-    if (repository && req.body.status && req.body.status !== previousStatus)
-    {
-        await queueFindingStatusEmail(user.tenantId, finding, repository, String(req.body.status));
+        await queueFindingStatusEmail(user.tenantId, finding, repository, nextStatus);
     }
 
     return res.json(

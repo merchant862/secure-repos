@@ -1,4 +1,5 @@
 import { Request, Response } from 'express';
+import { verifyCheckoutToken } from '../../services/paddle.service';
 
 const appName = process.env.APP_NAME && process.env.APP_NAME.trim() !== '' ? process.env.APP_NAME : 'SecureRepos';
 const defaultDescription = 'SecureRepos helps independent developers scan GitHub repositories for secrets, risky configuration, CI/CD issues, dependency concerns, and branch-level security findings.';
@@ -90,12 +91,54 @@ function signInPageController(req: Request, res: Response)
     });
 }
 
-function signUpPageController(req: Request, res: Response)
+function forgotPasswordPageController(req: Request, res: Response)
 {
+    return res.render('auth/forgot-password',
+    {
+        title: 'Reset Password',
+        appName,
+        seo: privateSeo()
+    });
+}
+
+function resetPasswordPageController(req: Request, res: Response)
+{
+    const requestedToken = Array.isArray(req.query.token) ? req.query.token[0] : req.query.token;
+    const token = typeof requestedToken === 'string' ? requestedToken : '';
+
+    return res.render('auth/reset-password',
+    {
+        title: 'Set New Password',
+        appName,
+        token,
+        seo: privateSeo()
+    });
+}
+
+async function signUpPageController(req: Request, res: Response)
+{
+    const requestedToken = Array.isArray(req.query.t) ? req.query.t[0] : req.query.t;
+    const checkoutToken = typeof requestedToken === 'string' && requestedToken.trim() !== '' ? requestedToken.trim() : '';
+    let planSlug = '';
+
+    if (checkoutToken)
+    {
+        try
+        {
+            planSlug = await verifyCheckoutToken(checkoutToken);
+        }
+        catch (error)
+        {
+            planSlug = '';
+        }
+    }
+
     return res.render('auth/signup',
     {
         title: 'Create Account',
         appName,
+        planSlug,
+        checkoutToken,
         seo: privateSeo()
     });
 }
@@ -238,5 +281,7 @@ export
     scansPageController,
     settingsPageController,
     signInPageController,
+    forgotPasswordPageController,
+    resetPasswordPageController,
     signUpPageController
 };

@@ -12,9 +12,10 @@ function securityHeadersMiddleware(req: Request, res: Response, next: NextFuncti
         "form-action 'self'",
         "frame-ancestors 'none'",
         "img-src 'self' data: https://github.com https://avatars.githubusercontent.com https://cdn.jsdelivr.net",
-        "script-src 'self'",
-        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-        "connect-src 'self'",
+        "script-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+        "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+        "connect-src 'self' https://checkout-api.paddle.com https://sandbox-checkout-api.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com",
+        "frame-src https://checkout.paddle.com https://sandbox-checkout.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com",
         "font-src 'self' data: https://fonts.gstatic.com"
     ].join('; '));
     res.setHeader('Cross-Origin-Opener-Policy', 'same-origin');

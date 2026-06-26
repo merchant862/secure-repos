@@ -5,6 +5,7 @@ import { router } from './routes';
 import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middleware';
 import { githubWebhookRawBodyMiddleware } from './middlewares/github-webhook-raw.middleware';
 import { githubWebhookController } from './controllers/webhook/github-webhook.controller';
+import { paddleWebhookController } from './controllers/webhook/paddle-webhook.controller';
 import { securityHeadersMiddleware } from './middlewares/security.middleware';
 
 const app = express();
@@ -19,6 +20,7 @@ app.set('views', path.join(process.cwd(), 'src', 'views'));
 app.use('/public', express.static(path.join(process.cwd(), 'src', 'public')));
 
 app.post('/webhooks/github', githubWebhookRawBodyMiddleware, githubWebhookController);
+app.post('/webhooks/paddle', express.raw({ type: 'application/json', limit: '100kb' }), paddleWebhookController);
 
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(express.json(

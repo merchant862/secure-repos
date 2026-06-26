@@ -3,15 +3,17 @@ import { promisify } from 'util';
 
 import { Op } from 'sequelize';
 
-import { LoginOtp, NotificationEvent, PricingPlan, Tenant, TenantSubscription, User, UserSession } from '../../db/models';
+import { LoginOtp, NotificationEvent, PasswordResetToken, PricingPlan, Tenant, TenantSubscription, User, UserSession } from '../../db/models';
 import { sequelize } from '../../db/sequelize';
 import { queueWelcomeOwnerEmail } from './notification.service';
+import { env } from '../../bootstrap/env';
 
 const scrypt = promisify(crypto.scrypt);
 const sessionDays = 14;
 const loginOtpMinutes = 10;
 const loginOtpMaxAttempts = 5;
 const loginOtpResendCooldownMs = 60 * 1000;
+const passwordResetMinutes = 30;
 
 function normalizeEmail(email: string): string
 {
@@ -93,7 +95,7 @@ async function createSession(user: User, ipAddress?: string, userAgent?: string)
     };
 }
 
-async function registerOwner(name: string, email: string, password: string, planSlug = 'starter')
+async function registerOwner(name: string, email: string, password: string, planSlug = 'solo-starter')
 {
     const normalizedEmail = normalizeEmail(email);
     const normalizedName = name.trim();
@@ -281,6 +283,100 @@ async function verifyLoginOtpChallenge(challengeId: string, otpCode: string, ipA
     return createSession(user, ipAddress, userAgent);
 }
 
+async function createPasswordResetRequest(email: string, ipAddress?: string, userAgent?: string)
+{
+    const user = await User.findOne({ where: { email: normalizeEmail(email), status: 'active' } });
+
+    if (!user)
+    {
+        return null;
+    }
+
+    await PasswordResetToken.update({ usedAt: new Date() }, { where: { userId: user.id, usedAt: null } });
+
+    const token = crypto.randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + passwordResetMinutes * 60 * 1000);
+    await PasswordResetToken.create(
+        {
+            userId: user.id,
+            tokenHash: hashToken(token),
+            expiresAt,
+            ipAddress: ipAddress ?? null,
+            userAgent: userAgent ?? null
+        }
+    );
+
+    const resetUrl = `${env.appUrl.replace(/\/$/, '')}/reset-password?token=${encodeURIComponent(token)}`;
+
+    await NotificationEvent.create(
+        {
+            tenantId: user.tenantId,
+            type: 'password_reset',
+            channel: 'email',
+            status: 'queued',
+            subject: 'Reset your SecureRepos password',
+            payload:
+            {
+                recipients: [user.email],
+                email: user.email,
+                name: user.name,
+                resetUrl,
+                expiresMinutes: passwordResetMinutes
+            }
+        }
+    );
+
+    return { expiresAt };
+}
+
+async function resetPasswordWithToken(token: string, password: string)
+{
+    if (password.length < 12 || password.length > 128)
+    {
+        throw new Error('Password must be between 12 and 128 characters');
+    }
+
+    const resetToken = await PasswordResetToken.findOne(
+        {
+            where:
+            {
+                tokenHash: hashToken(token),
+                usedAt: null,
+                expiresAt:
+                {
+                    [Op.gt]: new Date()
+                }
+            },
+            include:
+            [
+                {
+                    model: User,
+                    as: 'user'
+                }
+            ]
+        }
+    );
+
+    if (!resetToken)
+    {
+        throw new Error('Invalid or expired reset link');
+    }
+
+    const user = resetToken.get('user') as User | undefined ?? await User.findByPk(resetToken.userId);
+
+    if (!user || user.status !== 'active')
+    {
+        throw new Error('Invalid or expired reset link');
+    }
+
+    await sequelize.transaction(async function (transaction)
+    {
+        await user.update({ password: await hashPassword(password) }, { transaction });
+        await resetToken.update({ usedAt: new Date() }, { transaction });
+        await UserSession.update({ revokedAt: new Date() }, { where: { userId: user.id, revokedAt: null }, transaction });
+    });
+}
+
 async function resolveSession(token: string)
 {
     const session = await UserSession.findOne(
@@ -345,5 +441,7 @@ export {
     resolveSession,
     revokeSession,
     createLoginOtpChallenge,
-    verifyLoginOtpChallenge
+    verifyLoginOtpChallenge,
+    createPasswordResetRequest,
+    resetPasswordWithToken
 };

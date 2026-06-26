@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { dashboardController } from './controllers/web/dashboard.controller';
 import { adminPanelPageController, adminSignInPageController } from './controllers/web/admin-page.controller';
+import { checkoutPageController } from './controllers/web/checkout.controller';
 import { healthController } from './controllers/web/health.controller';
 import { githubInstallCallbackController } from './controllers/web/github-install.controller';
 import {
@@ -8,6 +9,7 @@ import {
     contactPageController,
     demoPageController,
     faqPageController,
+    forgotPasswordPageController,
     findingDetailPageController,
     findingsPageController,
     landingPageController,
@@ -23,6 +25,7 @@ import {
     scansPageController,
     settingsPageController,
     signInPageController,
+    resetPasswordPageController,
     signUpPageController,
 } from './controllers/web/page.controller';
 import { adminApiAuthMiddleware, adminPageAuthMiddleware } from './middlewares/admin-api-auth.middleware';
@@ -48,6 +51,8 @@ import {
     loginOtpController,
     logoutController,
     meController,
+    passwordResetConfirmController,
+    passwordResetRequestController,
     signupController
 } from './controllers/api/auth.controller';
 import {
@@ -77,6 +82,7 @@ import {
 } from './controllers/api/user-settings.controller';
 import { notificationStreamController } from './controllers/api/notification-stream.controller';
 import {
+    guestPageMiddleware,
     requireOwnerOrAdmin,
     userAuthMiddleware,
     userPageAuthMiddleware
@@ -93,7 +99,10 @@ import {
 } from './controllers/api/admin-operations.controller';
 import {
     cancelUserSubscriptionController,
-    getUserBillingController
+    changeUserPlanController,
+    getUserBillingController,
+    getUserPlanChangeOptionsController,
+    syncUserPaddleCheckoutController
 } from './controllers/api/billing.controller';
 import {
     adminChangePasswordController,
@@ -120,18 +129,14 @@ const contactRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, scope: 
 
 router.use('/api', sameOriginApiMiddleware);
 
-router.get('/test-500', function testServerErrorRoute()
-{
-    throw new Error('Temporary 500 page test');
-});
-
-router.get('/', landingPageController);
+router.get('/', guestPageMiddleware, landingPageController);
 router.get('/terms', legalPlaceholderPageController);
 router.get('/privacy', legalPlaceholderPageController);
 router.get('/refund-policy', legalPlaceholderPageController);
 router.get('/do-not-sell', legalPlaceholderPageController);
 router.get('/faqs', faqPageController);
 router.get('/contact', contactPageController);
+router.get('/checkout', checkoutPageController);
 router.get('/demo', demoPageController);
 router.get('/demo/:page', demoPageController);
 router.get('/admin', adminPageAuthMiddleware, adminPanelPageController);
@@ -152,13 +157,17 @@ router.get('/notifications', userPageAuthMiddleware, notificationsPageController
 router.get('/billing', userPageAuthMiddleware, billingPageController);
 router.get('/profile', userPageAuthMiddleware, profilePageController);
 router.get('/pricing', userPageAuthMiddleware, pricingPageController);
-router.get('/sign-in', signInPageController);
-router.get('/sign-up', signUpPageController);
+router.get('/sign-in', guestPageMiddleware, signInPageController);
+router.get('/sign-up', guestPageMiddleware, signUpPageController);
+router.get('/forgot-password', guestPageMiddleware, forgotPasswordPageController);
+router.get('/reset-password', guestPageMiddleware, resetPasswordPageController);
 router.get('/github/install/callback', githubInstallCallbackController);
 router.get('/github/install/return', githubInstallCallbackController);
 router.post('/api/auth/signup', authRateLimit, signupController);
 router.post('/api/auth/login', authRateLimit, loginController);
 router.post('/api/auth/login/otp', otpRateLimit, loginOtpController);
+router.post('/api/auth/password-reset/request', authRateLimit, passwordResetRequestController);
+router.post('/api/auth/password-reset/confirm', authRateLimit, passwordResetConfirmController);
 router.post('/api/auth/logout', logoutController);
 router.post('/api/contact', contactRateLimit, submitContactController);
 router.get('/api/pricing', listPublicPricingPlansController);
@@ -190,6 +199,9 @@ router.get('/api/user/audit-logs', requireOwnerOrAdmin, listAuditLogsController)
 router.get('/api/user/security-trend', getSecurityTrendController);
 router.get('/api/user/reports/export', exportReportController);
 router.get('/api/user/billing', getUserBillingController);
+router.get('/api/user/billing/plan-change-options', getUserPlanChangeOptionsController);
+router.post('/api/user/billing/change-plan', changeUserPlanController);
+router.post('/api/user/billing/paddle-sync', syncUserPaddleCheckoutController);
 router.post('/api/user/billing/cancel', cancelUserSubscriptionController);
 
 router.use('/api/admin', adminApiAuthMiddleware);

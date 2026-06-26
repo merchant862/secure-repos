@@ -36,6 +36,7 @@
         const next = new URLSearchParams(window.location.search).get('next');
         const allowedPrefixes = [
             '/billing',
+            '/checkout',
             '/dashboard',
             '/findings',
             '/notifications',
@@ -107,6 +108,12 @@
     }
 
     document.addEventListener('click', function (event) {
+        const disabledAction = event.target.closest('[aria-disabled="true"], .is-disabled');
+        if (disabledAction) {
+            event.preventDefault();
+            return;
+        }
+
         const themeButton = event.target.closest('[data-theme-toggle]');
         const sidebarButton = event.target.closest('[data-sidebar-toggle]');
         const overlay = event.target.closest('[data-sidebar-overlay]');
@@ -121,6 +128,8 @@
         const landingMenuLink = event.target.closest('[data-landing-menu] a');
         const backToTopButton = event.target.closest('[data-back-to-top]');
         const cookieActionButton = event.target.closest('[data-cookie-action]');
+        const passwordToggle = event.target.closest('[data-password-toggle]');
+        const billingChangePlanButton = event.target.closest('[data-billing-change-plan]');
         const scanButton = event.target.closest('[data-repository-scan]');
         const repositoryFilterButton = event.target.closest('[data-repository-filter]');
         const repositoryPageButton = event.target.closest('[data-repository-page]');
@@ -130,6 +139,7 @@
         const mitigationButton = event.target.closest('[data-mitigation-open]');
         const mitigationCloseButton = event.target.closest('[data-mitigation-close]');
         const mitigationResolveButton = event.target.closest('[data-mitigation-resolve]');
+        const findingResolveButton = event.target.closest('[data-finding-resolve]');
         const panel = document.querySelector('[data-notification-panel]');
         const quickSettingsPanel = document.querySelector('[data-quick-settings-panel]');
         const mobileHeaderMenuPanel = document.querySelector('[data-mobile-header-menu]');
@@ -168,7 +178,8 @@
             quickSettingsPanel.classList.remove('open');
         }
 
-        if (providerButton) {
+        if (providerButton && !providerButton.disabled) {
+            event.preventDefault();
             const provider = providerButton.dataset.providerConnect;
             connectProvider(providerButton, provider);
         }
@@ -213,6 +224,10 @@
             resolveFinding(mitigationResolveButton);
         }
 
+        if (findingResolveButton) {
+            resolveFindingInline(findingResolveButton);
+        }
+
         if (landingMenuButton) {
             const isOpen = document.body.classList.toggle('landing-menu-open');
             landingMenuButton.setAttribute('aria-expanded', String(isOpen));
@@ -229,6 +244,20 @@
 
         if (cookieActionButton) {
             updateCookieConsent(cookieActionButton.dataset.cookieAction);
+        }
+
+        if (passwordToggle) {
+            const field = passwordToggle.closest('.password-field');
+            const input = field?.querySelector('input');
+            if (input) {
+                const isHidden = input.type === 'password';
+                input.type = isHidden ? 'text' : 'password';
+                passwordToggle.textContent = isHidden ? 'Hide' : 'Show';
+            }
+        }
+
+        if (billingChangePlanButton) {
+            openPlanChangeModal(billingChangePlanButton);
         }
     });
 
@@ -406,17 +435,20 @@
 
             try {
                 const body = Object.fromEntries(new FormData(form).entries());
-                const isOtpStep = form.dataset.otpStep === 'true';
-                const payload = await apiFetch(isOtpStep ? '/api/auth/login/otp' : form.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) });
+                const payload = await apiFetch(form.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) });
 
                 if (payload.data && payload.data.otpRequired) {
-                    prepareOtpStep(form, payload.data.challengeId);
+                    showLoginOtpPendingModal();
                     showFormStatus(form, 'Login code sent. Check your email.');
+                    setTimeout(function () {
+                        openLoginOtpModal(form, payload.data.challengeId, payload.data.expiresAt);
+                    }, 2200);
                     return;
                 }
 
                 setToken(payload.data && payload.data.token);
-                window.location.href = getSafeNextPath() || (form.getAttribute('action') === '/api/auth/signup' ? '/onboarding' : '/dashboard');
+                const signupTarget = payload.data?.checkoutLinkSent ? '/onboarding?signup=check-email' : '/onboarding';
+                window.location.href = getSafeNextPath() || (form.getAttribute('action') === '/api/auth/signup' ? signupTarget : '/dashboard');
             } catch (error) {
                 showFormStatus(form, error.message, true);
             } finally {
@@ -428,33 +460,122 @@
         });
     });
 
-    function prepareOtpStep(form, challengeId) {
-        form.dataset.otpStep = 'true';
-        form.querySelectorAll('input[name="email"], input[name="password"]').forEach(function (input) {
-            input.closest('.form-field')?.remove();
+    function closeLoginOtpModal() {
+        document.querySelector('[data-login-otp-modal]')?.remove();
+    }
+
+    function showLoginOtpPendingModal() {
+        closeLoginOtpModal();
+
+        const modal = document.createElement('div');
+        modal.className = 'auth-modal-backdrop';
+        modal.dataset.loginOtpModal = 'true';
+        modal.innerHTML = `<div class="auth-modal auth-modal-pending" role="dialog" aria-modal="true" aria-live="polite">
+            <span class="badge brand">Email verification</span>
+            <h2>Sending your login code</h2>
+            <p class="muted">We are preparing a one-time code for this sign-in attempt.</p>
+            <div class="typing-dots" aria-hidden="true"><span></span><span></span><span></span></div>
+        </div>`;
+
+        document.body.appendChild(modal);
+    }
+
+    function openLoginOtpModal(loginForm, challengeId, expiresAt) {
+        closeLoginOtpModal();
+
+        const modal = document.createElement('div');
+        modal.className = 'auth-modal-backdrop';
+        modal.dataset.loginOtpModal = 'true';
+        modal.innerHTML = `<div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="login-otp-title">
+            <button class="icon-button auth-modal-close" type="button" data-login-otp-close aria-label="Close">x</button>
+            <span class="badge brand">Email verification</span>
+            <h2 id="login-otp-title">Enter your login code</h2>
+            <p class="muted">We sent a 6-digit code to your email. This extra check is required on every login.</p>
+            <form data-login-otp-form>
+                <input type="hidden" name="challengeId" value="${escapeHtml(challengeId)}">
+                <div class="form-field">
+                    <label>One-time code</label>
+                    <input class="input otp-input" type="text" name="otpCode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}" required autofocus>
+                </div>
+                <button class="button primary" type="submit" style="width:100%">Verify and continue</button>
+                <p class="muted small" data-form-status style="margin:12px 0 0">${expiresAt ? `Code expires at ${escapeHtml(formatDateTime(expiresAt))}.` : ''}</p>
+            </form>
+        </div>`;
+
+        document.body.appendChild(modal);
+        modal.querySelector('[name="otpCode"]')?.focus();
+
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal || event.target.closest('[data-login-otp-close]')) {
+                closeLoginOtpModal();
+            }
         });
 
-        if (!form.querySelector('input[name="challengeId"]')) {
-            const hidden = document.createElement('input');
-            hidden.type = 'hidden';
-            hidden.name = 'challengeId';
-            hidden.value = challengeId;
-            form.prepend(hidden);
-        }
-
-        if (!form.querySelector('input[name="otpCode"]')) {
-            const field = document.createElement('div');
-            field.className = 'form-field';
-            field.innerHTML = '<label>Login code</label><input class="input" type="text" name="otpCode" inputmode="numeric" autocomplete="one-time-code" required>';
+        modal.querySelector('[data-login-otp-form]')?.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const form = event.currentTarget;
+            const button = form.querySelector('button[type="submit"]');
             const status = form.querySelector('[data-form-status]');
-            form.insertBefore(field, status || form.querySelector('button[type="submit"]'));
-        }
+            const originalText = button ? button.textContent : '';
 
-        const button = form.querySelector('button[type="submit"]');
-        if (button) {
-            button.textContent = 'Verify code';
-        }
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Verifying...';
+            }
+
+            try {
+                const body = Object.fromEntries(new FormData(form).entries());
+                await apiFetch('/api/auth/login/otp', { method: 'POST', body: JSON.stringify(body) });
+                window.location.href = getSafeNextPath() || '/dashboard';
+            } catch (error) {
+                if (status) {
+                    status.textContent = error.message || 'Invalid or expired login code';
+                    status.style.color = 'var(--danger)';
+                }
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            }
+        });
     }
+
+    document.querySelectorAll('[data-auth-flow="password-reset-request"], [data-auth-flow="password-reset-confirm"]').forEach(function (form) {
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            const originalText = button ? button.textContent : '';
+
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Please wait...';
+            }
+
+            try {
+                const body = Object.fromEntries(new FormData(form).entries());
+                const payload = await apiFetch(form.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) });
+                showFormStatus(form, payload.message || 'Done.');
+
+                if (form.dataset.authFlow === 'password-reset-confirm') {
+                    setTimeout(function () {
+                        window.location.href = '/sign-in?reset=success';
+                    }, 1200);
+                }
+            } catch (error) {
+                showFormStatus(form, error.message, true);
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalText;
+                }
+            }
+        });
+    });
+
+    document.querySelector('[data-findings-status-filter]')?.addEventListener('change', function () {
+        hydrateFindings();
+    });
 
     document.querySelectorAll('[data-api-form]').forEach(function (form) {
         form.addEventListener('submit', async function (event) {
@@ -483,6 +604,10 @@
             try {
                 const payload = await apiFetch(target.path, { method: target.method, body: JSON.stringify(body) });
                 showFormStatus(form, formType === 'contact-message' ? 'Message sent. We will reply by email.' : 'Saved successfully.');
+                if (formType === 'cancel-subscription') {
+                    await hydrateBilling();
+                    await hydrateOnboarding();
+                }
                 if (formType !== 'notification-settings') {
                     form.reset();
                 }
@@ -507,8 +632,96 @@
             hydrateTrend(),
             hydrateSessionSummary(),
             hydrateProfile(),
-            hydratePublicPricing()
+            hydrateBilling(),
+            hydrateOnboarding(),
+            hydratePublicPricing(),
+            hydratePaddleCheckout()
         ]);
+    }
+
+    function parseJsonScript(selector) {
+        const script = document.querySelector(selector);
+        if (!script) {
+            return null;
+        }
+
+        try {
+            return JSON.parse(script.textContent || '{}');
+        } catch (error) {
+            return null;
+        }
+    }
+
+    function showCheckoutError(message) {
+        const frame = document.querySelector('[data-paddle-frame]');
+        if (!frame) {
+            return;
+        }
+
+        frame.innerHTML = `<div class="empty-state">${escapeHtml(message)}</div>`;
+    }
+
+    async function hydratePaddleCheckout() {
+        const checkoutNode = document.querySelector('[data-paddle-checkout]');
+        if (!checkoutNode) {
+            return;
+        }
+
+        const config = parseJsonScript('[data-paddle-config]');
+
+        if (!config || !config.clientToken || !config.priceId) {
+            showCheckoutError('Checkout is not configured yet.');
+            return;
+        }
+
+        if (!window.Paddle) {
+            showCheckoutError('Paddle checkout could not be loaded. Please refresh the page.');
+            return;
+        }
+
+        let hasSyncedCheckout = false;
+        const syncPaddleCheckout = async function (event) {
+            const eventName = String(event?.name || event?.type || event?.eventName || '');
+            if (hasSyncedCheckout || !/(checkout|transaction|subscription).*(completed|created|updated)|completed/i.test(eventName)) {
+                return;
+            }
+
+            hasSyncedCheckout = true;
+
+            try {
+                await apiFetch('/api/user/billing/paddle-sync', { method: 'POST', body: JSON.stringify(event || {}) });
+            } catch (error) {
+                hasSyncedCheckout = false;
+                console.warn('Paddle checkout sync failed:', error.message || error);
+            }
+        };
+
+        try {
+            if (config.environment === 'sandbox' && window.Paddle.Environment) {
+                window.Paddle.Environment.set('sandbox');
+            }
+
+            window.Paddle.Initialize({ token: config.clientToken, eventCallback: syncPaddleCheckout });
+            window.Paddle.Checkout.open({
+                settings: {
+                    displayMode: 'inline',
+                    frameTarget: 'paddle-checkout-frame',
+                    frameInitialHeight: 460,
+                    frameStyle: 'width:100%; min-width:312px; background-color: transparent; border: none;',
+                    successUrl: config.successUrl
+                },
+                items: [
+                    {
+                        priceId: config.priceId,
+                        quantity: 1
+                    }
+                ],
+                customer: config.customer || undefined,
+                customData: config.customData || undefined
+            });
+        } catch (error) {
+            showCheckoutError(error.message || 'Checkout could not be started.');
+        }
     }
 
     async function hydratePublicPricing() {
@@ -532,9 +745,12 @@
                 const badgeClass = plan.isHighlighted ? 'badge success' : 'badge brand';
                 const badgeText = plan.isHighlighted ? 'Recommended' : plan.name;
                 const buttonClass = plan.isHighlighted ? 'button primary' : 'button';
-                const target = container.dataset.pricingTarget === 'billing'
-                    ? `/billing?planId=${encodeURIComponent(plan.id)}`
-                    : `/sign-up?plan=${encodeURIComponent(plan.slug)}`;
+                const checkoutToken = plan.checkoutToken || '';
+                const target = checkoutToken
+                    ? (container.dataset.pricingTarget === 'billing'
+                        ? `/checkout?t=${encodeURIComponent(checkoutToken)}`
+                        : `/sign-up?t=${encodeURIComponent(checkoutToken)}`)
+                    : '/contact';
 
                 return `<article class="${cardClass}">
                     <span class="${badgeClass}">${escapeHtml(badgeText)}</span>
@@ -609,6 +825,474 @@
         if (dashboardRepositoriesTable) {
             const repositories = data.dashboardRepositories || [];
             dashboardRepositoriesTable.innerHTML = repositories.map(renderRepositoryRow).join('') || '<tr><td colspan="6">No repository activity yet.</td></tr>';
+        }
+    }
+
+    function formatMoney(cents, currency) {
+        return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: currency || 'USD',
+            minimumFractionDigits: 2
+        }).format(Number(cents || 0) / 100);
+    }
+
+    function subscriptionState(subscription) {
+        const status = String(subscription?.status || 'pending');
+        return {
+            status,
+            isActive: status === 'active',
+            isCancelled: status === 'cancelled',
+            isPastDue: status === 'past_due',
+            isPending: status === 'pending'
+        };
+    }
+
+    async function hydrateBilling() {
+        const badge = document.querySelector('[data-billing-status-badge]');
+        if (!badge) {
+            return;
+        }
+
+        let payload = await apiFetch('/api/user/billing');
+        let subscription = payload.data?.subscription;
+
+        if (
+            subscription
+            && String(subscription.status || 'pending') === 'pending'
+            && !subscription.providerSubscriptionId
+            && !subscription.provider
+            && !window.__paddleBillingRecovered
+        ) {
+            window.__paddleBillingRecovered = true;
+
+            try {
+                await apiFetch('/api/user/billing/paddle-sync', { method: 'POST', body: JSON.stringify({ recoverByEmail: true }) });
+                payload = await apiFetch('/api/user/billing');
+                subscription = payload.data?.subscription;
+            } catch (error) {
+                // Keep the normal pending checkout state if Paddle cannot verify this workspace yet.
+            }
+        }
+
+        const plan = subscription?.pricingPlan || payload.data?.selectedPlan;
+        const pendingPlan = payload.data?.pendingPlan;
+        const checkoutToken = payload.data?.checkoutToken || '';
+        const state = subscriptionState(subscription);
+        const statusLabel = state.isActive ? 'Active' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Payment issue' : 'Pending';
+        const statusClass = state.isActive ? 'success' : state.isCancelled ? 'danger' : state.isPastDue ? 'warning' : 'brand';
+        const checkoutLabel = state.isActive ? 'Complete' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Needs attention' : plan ? 'Checkout needed' : 'Plan needed';
+        const checkoutClass = state.isActive ? 'success' : state.isCancelled ? 'danger' : state.isPastDue ? 'warning' : 'brand';
+        const planName = plan?.name || (subscription?.pricingPlanId ? `Plan #${subscription.pricingPlanId}` : 'No selected plan');
+        const price = plan ? `${formatMoney(plan.priceMonthlyCents, plan.currency)}/mo` : '';
+        const periodEnd = subscription?.currentPeriodEndsAt ? ` · renews/ends ${formatDate(subscription.currentPeriodEndsAt)}` : '';
+        const pendingCopy = pendingPlan ? ` Scheduled change: ${pendingPlan.name} on ${subscription?.pendingPlanChangeEffectiveAt ? formatDate(subscription.pendingPlanChangeEffectiveAt) : 'the next billing period'}.` : '';
+        const provider = subscription?.provider === 'paddle' ? 'Paddle' : 'Checkout provider';
+        const setText = (selector, text) => {
+            const node = document.querySelector(selector);
+            if (node) node.textContent = text;
+        };
+        const setBadge = (selector, text, className) => {
+            const node = document.querySelector(selector);
+            if (!node) return;
+            node.textContent = text;
+            node.className = `badge ${className}`;
+        };
+
+        badge.textContent = statusLabel;
+        badge.className = `badge ${statusClass}`;
+        setBadge('[data-billing-checkout-badge]', checkoutLabel, checkoutClass);
+        setText('[data-billing-toolbar-copy]', state.isActive
+            ? 'Your subscription is active. GitHub repository scanning is available for this workspace.'
+            : state.isCancelled
+                ? 'This subscription is cancelled. Choose a plan again to reactivate scanning.'
+                : plan
+                    ? `${plan.name} is selected. Complete checkout to activate repository scanning.`
+                    : 'Choose a plan and complete checkout to activate repository scanning for this workspace.');
+        setText('[data-billing-plan-name]', planName);
+        setText('[data-billing-plan-copy]', plan ? `${price}${periodEnd}. Repository limit: ${plan.repositoryLimit ?? 'custom'}.${pendingCopy}` : 'No package is selected yet.');
+        setText('[data-billing-provider-copy]', subscription?.providerSubscriptionId
+            ? `${provider} subscription ${subscription.providerSubscriptionId} is linked to this workspace.`
+            : state.isActive
+                ? 'Subscription is active. Provider details will appear when Paddle sends them.'
+                : plan
+                    ? `Checkout is ready for ${plan.name}. Paddle will link payment details after confirmation.`
+                    : 'Checkout will link the payment provider subscription to this workspace.');
+        setBadge('[data-billing-step-plan-badge]', plan ? 'Done' : 'Next', plan ? 'success' : 'brand');
+        setText('[data-billing-step-plan]', plan ? `${plan.name} is selected for this workspace.` : 'Choose a package before checkout.');
+        setBadge('[data-billing-step-payment-badge]', state.isActive ? 'Done' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Issue' : 'Next', statusClass);
+        setText('[data-billing-step-payment]', state.isActive ? 'Payment is confirmed and access is active.' : state.isCancelled ? 'Future renewal has been cancelled.' : state.isPastDue ? 'Payment needs attention in Paddle.' : plan ? 'Complete Paddle checkout to activate scans.' : 'Choose a plan to unlock checkout.');
+
+        const checkoutAction = document.querySelector('[data-billing-checkout-action]');
+        if (checkoutAction) {
+            checkoutAction.textContent = state.isActive ? 'Open onboarding' : state.isCancelled ? 'Choose plan again' : plan ? 'Continue checkout' : 'Choose plan';
+            checkoutAction.href = state.isActive
+                ? '/onboarding'
+                : checkoutToken
+                    ? `/checkout?t=${encodeURIComponent(checkoutToken)}`
+                    : '/pricing';
+        }
+
+        const cancelButton = document.querySelector('[data-billing-cancel-button]');
+        if (cancelButton) {
+            cancelButton.disabled = !state.isActive || !subscription?.providerSubscriptionId;
+            cancelButton.textContent = state.isCancelled ? 'Subscription cancelled' : 'Cancel subscription';
+        }
+        setText('[data-billing-cancel-copy]', state.isActive
+            ? pendingPlan
+                ? 'A plan change is already scheduled. Another plan change is blocked until the next billing cycle.'
+                : 'Cancel future renewals from this page. Access remains subject to the current billing period and Paddle status.'
+            : state.isCancelled
+                ? 'This subscription has already been cancelled.'
+                : 'Cancellation becomes available after checkout is confirmed.');
+    }
+
+    function closePlanChangeModal() {
+        document.querySelector('[data-plan-change-modal]')?.remove();
+    }
+
+    function planById(plans, id) {
+        return plans.find((plan) => Number(plan.id) === Number(id));
+    }
+
+    function activeRepositoryIds(repositories) {
+        return repositories.filter((repository) => repository.isActive).map((repository) => Number(repository.id));
+    }
+
+    function updatePlanChangeSummary(modal, options) {
+        const selectedPlanId = Number(modal.querySelector('input[name="pricingPlanId"]:checked')?.value);
+        const plan = planById(options.plans, selectedPlanId);
+        const selectedRepositoryIds = Array.from(modal.querySelectorAll('input[name="repositoryIds"]:checked')).map((input) => Number(input.value));
+        const limit = plan?.repositoryLimit ?? null;
+        const count = selectedRepositoryIds.length;
+        const summary = modal.querySelector('[data-plan-change-summary]');
+        const submit = modal.querySelector('[data-plan-change-submit]');
+
+        if (!summary || !submit) {
+            return;
+        }
+
+        if (!plan) {
+            summary.textContent = 'Choose a plan to continue.';
+            submit.disabled = true;
+            return;
+        }
+
+        const limitCopy = limit === null || limit === undefined ? 'unlimited repositories' : `${limit} active repositories`;
+        const overLimit = limit !== null && limit !== undefined && count > limit;
+        const noRepos = count === 0 && limit !== 0;
+
+        summary.textContent = overLimit
+            ? `${plan.name} allows ${limitCopy}. Uncheck ${count - Number(limit)} repositories.`
+            : noRepos
+                ? `Select at least one repository for ${plan.name}.`
+                : `${plan.name} will keep ${count} repositories active (${limitCopy}).`;
+        submit.disabled = overLimit || noRepos || Number(options.subscription?.pricingPlanId) === selectedPlanId;
+    }
+
+    async function openPlanChangeModal(button) {
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Loading...';
+
+        try {
+            const payload = await apiFetch('/api/user/billing/plan-change-options');
+            const options = payload.data || {};
+            const subscription = options.subscription || {};
+            const plans = options.plans || [];
+            const repositories = options.repositories || [];
+            const currentPlanId = Number(subscription.pricingPlanId);
+            const pendingPlan = subscription.pendingPricingPlanId ? planById(plans, subscription.pendingPricingPlanId) : null;
+            const currentActiveIds = activeRepositoryIds(repositories);
+            const currentPlan = planById(plans, currentPlanId);
+
+            closePlanChangeModal();
+
+            const modal = document.createElement('div');
+            modal.className = 'auth-modal-backdrop';
+            modal.dataset.planChangeModal = 'true';
+            modal.innerHTML = `<div class="auth-modal plan-change-modal" role="dialog" aria-modal="true" aria-labelledby="plan-change-title">
+                <button class="icon-button auth-modal-close" type="button" data-plan-change-close aria-label="Close">x</button>
+                <span class="badge brand">Billing cycle control</span>
+                <h2 id="plan-change-title">Change plan</h2>
+                <p class="muted">${pendingPlan ? `A downgrade to ${escapeHtml(pendingPlan.name)} is already scheduled.` : 'Choose one new plan and select the repositories that should stay active.'}</p>
+                <form data-plan-change-form>
+                    <div class="plan-change-grid">
+                        ${plans.map((plan) => {
+                            const isCurrent = Number(plan.id) === currentPlanId;
+                            const isPending = Number(plan.id) === Number(subscription.pendingPricingPlanId);
+                            const checked = !isCurrent && !pendingPlan && !isPending ? '' : '';
+                            return `<label class="plan-change-option ${isCurrent ? 'current' : ''} ${isPending ? 'current' : ''}">
+                                <input type="radio" name="pricingPlanId" value="${escapeHtml(plan.id)}" ${checked} ${isCurrent || pendingPlan ? 'disabled' : ''}>
+                                <span><strong>${escapeHtml(plan.name)}</strong><small>${escapeHtml(formatMoney(plan.priceMonthlyCents, plan.currency))}/mo · ${plan.repositoryLimit ?? 'Unlimited'} repos${isCurrent ? ' · current' : ''}${isPending ? ' · scheduled' : ''}</small></span>
+                            </label>`;
+                        }).join('')}
+                    </div>
+                    <div class="repository-select-list">
+                        ${repositories.length === 0
+                            ? '<p class="muted small">No GitHub repositories are connected yet. Connect GitHub before changing plan limits.</p>'
+                            : repositories.map((repository) => `<label class="repository-select-row">
+                                <input type="checkbox" name="repositoryIds" value="${escapeHtml(repository.id)}" ${currentActiveIds.includes(Number(repository.id)) ? 'checked' : ''} ${pendingPlan ? 'disabled' : ''}>
+                                <span><strong>${escapeHtml(repository.fullName || repository.name)}</strong><small>${repository.isActive ? 'Active for scanning' : 'Inactive'}</small></span>
+                            </label>`).join('')}
+                    </div>
+                    <p class="muted small" data-plan-change-summary>${pendingPlan ? `Scheduled for ${subscription.pendingPlanChangeEffectiveAt ? escapeHtml(formatDate(subscription.pendingPlanChangeEffectiveAt)) : 'next billing period'}.` : currentPlan ? `Current plan: ${escapeHtml(currentPlan.name)}.` : 'Choose a new plan.'}</p>
+                    <button class="button primary" type="submit" data-plan-change-submit ${pendingPlan || repositories.length === 0 ? 'disabled' : ''} style="width:100%">Submit plan change</button>
+                    <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                </form>
+            </div>`;
+
+            document.body.appendChild(modal);
+
+            const selectablePlan = modal.querySelector('input[name="pricingPlanId"]:not(:disabled)');
+            if (selectablePlan) {
+                selectablePlan.checked = true;
+            }
+            updatePlanChangeSummary(modal, options);
+
+            modal.addEventListener('click', function (event) {
+                if (event.target === modal || event.target.closest('[data-plan-change-close]')) {
+                    closePlanChangeModal();
+                }
+            });
+
+            modal.addEventListener('change', function () {
+                updatePlanChangeSummary(modal, options);
+            });
+
+            modal.querySelector('[data-plan-change-form]')?.addEventListener('submit', async function (event) {
+                event.preventDefault();
+                const form = event.currentTarget;
+                const submit = form.querySelector('[data-plan-change-submit]');
+                const status = form.querySelector('[data-form-status]');
+                const selectedPlanId = Number(form.querySelector('input[name="pricingPlanId"]:checked')?.value);
+                const selectedRepositoryIds = Array.from(form.querySelectorAll('input[name="repositoryIds"]:checked')).map((input) => Number(input.value));
+                const submitText = submit.textContent;
+
+                submit.disabled = true;
+                submit.textContent = 'Submitting...';
+
+                try {
+                    const result = await apiFetch('/api/user/billing/change-plan', {
+                        method: 'POST',
+                        body: JSON.stringify({ pricingPlanId: selectedPlanId, repositoryIds: selectedRepositoryIds })
+                    });
+                    if (status) {
+                        status.textContent = result.message || 'Plan change submitted.';
+                        status.style.color = 'var(--success)';
+                    }
+                    await hydrateBilling();
+                    setTimeout(closePlanChangeModal, 900);
+                } catch (error) {
+                    if (status) {
+                        status.textContent = error.message || 'Plan change could not be submitted.';
+                        status.style.color = 'var(--danger)';
+                    }
+                    submit.disabled = false;
+                    submit.textContent = submitText;
+                }
+            });
+        } catch (error) {
+            alert(error.message || 'Plan change options could not be loaded.');
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+
+    function setOnboardingStep(key, state, copy, actionText) {
+        const card = document.querySelector(`[data-onboarding-step="${key}"]`);
+        if (!card) return;
+        const stepNumbers = { account: '1', billing: '2', github: '3', repositories: '4', scan: '5' };
+        card.classList.toggle('active', state === 'active');
+        card.classList.toggle('completed', state === 'done');
+        card.classList.toggle('locked', state === 'locked');
+        const number = card.querySelector('.step-number');
+        const copyNode = card.querySelector(`[data-step-copy="${key}"]`);
+        const action = card.querySelector(`[data-step-action="${key}"]`);
+        if (number) number.textContent = state === 'done' ? '✓' : (stepNumbers[key] || '');
+        if (copyNode) copyNode.textContent = copy;
+        if (action && actionText) action.textContent = actionText;
+        if (action) {
+            action.disabled = state === 'locked';
+            action.classList.toggle('is-disabled', state === 'locked');
+            if (action.tagName === 'A') {
+                action.setAttribute('aria-disabled', String(state === 'locked'));
+            }
+        }
+    }
+
+    function setOnboardingGuideState(key, state) {
+        const item = document.querySelector(`[data-onboarding-guide="${key}"]`);
+        if (!item) return;
+        const badge = item.querySelector('.badge');
+        const labels = { done: 'Done', active: 'Next', locked: 'Locked' };
+        const classes = { done: 'success', active: 'brand', locked: 'warning' };
+        item.classList.toggle('completed', state === 'done');
+        item.classList.toggle('active', state === 'active');
+        item.classList.toggle('locked', state === 'locked');
+        if (badge) {
+            badge.textContent = labels[state] || 'Next';
+            badge.className = `badge ${classes[state] || 'brand'}`;
+        }
+    }
+
+    function updateOnboardingAction(input) {
+        const title = document.querySelector('[data-onboarding-action-title]');
+        const copy = document.querySelector('[data-onboarding-action-copy]');
+        const badge = document.querySelector('[data-onboarding-action-badge]');
+        const primary = document.querySelector('[data-onboarding-primary-action]');
+        const secondary = document.querySelector('[data-onboarding-secondary-action]');
+        const wizardTitle = document.querySelector('[data-onboarding-wizard-title]');
+        const wizardCopy = document.querySelector('[data-onboarding-wizard-copy]');
+        const wizardBadge = document.querySelector('[data-onboarding-wizard-badge]');
+
+        if (title) title.textContent = input.title;
+        if (copy) copy.textContent = input.copy;
+        if (badge) {
+            badge.textContent = input.badge;
+            badge.className = `badge ${input.badgeClass || 'brand'}`;
+        }
+        if (wizardTitle) wizardTitle.textContent = input.wizardTitle || 'Finish setup';
+        if (wizardCopy) wizardCopy.textContent = input.wizardCopy || input.copy;
+        if (wizardBadge) {
+            wizardBadge.textContent = input.wizardBadge || input.badge;
+            wizardBadge.className = `badge ${input.badgeClass || 'brand'}`;
+        }
+        if (primary) {
+            primary.textContent = input.primaryText;
+            primary.href = input.primaryHref;
+            if (input.provider) {
+                primary.dataset.providerConnect = input.provider;
+            } else {
+                delete primary.dataset.providerConnect;
+            }
+        }
+        if (secondary) {
+            secondary.hidden = !input.secondaryText;
+            secondary.textContent = input.secondaryText || '';
+            if (input.secondaryHref) {
+                secondary.href = input.secondaryHref;
+            }
+        }
+    }
+
+    async function hydrateOnboarding() {
+        const badge = document.querySelector('[data-onboarding-badge]');
+        if (!badge) {
+            return;
+        }
+
+        const [billingResult, repositoriesResult, dashboardResult] = await Promise.allSettled([
+            apiFetch('/api/user/billing'),
+            apiFetch('/api/user/repositories?limit=1'),
+            apiFetch('/api/user/dashboard-summary')
+        ]);
+        const subscription = billingResult.status === 'fulfilled' ? billingResult.value.data?.subscription : null;
+        const repoPayload = repositoriesResult.status === 'fulfilled' ? repositoriesResult.value : {};
+        const dashboard = dashboardResult.status === 'fulfilled' ? dashboardResult.value.data || {} : {};
+        const state = subscriptionState(subscription);
+        const githubConnected = Boolean(repoPayload.meta?.githubConnection || dashboard.githubConnection);
+        const repositoryCount = Number(repoPayload.meta?.repositoryCount || dashboard.metrics?.repositories || 0);
+        const scanCount = Number(dashboard.metrics?.scans || 0);
+        const checkoutStatus = new URLSearchParams(window.location.search).get('checkout');
+        const signupStatus = new URLSearchParams(window.location.search).get('signup');
+
+        setOnboardingStep('account', 'done', 'Your SecureRepos account and workspace are ready.');
+        setOnboardingStep('billing', state.isActive ? 'done' : 'active', state.isActive ? 'Subscription active. You can connect GitHub now.' : 'Complete Paddle checkout to activate scanning.', state.isActive ? 'Open billing' : 'Choose plan');
+        setOnboardingStep('github', state.isActive ? (githubConnected ? 'done' : 'active') : 'locked', githubConnected ? 'GitHub App is connected.' : state.isActive ? 'Install the GitHub App and select repositories.' : 'Activate billing before connecting repositories.', githubConnected ? 'Connected' : 'Install GitHub App');
+        setOnboardingStep('repositories', githubConnected ? (repositoryCount > 0 ? 'done' : 'active') : 'locked', repositoryCount > 0 ? `${repositoryCount} repositories synced.` : githubConnected ? 'Waiting for selected repositories to sync.' : 'Repositories appear after GitHub is connected.', 'View repositories');
+        setOnboardingStep('scan', repositoryCount > 0 ? (scanCount > 0 ? 'done' : 'active') : 'locked', scanCount > 0 ? `${scanCount} scans recorded. Review findings from the dashboard.` : repositoryCount > 0 ? 'Run your first scan from the repository table.' : 'Connect a repository before running scans.', scanCount > 0 ? 'Open scans' : 'Start scan');
+
+        badge.textContent = state.isActive && githubConnected && repositoryCount > 0 ? 'Ready' : 'Setup';
+        badge.className = `badge ${state.isActive && githubConnected ? 'success' : 'brand'}`;
+
+        setOnboardingGuideState('payment', state.isActive ? 'done' : 'active');
+        setOnboardingGuideState('install', state.isActive ? (githubConnected ? 'done' : 'active') : 'locked');
+        setOnboardingGuideState('sync', githubConnected ? (repositoryCount > 0 ? 'done' : 'active') : 'locked');
+        setOnboardingGuideState('scan', repositoryCount > 0 ? (scanCount > 0 ? 'done' : 'active') : 'locked');
+
+        if (!state.isActive) {
+            updateOnboardingAction({
+                title: signupStatus === 'check-email' ? 'Check your email for checkout' : checkoutStatus === 'success' ? 'Waiting for payment confirmation' : 'Activate your plan',
+                copy: signupStatus === 'check-email'
+                    ? 'Your workspace is ready. We emailed your secure checkout link so payment starts from your inbox and stays tied to this account.'
+                    : checkoutStatus === 'success'
+                    ? 'Paddle checkout finished. SecureRepos is waiting for the webhook confirmation before GitHub setup unlocks.'
+                    : 'Choose a package and complete Paddle checkout. Repository scanning starts after payment is confirmed.',
+                badge: signupStatus === 'check-email' ? 'Email sent' : checkoutStatus === 'success' ? 'Syncing' : 'Step 2',
+                badgeClass: signupStatus === 'check-email' || checkoutStatus === 'success' ? 'warning' : 'brand',
+                wizardTitle: 'Plan activation',
+                wizardBadge: signupStatus === 'check-email' ? 'Email sent' : checkoutStatus === 'success' ? 'Waiting' : 'Next',
+                primaryText: signupStatus === 'check-email' ? 'Open billing' : checkoutStatus === 'success' ? 'Refresh status' : 'Choose plan',
+                primaryHref: signupStatus === 'check-email' ? '/billing' : checkoutStatus === 'success' ? '/onboarding?checkout=success' : '/pricing',
+                secondaryText: 'Open billing',
+                secondaryHref: '/billing'
+            });
+        } else if (!githubConnected) {
+            updateOnboardingAction({
+                title: 'Connect GitHub',
+                copy: 'Install the GitHub App and select the repositories you want SecureRepos to scan.',
+                badge: 'Step 3',
+                badgeClass: 'brand',
+                wizardTitle: 'GitHub access',
+                wizardBadge: 'Next',
+                primaryText: 'Install GitHub App',
+                primaryHref: '#',
+                provider: 'github',
+                secondaryText: 'Open billing',
+                secondaryHref: '/billing'
+            });
+        } else if (repositoryCount === 0) {
+            updateOnboardingAction({
+                title: 'Repository sync in progress',
+                copy: 'GitHub is connected. Selected repositories should appear after sync; refresh this page or open repositories to check status.',
+                badge: 'Syncing',
+                badgeClass: 'warning',
+                wizardTitle: 'Repository sync',
+                wizardBadge: 'Waiting',
+                primaryText: 'Open repositories',
+                primaryHref: '/repositories',
+                secondaryText: 'Refresh status',
+                secondaryHref: '/onboarding'
+            });
+        } else if (scanCount === 0) {
+            updateOnboardingAction({
+                title: 'Run your first scan',
+                copy: `${repositoryCount} repositories are ready. Start a scan from the repository table to build your first findings report.`,
+                badge: 'Step 5',
+                badgeClass: 'brand',
+                wizardTitle: 'First scan',
+                wizardBadge: 'Next',
+                primaryText: 'Start first scan',
+                primaryHref: '/repositories',
+                secondaryText: 'Open dashboard',
+                secondaryHref: '/dashboard'
+            });
+        } else {
+            updateOnboardingAction({
+                title: 'Workspace ready',
+                copy: 'Your plan, GitHub connection, repository sync, and first scan are ready. Continue from the dashboard.',
+                badge: 'Ready',
+                badgeClass: 'success',
+                wizardTitle: 'Setup complete',
+                wizardBadge: 'Ready',
+                primaryText: 'Open dashboard',
+                primaryHref: '/dashboard',
+                secondaryText: 'View scans',
+                secondaryHref: '/scans'
+            });
+        }
+
+        const copy = document.querySelector('[data-onboarding-copy]');
+        if (copy) {
+            copy.textContent = state.isActive
+                ? githubConnected
+                    ? 'Your subscription and GitHub connection are ready. Review repositories and run scans.'
+                    : 'Your subscription is active. Install the GitHub App to sync repositories.'
+                : 'Activate your plan first, then connect GitHub and run your first scan.';
+            if (signupStatus === 'check-email' && !state.isActive) {
+                copy.textContent = 'Your workspace is ready. Open the checkout link we emailed you, then return here to connect GitHub.';
+            }
         }
     }
 
@@ -1104,10 +1788,25 @@
             return;
         }
 
-        const payload = await apiFetch('/api/user/findings?status=open');
+        const statusFilter = document.querySelector('[data-findings-status-filter]');
+        const status = statusFilter?.value || 'open';
+        const payload = await apiFetch(`/api/user/findings?status=${encodeURIComponent(status)}`);
         const findings = payload.data || [];
+        const summary = payload.meta?.summary || {};
+
+        const setMetric = (key, value) => {
+            const node = document.querySelector(`[data-finding-metric="${key}"]`);
+            if (node) node.textContent = String(value ?? 0);
+        };
+
+        setMetric('critical', summary.critical);
+        setMetric('high', summary.high);
+        setMetric('snoozed', summary.snoozed);
+        setMetric('resolved', summary.resolvedThisMonth);
+
         if (!findings.length) {
-            list.innerHTML = '<div class="empty-state">No open findings. New scan results will appear here.</div>';
+            const emptyLabel = status === 'all' ? 'findings' : `${status} findings`;
+            list.innerHTML = `<div class="empty-state">No ${escapeHtml(emptyLabel)}. New scan results will appear here.</div>`;
             return;
         }
 
@@ -1115,8 +1814,30 @@
             const severity = String(finding.severity || 'medium');
             const badge = severity === 'critical' ? 'danger' : severity === 'high' ? 'warning' : 'brand';
             const repo = finding.repository?.name || finding.repositoryName || 'Repository';
-            return `<article class="finding-item"><span class="badge ${badge}">${escapeHtml(severity)}</span><div><strong><a href="/findings/${finding.id}">${escapeHtml(finding.title || finding.ruleId || 'Finding')}</a></strong><p class="muted small">${escapeHtml(repo)} / ${escapeHtml(finding.filePath || '-')}</p></div><div class="row-actions"><button class="button" type="button">Assign</button><button class="button" type="button">Resolve</button></div></article>`;
+            const isResolved = finding.status === 'resolved';
+            return `<article class="finding-item"><span class="badge ${badge}">${escapeHtml(severity)}</span><div><strong><a href="/findings/${finding.id}">${escapeHtml(finding.title || finding.ruleId || 'Finding')}</a></strong><p class="muted small">${escapeHtml(repo)} / ${escapeHtml(finding.filePath || '-')}</p><p class="muted small">Status: ${escapeHtml(finding.status || 'open')}</p></div><div class="row-actions"><button class="button" type="button" data-finding-resolve data-finding-id="${escapeHtml(finding.id)}" ${isResolved ? 'disabled' : ''}>${isResolved ? 'Resolved' : 'Resolve'}</button></div></article>`;
         }).join('');
+    }
+
+    async function resolveFindingInline(button) {
+        const findingId = button.dataset.findingId;
+        const originalText = button.textContent;
+
+        if (!findingId) {
+            return;
+        }
+
+        button.disabled = true;
+        button.textContent = 'Resolving...';
+
+        try {
+            await apiFetch(`/api/user/findings/${encodeURIComponent(findingId)}`, { method: 'PATCH', body: JSON.stringify({ status: 'resolved' }) });
+            await hydrateFindings();
+        } catch (error) {
+            button.disabled = false;
+            button.textContent = originalText;
+            alert(error.message || 'Finding could not be resolved.');
+        }
     }
 
     async function hydrateNotificationsPage() {

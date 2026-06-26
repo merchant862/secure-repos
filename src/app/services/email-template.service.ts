@@ -102,6 +102,18 @@ ${button('Open workspace', `${getAppUrl()}/dashboard`)}`
     );
 }
 
+function renderCheckoutLink(payload: EmailTemplatePayload)
+{
+    return baseTemplate(
+        'Activate your SecureRepos plan',
+        'Use your secure checkout link to activate repository scanning.',
+        `<h1 style="margin:0 0 12px;color:#ffffff;font-size:28px;line-height:1.15">Activate your plan</h1>
+<p style="margin:0 0 20px;color:#d0d5dd;line-height:1.65">Hi ${escapeHtml(payload.name || 'there')}, your workspace is ready. Use this checkout link to activate ${escapeHtml(payload.planName || 'your selected plan')} and continue onboarding.</p>
+${button('Continue to checkout', String(payload.checkoutUrl || `${getAppUrl()}/pricing`))}
+<p style="margin:18px 0 0;color:#98a2b3;font-size:13px">If you did not create this workspace, ignore this email.</p>`
+    );
+}
+
 function renderSecurityAlert(payload: EmailTemplatePayload)
 {
     const findings = Array.isArray(payload.findings) ? payload.findings as Array<Record<string, unknown>> : [];
@@ -148,18 +160,6 @@ function renderScanFailed(payload: EmailTemplatePayload)
 <p style="margin:0 0 14px;color:#d0d5dd;line-height:1.65">Repository: <strong>${escapeHtml(payload.repositoryFullName || 'Repository')}</strong></p>
 <p style="margin:0 0 20px;color:#98a2b3;line-height:1.65">${escapeHtml(payload.errorMessage || 'The scanner could not complete this run.')}</p>
 ${button('Open repositories', `${getAppUrl()}/repositories`)}`
-    );
-}
-
-function renderFindingAssigned(payload: EmailTemplatePayload)
-{
-    return baseTemplate(
-        'A finding was assigned to you',
-        'A repository security finding needs your review.',
-        `<h1 style="margin:0 0 12px;color:#ffffff;font-size:28px;line-height:1.15">Finding assigned</h1>
-<p style="margin:0 0 10px;color:#d0d5dd;line-height:1.65"><strong>${escapeHtml(payload.title || 'Security finding')}</strong></p>
-<p style="margin:0 0 20px;color:#98a2b3">${escapeHtml(payload.repositoryFullName || 'Repository')} / ${escapeHtml(payload.filePath || '-')}</p>
-${button('Open finding', `${getAppUrl()}/findings/${escapeHtml(payload.findingId)}`)}`
     );
 }
 
@@ -231,11 +231,11 @@ function renderEmailTemplate(type: string, payload: EmailTemplatePayload)
     {
         login_otp: renderLoginOtp,
         welcome_owner: renderWelcomeOwner,
+        checkout_link: renderCheckoutLink,
         security_alert: renderSecurityAlert,
         weekly_report: renderWeeklyReport,
         scan_summary: renderScanSummary,
         scan_failed: renderScanFailed,
-        finding_assigned: renderFindingAssigned,
         finding_status_changed: renderFindingStatus,
         provider_status_changed: renderProviderStatus,
         repository_access_failed: renderProviderStatus,

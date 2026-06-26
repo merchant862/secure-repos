@@ -49,6 +49,13 @@ const env =
     notificationDeliveryMode: getEnv('NOTIFICATION_DELIVERY_MODE', 'log'),
     resendApiKey: getEnv('RESEND_API_KEY', ''),
     resendFromEmail: getEnv('RESEND_FROM_EMAIL', ''),
+
+    paddleEnvironment: getEnv('PADDLE_ENVIRONMENT', 'sandbox'),
+    paddleApiKey: getEnv('PADDLE_API_KEY', ''),
+    paddleClientToken: getEnv('PADDLE_CLIENT_TOKEN', ''),
+    paddleWebhookSecret: getEnv('PADDLE_WEBHOOK_SECRET', ''),
+    paddleSoloStarterPriceId: getEnv('PADDLE_SOLO_STARTER_PRICE_ID', ''),
+    paddleSoloProPriceId: getEnv('PADDLE_SOLO_PRO_PRICE_ID', ''),
 };
 
 export 

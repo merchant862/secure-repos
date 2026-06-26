@@ -159,6 +159,25 @@ async function queueWelcomeOwnerEmail(user: User)
     );
 }
 
+async function queueCheckoutLinkEmail(user: User, checkoutUrl: string, planName: string)
+{
+    return queueEmailEvent(
+        {
+            tenantId: user.tenantId,
+            type: 'checkout_link',
+            subject: `Activate your ${planName} plan`,
+            recipients: [user.email],
+            payload:
+            {
+                name: user.name,
+                email: user.email,
+                planName,
+                checkoutUrl
+            }
+        }
+    );
+}
+
 async function queueScanSummaryEmail(scan: Scan, repository: Repository)
 {
     const totalFindings = scan.findingsCritical + scan.findingsHigh + scan.findingsMedium + scan.findingsLow;
@@ -228,26 +247,6 @@ async function queueScanFailedEmail(scan: Scan, repository: Repository | null, e
             {
                 repositoryFullName: repository?.fullName,
                 errorMessage
-            }
-        }
-    );
-}
-
-async function queueFindingAssignedEmail(finding: Finding, repository: Repository, assignedUser: User)
-{
-    return queueEmailEvent(
-        {
-            tenantId: assignedUser.tenantId,
-            type: 'finding_assigned',
-            subject: `Finding assigned: ${finding.title}`,
-            recipients: [assignedUser.email],
-            payload:
-            {
-                findingId: finding.id,
-                title: finding.title,
-                severity: finding.severity,
-                repositoryFullName: repository.fullName,
-                filePath: finding.filePath
             }
         }
     );
@@ -386,9 +385,9 @@ export {
     queueWeeklyReport,
     queueWeeklyReportsForAllTenants,
     queueWelcomeOwnerEmail,
+    queueCheckoutLinkEmail,
     queueScanSummaryEmail,
     queueScanFailedEmail,
-    queueFindingAssignedEmail,
     queueFindingStatusEmail,
     queueProviderStatusEmail
 };

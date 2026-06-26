@@ -10,9 +10,10 @@ import {
     fetchRepositoryBlob,
     fetchRepositoryBranches,
     fetchRepositoryTree,
+    createRepositoryCheckRun,
     createInstallationAccessToken
 } from '../../modules/github/github.service';
-import { GithubBranchResponse, GithubDependabotAlertResponse, GithubSecretScanningAlertResponse, GithubTreeItem } from '../../modules/github/github.types';
+import { GithubBranchResponse, GithubCheckRunAnnotation, GithubDependabotAlertResponse, GithubSecretScanningAlertResponse, GithubTreeItem } from '../../modules/github/github.types';
 import { queueScanFailedEmail, queueScanSummaryEmail, queueSecurityAlert } from './notification.service';
 import { refreshRepositorySecurityScore } from './security-posture.service';
 import { filterIgnoredFindings } from './ignore-rule.service';
@@ -525,6 +526,95 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
     return findings;
 }
 
+function checkAnnotationLevel(severity: string): GithubCheckRunAnnotation['annotation_level']
+{
+    if (severity === 'critical' || severity === 'high') return 'failure';
+    if (severity === 'medium') return 'warning';
+    return 'notice';
+}
+
+function checkConclusion(counts: { critical: number; high: number; medium: number; low: number })
+{
+    if (counts.critical > 0 || counts.high > 0) return 'failure' as const;
+    if (counts.medium > 0 || counts.low > 0) return 'neutral' as const;
+    return 'success' as const;
+}
+
+function buildGithubCheckText(findings: ScannerFinding[])
+{
+    if (findings.length === 0)
+    {
+        return 'No open security findings were detected in this scan.';
+    }
+
+    return findings
+        .slice(0, 20)
+        .map((finding) => `- **${finding.severity.toUpperCase()}** ${finding.title} in \`${finding.filePath}\`${finding.lineNumber ? `:${finding.lineNumber}` : ''}`)
+        .join('\n');
+}
+
+async function publishGithubCheckRun(repository: Repository, scan: Scan, findings: ScannerFinding[], counts: { critical: number; high: number; medium: number; low: number })
+{
+    if (repository.provider !== 'github' || !repository.githubInstallationId)
+    {
+        return;
+    }
+
+    const installation = await GithubInstallation.findByPk(repository.githubInstallationId);
+
+    if (!installation)
+    {
+        return;
+    }
+
+    const accessToken = await createInstallationAccessToken(installation.githubInstallationId);
+    const headSha = scan.commitSha
+        ?? (await fetchRepositoryBranches(accessToken, repository.fullName)).find((branch) => branch.name === repository.defaultBranch)?.commit.sha;
+
+    if (!headSha)
+    {
+        return;
+    }
+    const total = counts.critical + counts.high + counts.medium + counts.low;
+    const annotations = findings
+        .filter((finding) => finding.lineNumber && !finding.filePath.startsWith('GitHub '))
+        .slice(0, 50)
+        .map(function (finding): GithubCheckRunAnnotation
+        {
+            const line = Math.max(1, Number(finding.lineNumber || 1));
+
+            return {
+                path: finding.filePath,
+                start_line: line,
+                end_line: line,
+                annotation_level: checkAnnotationLevel(finding.severity),
+                title: finding.title.slice(0, 255),
+                message: finding.remediation.slice(0, 4000)
+            };
+        });
+
+    try
+    {
+        await createRepositoryCheckRun(
+            accessToken,
+            repository.fullName,
+            {
+                name: 'SecureRepos security scan',
+                headSha,
+                conclusion: checkConclusion(counts),
+                title: total === 0 ? 'SecureRepos scan passed' : `SecureRepos found ${total} security findings`,
+                summary: `Critical: ${counts.critical}, High: ${counts.high}, Medium: ${counts.medium}, Low: ${counts.low}`,
+                text: buildGithubCheckText(findings),
+                annotations
+            }
+        );
+    }
+    catch (error)
+    {
+        console.warn(`GitHub check run could not be created for ${repository.fullName}:`, error instanceof Error ? error.message : error);
+    }
+}
+
 async function scanRepositoryBranches(repository: Repository): Promise<ScannerFinding[]>
 {
     if (repository.provider === 'github')
@@ -713,6 +803,7 @@ async function processScan(scan: Scan)
 
         await refreshRepositorySecurityScore(repository.id);
         await repository.reload();
+        await publishGithubCheckRun(repository, scan, dedupedFindings, counts);
         await queueSecurityAlert(scan.tenantId, repository.fullName, dedupedFindings);
         await queueScanSummaryEmail(scan, repository);
 

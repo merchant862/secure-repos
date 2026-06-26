@@ -39,6 +39,15 @@ describe('Application routes', function ()
         expect(response.text).toContain('Page not found');
     });
 
+    it('should not expose temporary error test routes', async function ()
+    {
+        const response = await request(app).get('/test-500');
+
+        expect(response.status).toBe(404);
+        expect(response.type).toContain('html');
+        expect(response.text).toContain('Page not found');
+    });
+
     it('should redirect unauthenticated dashboard pages to sign in', async function ()
     {
         const response = await request(app).get('/dashboard');
@@ -67,6 +76,17 @@ describe('Application routes', function ()
         expect(panelResponse.header.location).toBe('/admin/sign-in');
         expect(pricingResponse.status).toBe(302);
         expect(pricingResponse.header.location).toBe('/admin/sign-in');
+    });
+
+    it('should render password reset pages', async function ()
+    {
+        const forgotResponse = await request(app).get('/forgot-password');
+        const resetResponse = await request(app).get('/reset-password').query({ token: 'test-token' });
+
+        expect(forgotResponse.status).toBe(200);
+        expect(forgotResponse.text).toContain('Reset password');
+        expect(resetResponse.status).toBe(200);
+        expect(resetResponse.text).toContain('New password');
     });
 
     it('should redirect github install callback with installation_id back to dashboard', async function ()

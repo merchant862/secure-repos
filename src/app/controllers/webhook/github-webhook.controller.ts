@@ -99,7 +99,7 @@ async function githubWebhookController(req: Request, res: Response)
             ? await syncGithubInstallationFromWebhook(payload)
             : [];
 
-        if (headers.event === 'push' && payload.repository)
+        if ((headers.event === 'push' || headers.event === 'pull_request') && payload.repository)
         {
             const repository = await Repository.findOne(
                 {
@@ -113,7 +113,7 @@ async function githubWebhookController(req: Request, res: Response)
 
             if (repository)
             {
-                await enqueueRepositoryScan(repository.id, 'push');
+                await enqueueRepositoryScan(repository.id, headers.event === 'pull_request' ? 'pull_request' : 'push');
             }
         }
 

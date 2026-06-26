@@ -118,3 +118,89 @@ describe('Scanner code-risk rules', function ()
         expect(findings.some((finding) => finding.ruleId === 'code.lua-command-execution')).toBe(true);
     });
 });
+
+describe('Scanner expanded security rules', function ()
+{
+    it('should flag high-entropy secret-like assignments', function ()
+    {
+        const findings = scanFiles(
+            [
+                {
+                    path: 'src/config.ts',
+                    content: 'const apiSecret = "nN8zQ4X3mP9vT2kL7rA6sD5fG1hJ0qW8yU4iO2pZ";'
+                }
+            ]
+        );
+
+        expect(findings.some((finding) => finding.ruleId === 'secret.high-entropy-assignment')).toBe(true);
+    });
+
+    it('should flag dependency versions with known risk guidance', function ()
+    {
+        const findings = scanFiles(
+            [
+                {
+                    path: 'package.json',
+                    content: JSON.stringify({ dependencies: { lodash: '4.17.20', minimist: '^1.2.5' } })
+                }
+            ]
+        );
+
+        expect(findings.some((finding) => finding.ruleId === 'dependency.outdated-vulnerable-version')).toBe(true);
+    });
+
+    it('should flag framework and auth configuration risks', function ()
+    {
+        const findings = scanFiles(
+            [
+                {
+                    path: 'src/app.ts',
+                    content: 'import express from "express";\nconst app = express();\napp.use(cors({ origin: "*" }));\njwt.sign(user, "short");'
+                },
+                {
+                    path: 'project/settings.py',
+                    content: 'DEBUG = True\nALLOWED_HOSTS = ["*"]'
+                }
+            ]
+        );
+
+        expect(findings.some((finding) => finding.ruleId === 'framework.express-missing-helmet')).toBe(true);
+        expect(findings.some((finding) => finding.ruleId === 'auth.permissive-cors')).toBe(true);
+        expect(findings.some((finding) => finding.ruleId === 'auth.weak-jwt-secret')).toBe(true);
+        expect(findings.some((finding) => finding.ruleId === 'framework.django-debug-enabled')).toBe(true);
+        expect(findings.some((finding) => finding.ruleId === 'framework.django-wildcard-hosts')).toBe(true);
+    });
+
+    it('should flag infrastructure as code risk patterns', function ()
+    {
+        const findings = scanFiles(
+            [
+                {
+                    path: 'infra/main.tf',
+                    content: 'resource "aws_security_group_rule" "ssh" { cidr_blocks = ["0.0.0.0/0"] }'
+                },
+                {
+                    path: 'k8s/deployment.yaml',
+                    content: 'kind: Deployment\nspec:\n  template:\n    spec:\n      containers:\n      - securityContext:\n          privileged: true'
+                }
+            ]
+        );
+
+        expect(findings.some((finding) => finding.ruleId === 'iac.terraform-open-cidr')).toBe(true);
+        expect(findings.some((finding) => finding.ruleId === 'iac.kubernetes-privileged-container')).toBe(true);
+    });
+
+    it('should flag auth-sensitive business logic review notes', function ()
+    {
+        const findings = scanFiles(
+            [
+                {
+                    path: 'src/auth/password-reset.ts',
+                    content: '// TODO temporary bypass for reset token validation before launch'
+                }
+            ]
+        );
+
+        expect(findings.some((finding) => finding.ruleId === 'business.auth-sensitive-todo')).toBe(true);
+    });
+});

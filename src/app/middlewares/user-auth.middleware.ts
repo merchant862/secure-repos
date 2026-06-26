@@ -11,6 +11,7 @@ const authCookieName = process.env.AUTH_COOKIE_NAME && process.env.AUTH_COOKIE_N
 const allowedNextPathPrefixes =
 [
     '/billing',
+    '/checkout',
     '/dashboard',
     '/findings',
     '/notifications',
@@ -143,6 +144,18 @@ async function userPageAuthMiddleware(req: AuthenticatedRequest, res: Response, 
     return next();
 }
 
+async function guestPageMiddleware(req: AuthenticatedRequest, res: Response, next: NextFunction)
+{
+    const user = await resolveUserFromRequest(req);
+
+    if (user)
+    {
+        return res.redirect('/dashboard');
+    }
+
+    return next();
+}
+
 function requireOwnerOrAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction)
 {
     if (!req.currentUser || !['owner', 'admin'].includes(req.currentUser.role))
@@ -160,5 +173,7 @@ export type {
 export {
     userAuthMiddleware,
     userPageAuthMiddleware,
+    guestPageMiddleware,
+    resolveUserFromRequest,
     requireOwnerOrAdmin
 };

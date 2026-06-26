@@ -10,7 +10,6 @@ import {
 
 import { Repository } from './repository.model';
 import { Scan } from './scan.model';
-import { User } from './user.model';
 
 class Finding extends Model<InferAttributes<Finding>, InferCreationAttributes<Finding>>
 {
@@ -27,7 +26,6 @@ class Finding extends Model<InferAttributes<Finding>, InferCreationAttributes<Fi
     declare lineNumber: CreationOptional<number | null>;
     declare fingerprint: string;
     declare status: CreationOptional<string>;
-    declare assignedToUserId: CreationOptional<ForeignKey<User['id']> | null>;
     declare firstSeenAt: CreationOptional<Date>;
     declare lastSeenAt: CreationOptional<Date>;
     declare resolvedAt: CreationOptional<Date | null>;
@@ -107,11 +105,6 @@ function initFindingModel(sequelize: Sequelize)
                 type: DataTypes.STRING(30),
                 allowNull: false,
                 defaultValue: 'open'
-            },
-            assignedToUserId:
-            {
-                type: DataTypes.BIGINT.UNSIGNED,
-                allowNull: true
             },
             firstSeenAt:
             {

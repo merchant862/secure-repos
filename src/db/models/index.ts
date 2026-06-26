@@ -24,6 +24,7 @@ import { AdminSession, initAdminSessionModel } from './admin-session.model';
 import { ProviderSetting, initProviderSettingModel } from './provider-setting.model';
 import { ProviderOauthState, initProviderOauthStateModel } from './provider-oauth-state.model';
 import { FindingOccurrence, initFindingOccurrenceModel } from './finding-occurrence.model';
+import { PasswordResetToken, initPasswordResetTokenModel } from './password-reset-token.model';
 
 function initModels(sequelize: Sequelize)
 {
@@ -51,6 +52,7 @@ function initModels(sequelize: Sequelize)
     initProviderSettingModel(sequelize);
     initProviderOauthStateModel(sequelize);
     initFindingOccurrenceModel(sequelize);
+    initPasswordResetTokenModel(sequelize);
 
     Tenant.hasMany(User, {
         foreignKey: 'tenantId',
@@ -78,6 +80,16 @@ function initModels(sequelize: Sequelize)
     });
 
     LoginOtp.belongsTo(User, {
+        foreignKey: 'userId',
+        as: 'user'
+    });
+
+    User.hasMany(PasswordResetToken, {
+        foreignKey: 'userId',
+        as: 'passwordResetTokens'
+    });
+
+    PasswordResetToken.belongsTo(User, {
         foreignKey: 'userId',
         as: 'user'
     });
@@ -170,16 +182,6 @@ function initModels(sequelize: Sequelize)
     Finding.belongsTo(Repository, {
         foreignKey: 'repositoryId',
         as: 'repository'
-    });
-
-    User.hasMany(Finding, {
-        foreignKey: 'assignedToUserId',
-        as: 'assignedFindings'
-    });
-
-    Finding.belongsTo(User, {
-        foreignKey: 'assignedToUserId',
-        as: 'assignedTo'
     });
 
     PricingPlan.hasMany(PricingPlanFeature, {
@@ -319,5 +321,6 @@ export
     ProviderSetting,
     ProviderOauthState,
     FindingOccurrence,
+    PasswordResetToken,
     initModels
 };

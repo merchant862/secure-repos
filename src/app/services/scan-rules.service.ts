@@ -112,6 +112,45 @@ const dangerousPackages = new Set(
     ]
 );
 
+const vulnerableDependencyRules =
+[
+    {
+        ecosystem: 'npm',
+        packageName: 'lodash',
+        maxVersionExclusive: '4.17.21',
+        severity: 'high' as const,
+        advisory: 'Prototype pollution vulnerabilities have affected older lodash releases.'
+    },
+    {
+        ecosystem: 'npm',
+        packageName: 'minimist',
+        maxVersionExclusive: '1.2.6',
+        severity: 'high' as const,
+        advisory: 'Older minimist versions are associated with prototype pollution advisories.'
+    },
+    {
+        ecosystem: 'npm',
+        packageName: 'serialize-javascript',
+        maxVersionExclusive: '6.0.0',
+        severity: 'high' as const,
+        advisory: 'Older serialize-javascript releases have had XSS/security advisories.'
+    },
+    {
+        ecosystem: 'npm',
+        packageName: 'axios',
+        maxVersionExclusive: '1.6.0',
+        severity: 'medium' as const,
+        advisory: 'Older axios versions have had request/SSRF related advisories. Verify against current advisories.'
+    },
+    {
+        ecosystem: 'npm',
+        packageName: 'express',
+        maxVersionExclusive: '4.18.2',
+        severity: 'medium' as const,
+        advisory: 'Older Express versions may miss recent security fixes. Keep framework dependencies current.'
+    }
+];
+
 const samplePathSegments = new Set(
     [
         'example',
@@ -173,6 +212,71 @@ function isSamplePath(filePath: string): boolean
 function hasHighConfidenceSecret(content: string): boolean
 {
     return highConfidenceSecretPatterns.some((pattern) => pattern.test(content));
+}
+
+function calculateShannonEntropy(value: string): number
+{
+    const frequency = new Map<string, number>();
+
+    for (const character of value)
+    {
+        frequency.set(character, (frequency.get(character) ?? 0) + 1);
+    }
+
+    return Array.from(frequency.values()).reduce(function (entropy, count)
+    {
+        const probability = count / value.length;
+        return entropy - probability * Math.log2(probability);
+    }, 0);
+}
+
+function looksLikeEncodedSecret(value: string): boolean
+{
+    if (value.length < 24 || value.length > 220)
+    {
+        return false;
+    }
+
+    if (!/^[A-Za-z0-9+/_=-]+$/.test(value))
+    {
+        return false;
+    }
+
+    if (/^(true|false|null|undefined|localhost|example|changeme|password|secret)$/i.test(value))
+    {
+        return false;
+    }
+
+    return calculateShannonEntropy(value) >= 4.2;
+}
+
+function compareSemver(left: string, right: string): number
+{
+    const leftParts = left.split('.').map((part) => Number(part.replace(/\D.*$/, '')) || 0);
+    const rightParts = right.split('.').map((part) => Number(part.replace(/\D.*$/, '')) || 0);
+
+    for (let index = 0; index < Math.max(leftParts.length, rightParts.length, 3); index += 1)
+    {
+        const difference = (leftParts[index] ?? 0) - (rightParts[index] ?? 0);
+
+        if (difference !== 0)
+        {
+            return difference;
+        }
+    }
+
+    return 0;
+}
+
+function normalizePinnedVersion(version: unknown): string | null
+{
+    if (typeof version !== 'string')
+    {
+        return null;
+    }
+
+    const match = version.match(/\d+\.\d+\.\d+/);
+    return match ? match[0] : null;
 }
 
 function shouldSuppressSampleFinding(filePath: string, content: string, ruleId: string): boolean
@@ -243,6 +347,33 @@ function scanSecrets(file: RepositoryFile, findings: ScannerFinding[])
 
             match = pattern.exec(file.content);
         }
+    }
+
+    const entropyPattern = /\b[A-Za-z0-9_]*(api[_-]?key|secret|token|password|private[_-]?key|client[_-]?secret)[A-Za-z0-9_]*\b\s*[:=]\s*['"]([^'"\n]{24,220})['"]/gi;
+    let entropyMatch = entropyPattern.exec(file.content);
+
+    while (entropyMatch)
+    {
+        const candidate = entropyMatch[2] ?? '';
+
+        if (looksLikeEncodedSecret(candidate))
+        {
+            pushFinding(
+                findings,
+                'secret.high-entropy-assignment',
+                'high',
+                'High-entropy secret-like value detected',
+                'A secret-looking variable contains a high-entropy value. This is often a real token, key, or password.',
+                'Move the value into protected environment configuration or a secret manager, rotate it if real, and remove it from git history.',
+                file.path,
+                getLineNumber(file.content, entropyMatch.index),
+                candidate.slice(0, 16),
+                file.content,
+                { entropy: Number(calculateShannonEntropy(candidate).toFixed(2)) }
+            );
+        }
+
+        entropyMatch = entropyPattern.exec(file.content);
     }
 }
 
@@ -335,6 +466,35 @@ function scanPackageJson(file: RepositoryFile, findings: ScannerFinding[])
                     { dependencyName }
                 );
             }
+
+            const pinnedVersion = normalizePinnedVersion(dependencies[dependencyName]);
+            const vulnerableRule = vulnerableDependencyRules.find((rule) =>
+                rule.ecosystem === 'npm'
+                && rule.packageName === dependencyName
+                && pinnedVersion
+                && compareSemver(pinnedVersion, rule.maxVersionExclusive) < 0);
+
+            if (vulnerableRule && pinnedVersion)
+            {
+                pushFinding(
+                    findings,
+                    'dependency.outdated-vulnerable-version',
+                    vulnerableRule.severity,
+                    `Potentially vulnerable dependency: ${dependencyName}`,
+                    vulnerableRule.advisory,
+                    `Upgrade ${dependencyName} to ${vulnerableRule.maxVersionExclusive} or later, then review current advisories and run tests.`,
+                    file.path,
+                    null,
+                    `${dependencyName}@${pinnedVersion}`,
+                    file.content,
+                    {
+                        ecosystem: vulnerableRule.ecosystem,
+                        dependencyName,
+                        detectedVersion: pinnedVersion,
+                        fixedVersion: vulnerableRule.maxVersionExclusive
+                    }
+                );
+            }
         }
     }
     catch (error)
@@ -351,6 +511,251 @@ function scanPackageJson(file: RepositoryFile, findings: ScannerFinding[])
             file.path,
             file.content
         );
+    }
+}
+
+function scanFrameworkAndAuthPatterns(file: RepositoryFile, findings: ScannerFinding[])
+{
+    const lowerPath = file.path.toLowerCase();
+    const content = file.content;
+
+    if (/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(lowerPath))
+    {
+        if (/express\s*\(/.test(content) && !/helmet\s*\(/.test(content) && !/from\s+['"]helmet['"]|require\s*\(\s*['"]helmet['"]\s*\)/.test(content))
+        {
+            pushFinding(
+                findings,
+                'framework.express-missing-helmet',
+                'low',
+                'Express app may be missing security headers',
+                'An Express app was detected without an obvious Helmet middleware setup.',
+                'Add Helmet or equivalent security headers, then verify CSP, HSTS, frame, and content-type protections.',
+                file.path,
+                null,
+                'express',
+                content
+            );
+        }
+
+        if (/cookie\s*\([^)]*secure\s*:\s*false/i.test(content) || /sameSite\s*:\s*['"]none['"][^}]*secure\s*:\s*false/i.test(content))
+        {
+            pushFinding(
+                findings,
+                'auth.insecure-cookie-options',
+                'high',
+                'Insecure authentication cookie options',
+                'Cookie configuration appears to disable Secure or combine SameSite=None without Secure.',
+                'Use httpOnly, secure, and strict/lax SameSite where possible. Only use SameSite=None with secure HTTPS cookies.',
+                file.path,
+                null,
+                'cookie',
+                content
+            );
+        }
+
+        if (/cors\s*\(\s*\{\s*origin\s*:\s*['"]\*['"]/is.test(content) || /Access-Control-Allow-Origin['"]?\s*,\s*['"]\*/i.test(content))
+        {
+            pushFinding(
+                findings,
+                'auth.permissive-cors',
+                'medium',
+                'Permissive CORS policy detected',
+                'A wildcard CORS origin can expose authenticated APIs when combined with credentials or weak token handling.',
+                'Restrict CORS origins to trusted application domains and avoid wildcard origins for private APIs.',
+                file.path,
+                null,
+                'cors:*',
+                content
+            );
+        }
+
+        if (/jwt\.sign\s*\([^,\n]+,\s*['"][^'"]{1,12}['"]/i.test(content))
+        {
+            pushFinding(
+                findings,
+                'auth.weak-jwt-secret',
+                'high',
+                'Weak hardcoded JWT secret',
+                'JWT signing appears to use a short hardcoded secret.',
+                'Use a long random secret from protected environment configuration and rotate existing tokens after changing it.',
+                file.path,
+                null,
+                'jwt.sign',
+                content
+            );
+        }
+    }
+
+    if (lowerPath.includes('config/app.php') && /'debug'\s*=>\s*true/i.test(content))
+    {
+        pushFinding(
+            findings,
+            'framework.laravel-debug-enabled',
+            'high',
+            'Laravel debug mode enabled',
+            'Laravel debug mode can expose sensitive stack traces and environment data in production.',
+            'Set APP_DEBUG=false in production and avoid committing production-like debug configuration.',
+            file.path,
+            null,
+            'APP_DEBUG',
+            content
+        );
+    }
+
+    if (lowerPath.includes('settings.py') && /\bDEBUG\s*=\s*True\b/.test(content))
+    {
+        pushFinding(
+            findings,
+            'framework.django-debug-enabled',
+            'high',
+            'Django debug mode enabled',
+            'Django DEBUG=True can expose sensitive diagnostics and should not be used in production.',
+            'Set DEBUG=False for production and use environment-based settings.',
+            file.path,
+            null,
+            'DEBUG=True',
+            content
+        );
+    }
+
+    if (lowerPath.includes('settings.py') && /\bALLOWED_HOSTS\s*=\s*\[\s*['"]\*['"]\s*\]/.test(content))
+    {
+        pushFinding(
+            findings,
+            'framework.django-wildcard-hosts',
+            'medium',
+            'Django allows wildcard hosts',
+            'ALLOWED_HOSTS includes a wildcard, which weakens host header protections.',
+            'Set ALLOWED_HOSTS to the exact domains served by the application.',
+            file.path,
+            null,
+            'ALLOWED_HOSTS=*',
+            content
+        );
+    }
+
+    if (lowerPath.endsWith('production.rb') && /config\.force_ssl\s*=\s*false/.test(content))
+    {
+        pushFinding(
+            findings,
+            'framework.rails-force-ssl-disabled',
+            'medium',
+            'Rails force_ssl disabled in production',
+            'Rails production configuration appears to disable forced HTTPS.',
+            'Enable config.force_ssl in production unless TLS termination and redirects are enforced elsewhere.',
+            file.path,
+            null,
+            'force_ssl=false',
+            content
+        );
+    }
+
+    if (/admin|login|auth|password|reset/i.test(lowerPath) && /TODO|FIXME|temporary|bypass|backdoor|default password/i.test(content))
+    {
+        pushFinding(
+            findings,
+            'business.auth-sensitive-todo',
+            'medium',
+            'Auth-sensitive TODO or bypass wording detected',
+            'An authentication-sensitive file contains wording that may indicate temporary bypasses, default passwords, or unfinished security work.',
+            'Review the code path manually before release and remove any temporary bypasses or default credentials.',
+            file.path,
+            null,
+            lowerPath,
+            content
+        );
+    }
+}
+
+function scanIacPatterns(file: RepositoryFile, findings: ScannerFinding[])
+{
+    const lowerPath = file.path.toLowerCase();
+    const content = file.content;
+
+    if (lowerPath.endsWith('.tf') || lowerPath.endsWith('.tfvars'))
+    {
+        if (/cidr_blocks\s*=\s*\[[^\]]*["']0\.0\.0\.0\/0["'][^\]]*\]/is.test(content))
+        {
+            pushFinding(
+                findings,
+                'iac.terraform-open-cidr',
+                'high',
+                'Terraform security rule allows 0.0.0.0/0',
+                'Terraform configuration appears to allow inbound access from the public internet.',
+                'Restrict CIDR ranges to trusted networks and expose only required ports through controlled ingress.',
+                file.path,
+                null,
+                '0.0.0.0/0',
+                content
+            );
+        }
+
+        if (/acl\s*=\s*["']public-read["']|public_access_block\s*=\s*false/i.test(content))
+        {
+            pushFinding(
+                findings,
+                'iac.terraform-public-storage',
+                'high',
+                'Terraform may configure public storage',
+                'Storage ACL/public access configuration appears permissive.',
+                'Block public access by default and expose objects only through controlled, audited paths.',
+                file.path,
+                null,
+                'public storage',
+                content
+            );
+        }
+    }
+
+    if (lowerPath.endsWith('.yml') || lowerPath.endsWith('.yaml'))
+    {
+        if (/kind\s*:\s*(Pod|Deployment|StatefulSet|DaemonSet)[\s\S]{0,300}privileged\s*:\s*true/i.test(content))
+        {
+            pushFinding(
+                findings,
+                'iac.kubernetes-privileged-container',
+                'high',
+                'Kubernetes privileged container',
+                'A Kubernetes workload appears to run a privileged container.',
+                'Disable privileged mode and grant only the specific Linux capabilities required.',
+                file.path,
+                null,
+                'privileged:true',
+                content
+            );
+        }
+
+        if (/kind\s*:\s*(Pod|Deployment|StatefulSet|DaemonSet)[\s\S]{0,400}runAsNonRoot\s*:\s*false/i.test(content))
+        {
+            pushFinding(
+                findings,
+                'iac.kubernetes-root-container',
+                'medium',
+                'Kubernetes workload allows root containers',
+                'A Kubernetes workload explicitly allows containers to run as root.',
+                'Set runAsNonRoot=true and use a non-root image user wherever possible.',
+                file.path,
+                null,
+                'runAsNonRoot:false',
+                content
+            );
+        }
+
+        if (/Effect\s*:\s*Allow[\s\S]{0,240}Action\s*:\s*['"]?\*['"]?[\s\S]{0,240}Resource\s*:\s*['"]?\*['"]?/i.test(content))
+        {
+            pushFinding(
+                findings,
+                'iac.cloudformation-wildcard-iam',
+                'high',
+                'Wildcard IAM permissions in infrastructure template',
+                'An infrastructure template appears to allow all actions on all resources.',
+                'Replace wildcard IAM policies with least-privilege actions and scoped resources.',
+                file.path,
+                null,
+                'Action:* Resource:*',
+                content
+            );
+        }
     }
 }
 
@@ -781,6 +1186,8 @@ function scanFiles(files: RepositoryFile[]): ScannerFinding[]
         scanDockerfile(file, findings);
         scanGithubActions(file, findings);
         scanDockerCompose(file, findings);
+        scanFrameworkAndAuthPatterns(file, findings);
+        scanIacPatterns(file, findings);
         scanCodeRiskPatterns(file, findings);
     }
 
