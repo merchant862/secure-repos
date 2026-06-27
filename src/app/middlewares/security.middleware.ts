@@ -116,9 +116,8 @@ function canonicalDomainMiddleware(req: Request, res: Response, next: NextFuncti
         const canonicalUrl = new URL(configuredUrl);
         const requestHost = req.get('host') || '';
         const hostMatches = requestHost.toLowerCase() === canonicalUrl.host.toLowerCase();
-        const protocolMatches = req.protocol === canonicalUrl.protocol.replace(':', '');
 
-        if (hostMatches && protocolMatches)
+        if (hostMatches)
         {
             return next();
         }

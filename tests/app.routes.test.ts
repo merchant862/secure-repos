@@ -51,6 +51,33 @@ describe('Application routes', function ()
         }
     });
 
+    it('should not self-redirect the canonical host when TLS terminates at a reverse proxy', async function ()
+    {
+        const originalNodeEnv = process.env.NODE_ENV;
+        const originalAppUrl = process.env.APP_URL;
+
+        process.env.NODE_ENV = 'production';
+        process.env.APP_URL = 'https://securerepos.com';
+
+        try
+        {
+            const response = await request(app)
+                .get('/')
+                .set('Host', 'securerepos.com');
+
+            expect(response.status).toBe(200);
+            expect(response.header.location).toBeUndefined();
+        }
+        finally
+        {
+            if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+            else process.env.NODE_ENV = originalNodeEnv;
+
+            if (originalAppUrl === undefined) delete process.env.APP_URL;
+            else process.env.APP_URL = originalAppUrl;
+        }
+    });
+
     it('should expose robots.txt and sitemap.xml for search engines', async function ()
     {
         const robotsResponse = await request(app).get('/robots.txt');
