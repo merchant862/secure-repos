@@ -1,6 +1,6 @@
 # Secure Repos
 
-Secure Repos is a focused, AI-assisted security dashboard for independent GitHub developers. It connects through a GitHub App, scans selected repositories, and helps users review exposed secrets, risky CI/CD settings, weak configurations, dependency concerns, and repository security workflow gaps with clearer remediation context.
+Secure Repos is a focused security dashboard for independent GitHub developers. It connects through a GitHub App, scans selected repositories, and helps users review exposed secrets, risky CI/CD settings, weak configurations, dependency concerns, and repository security workflow gaps with clearer remediation context.
 
 Built for founders, agencies, and small teams that want practical repository security without enterprise complexity.
 
