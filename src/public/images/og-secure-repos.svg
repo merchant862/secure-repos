@@ -10,8 +10,9 @@
     <path d="m41 72 10 10 25-31" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
   <text x="226" y="138" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="850">SecureRepos</text>
-  <text x="96" y="270" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="72" font-weight="850">GitHub security scanning</text>
-  <text x="100" y="345" fill="#B8C0CC" font-family="Inter, Arial, sans-serif" font-size="32" font-weight="600">Find secrets, GitHub Actions risk, dependency issues, and risky configs before they ship.</text>
+  <text x="96" y="262" fill="#FFFFFF" font-family="Inter, Arial, sans-serif" font-size="58" font-weight="850">GitHub repo security</text>
+  <text x="100" y="336" fill="#B8C0CC" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="600">Find secrets, Actions risk, dependency CVEs,</text>
+  <text x="100" y="382" fill="#B8C0CC" font-family="Inter, Arial, sans-serif" font-size="30" font-weight="600">and risky configs before they ship.</text>
   <g fill="none" stroke="#7C9BFF" stroke-opacity=".28" stroke-width="2">
     <path d="M806 124h270M806 192h314M806 260h238M806 328h292"/>
     <rect x="760" y="86" width="352" height="318" rx="24"/>

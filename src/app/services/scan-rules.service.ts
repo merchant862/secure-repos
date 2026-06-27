@@ -650,7 +650,7 @@ function scanFrameworkAndAuthPatterns(file: RepositoryFile, findings: ScannerFin
         );
     }
 
-    if (/admin|login|auth|password|reset/i.test(lowerPath) && /TODO|FIXME|temporary|bypass|backdoor|default password/i.test(content))
+    if (/login|auth|password|reset/i.test(lowerPath) && /TODO|FIXME|temporary|bypass|backdoor|default password/i.test(content))
     {
         pushFinding(
             findings,

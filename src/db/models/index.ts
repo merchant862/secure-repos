@@ -17,8 +17,6 @@ import { AuditLog, initAuditLogModel } from './audit-log.model';
 import { InAppNotification, initInAppNotificationModel } from './in-app-notification.model';
 import { SecurityScoreSnapshot, initSecurityScoreSnapshotModel } from './security-score-snapshot.model';
 import { LoginOtp, initLoginOtpModel } from './login-otp.model';
-import { Admin, initAdminModel } from './admin.model';
-import { AdminSession, initAdminSessionModel } from './admin-session.model';
 import { ProviderSetting, initProviderSettingModel } from './provider-setting.model';
 import { ProviderOauthState, initProviderOauthStateModel } from './provider-oauth-state.model';
 import { FindingOccurrence, initFindingOccurrenceModel } from './finding-occurrence.model';
@@ -43,8 +41,6 @@ function initModels(sequelize: Sequelize)
     initInAppNotificationModel(sequelize);
     initSecurityScoreSnapshotModel(sequelize);
     initLoginOtpModel(sequelize);
-    initAdminModel(sequelize);
-    initAdminSessionModel(sequelize);
     initProviderSettingModel(sequelize);
     initProviderOauthStateModel(sequelize);
     initFindingOccurrenceModel(sequelize);
@@ -88,16 +84,6 @@ function initModels(sequelize: Sequelize)
     PasswordResetToken.belongsTo(User, {
         foreignKey: 'userId',
         as: 'user'
-    });
-
-    Admin.hasMany(AdminSession, {
-        foreignKey: 'adminId',
-        as: 'sessions'
-    });
-
-    AdminSession.belongsTo(Admin, {
-        foreignKey: 'adminId',
-        as: 'admin'
     });
 
     Tenant.hasMany(GithubInstallation, {
@@ -290,8 +276,6 @@ export
     InAppNotification,
     SecurityScoreSnapshot,
     LoginOtp,
-    Admin,
-    AdminSession,
     ProviderSetting,
     ProviderOauthState,
     FindingOccurrence,

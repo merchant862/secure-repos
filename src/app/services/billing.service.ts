@@ -294,7 +294,7 @@ async function changeTenantPlan(input: PlanChangeInput)
     return result.subscription;
 }
 
-async function cancelTenantSubscription(tenantId: number, cancelledBy: 'owner' | 'admin')
+async function cancelTenantSubscription(tenantId: number, cancelledBy: 'owner' | 'system')
 {
     const subscription = await TenantSubscription.findOne({ where: { tenantId } });
 

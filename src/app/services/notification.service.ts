@@ -1,5 +1,4 @@
 import { Finding, NotificationEvent, Repository, Scan, User } from '../../db/models';
-import { Op } from 'sequelize';
 import { ScannerFinding } from './scan-rules.service';
 import { createTenantNotification } from './in-app-notification.service';
 import { getTenantPlan } from './plan-limit.service';
@@ -99,22 +98,6 @@ async function queueSecurityAlert(
                         lineNumber: finding.lineNumber
                     };
                 })
-            }
-        }
-    );
-}
-
-async function queueSecurityReport(tenantId: number, summary: object, cadenceLabel: string)
-{
-    return queueEmailEvent(
-        {
-            tenantId,
-            type: 'weekly_report',
-            subject: `${cadenceLabel} security report`,
-            payload:
-            {
-                ...(summary as Record<string, unknown>),
-                cadenceLabel
             }
         }
     );
@@ -267,114 +250,10 @@ async function queueProviderStatusEmail(tenantId: number, provider: string, acco
     );
 }
 
-function reportCadenceForSchedule(scanSchedule: string | null | undefined)
-{
-    if (scanSchedule === 'weekly')
-    {
-        return { label: 'Weekly', intervalMs: 7 * 24 * 60 * 60 * 1000 };
-    }
-
-    if (scanSchedule === 'every_4_days')
-    {
-        return { label: '4-day', intervalMs: 4 * 24 * 60 * 60 * 1000 };
-    }
-
-    return { label: 'Daily', intervalMs: 24 * 60 * 60 * 1000 };
-}
-
-async function queuePlanReportsForAllTenants()
-{
-    const rows = await Finding.findAll(
-        {
-            where:
-            {
-                status: 'open'
-            },
-            include:
-            [
-                {
-                    model: Scan,
-                    as: 'scan'
-                },
-                {
-                    model: Repository,
-                    as: 'repository'
-                }
-            ]
-        }
-    );
-    const summaryByTenant = new Map<number, {
-        critical: number;
-        high: number;
-        medium: number;
-        low: number;
-        total: number;
-        repositories: Record<string, { score: number; openFindings: number }>;
-    }>();
-
-    for (const finding of rows)
-    {
-        const scan = finding.get('scan') as Scan | undefined;
-
-        if (!scan)
-        {
-            continue;
-        }
-
-        const tenantId = scan.tenantId;
-        const repository = finding.get('repository') as Repository | undefined;
-        const summary = summaryByTenant.get(tenantId) ?? { critical: 0, high: 0, medium: 0, low: 0, total: 0, repositories: {} };
-        summary.total += 1;
-
-        if (finding.severity === 'critical' || finding.severity === 'high' || finding.severity === 'medium' || finding.severity === 'low')
-        {
-            summary[finding.severity] += 1;
-        }
-
-        if (repository)
-        {
-            summary.repositories[repository.fullName] = summary.repositories[repository.fullName] ?? {
-                score: repository.securityScore,
-                openFindings: 0
-            };
-            summary.repositories[repository.fullName].openFindings += 1;
-        }
-
-        summaryByTenant.set(tenantId, summary);
-    }
-
-    for (const [tenantId, summary] of summaryByTenant)
-    {
-        if (tenantId > 0)
-        {
-            const plan = await getTenantPlan(tenantId);
-            const cadence = reportCadenceForSchedule(plan?.scanSchedule);
-            const recentReport = await NotificationEvent.findOne(
-                {
-                    where:
-                    {
-                        tenantId,
-                        type: 'weekly_report',
-                        createdAt: { [Op.gte]: new Date(Date.now() - cadence.intervalMs + 60 * 60 * 1000) }
-                    }
-                }
-            );
-
-            if (!recentReport)
-            {
-                await queueSecurityReport(tenantId, summary, cadence.label);
-            }
-        }
-    }
-}
-
 export {
     getTenantEmailRecipients,
     queueEmailEvent,
     queueSecurityAlert,
-    queueSecurityReport,
-    queuePlanReportsForAllTenants,
-    reportCadenceForSchedule,
     queueWelcomeOwnerEmail,
     queueCheckoutLinkEmail,
     queueScanSummaryEmail,

@@ -14,7 +14,7 @@ type ProviderState =
 
 function getStateSecret(): string
 {
-    return env.tokenEncryptionKey || env.githubWebhookSecret || env.adminApiToken;
+    return env.tokenEncryptionKey || env.githubWebhookSecret;
 }
 
 function base64Url(value: Buffer | string): string
@@ -39,7 +39,7 @@ function sign(value: string): string
 
     if (!secret)
     {
-        throw new Error('TOKEN_ENCRYPTION_KEY, GITHUB_WEBHOOK_SECRET, or ADMIN_API_TOKEN is required for provider state signing');
+        throw new Error('TOKEN_ENCRYPTION_KEY or GITHUB_WEBHOOK_SECRET is required for provider state signing');
     }
 
     return base64Url(crypto.createHmac('sha256', secret).update(value).digest());

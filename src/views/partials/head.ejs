@@ -7,7 +7,9 @@
     const pageDescription = seoData.description || 'SecureRepos helps independent developers run GitHub repository scans for secrets, risky configs, GitHub Actions issues, and dependency risk.';
     const pageCanonical = seoData.canonicalUrl || '';
     const pageRobots = seoData.robots || 'noindex,nofollow';
-    const pageImage = seoData.image || '/public/images/og-secure-repos.svg';
+    const pageImage = seoData.image || '/public/images/og-secure-repos.png';
+    const structuredDataItems = Array.isArray(seoData.structuredData) ? seoData.structuredData : (seoData.structuredData ? [seoData.structuredData] : []);
+    const nonce = typeof cspNonce !== 'undefined' ? cspNonce : '';
 %>
 <title><%= pageTitle %></title>
 <meta name="description" content="<%= pageDescription %>">
@@ -25,6 +27,9 @@
 <meta name="twitter:title" content="<%= pageTitle %>">
 <meta name="twitter:description" content="<%= pageDescription %>">
 <meta name="twitter:image" content="<%= pageImage %>">
+<% structuredDataItems.forEach(function (item) { %>
+<script type="application/ld+json"<% if (nonce) { %> nonce="<%= nonce %>"<% } %>><%- JSON.stringify(item).replace(/</g, '\\u003c') %></script>
+<% }); %>
 <link rel="icon" href="/public/images/logo-icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/public/images/logo-icon.svg">
 <link rel="preconnect" href="https://fonts.googleapis.com">

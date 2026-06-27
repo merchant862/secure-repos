@@ -3,21 +3,70 @@ import app from '../src/app/app';
 
 describe('Application routes', function ()
 {
-    it('should require admin session auth for admin health response', async function ()
-    {
-        const response = await request(app).get('/api/admin/health');
-
-        expect(response.status).toBe(401);
-        expect(response.body.message).toBe('Unauthorized');
-    });
-
     it('should set browser security headers', async function ()
     {
         const response = await request(app).get('/');
 
         expect(response.header['content-security-policy']).toContain("frame-ancestors 'none'");
+        expect(response.header['content-security-policy']).toContain("'nonce-");
         expect(response.header['x-content-type-options']).toBe('nosniff');
         expect(response.header['x-frame-options']).toBe('DENY');
+    });
+
+    it('should render structured data with a CSP nonce on public pages', async function ()
+    {
+        const response = await request(app).get('/');
+
+        expect(response.status).toBe(200);
+        expect(response.text).toContain('type="application/ld+json" nonce="');
+        expect(response.text).toContain('"@type":"SoftwareApplication"');
+        expect(response.text).toContain('/public/images/og-secure-repos.png');
+    });
+
+    it('should redirect alternate production hosts to the configured canonical domain', async function ()
+    {
+        const originalNodeEnv = process.env.NODE_ENV;
+        const originalAppUrl = process.env.APP_URL;
+
+        process.env.NODE_ENV = 'production';
+        process.env.APP_URL = 'https://securerepos.com';
+
+        try
+        {
+            const response = await request(app)
+                .get('/faqs?source=test')
+                .set('Host', 'www.securerepos.com')
+                .set('X-Forwarded-Proto', 'https');
+
+            expect(response.status).toBe(301);
+            expect(response.header.location).toBe('https://securerepos.com/faqs?source=test');
+        }
+        finally
+        {
+            if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+            else process.env.NODE_ENV = originalNodeEnv;
+
+            if (originalAppUrl === undefined) delete process.env.APP_URL;
+            else process.env.APP_URL = originalAppUrl;
+        }
+    });
+
+    it('should expose robots.txt and sitemap.xml for search engines', async function ()
+    {
+        const robotsResponse = await request(app).get('/robots.txt');
+        const sitemapResponse = await request(app).get('/sitemap.xml');
+
+        expect(robotsResponse.status).toBe(200);
+        expect(robotsResponse.type).toContain('text');
+        expect(robotsResponse.text).toContain('User-agent: *');
+        expect(robotsResponse.text).toContain('Sitemap:');
+
+        expect(sitemapResponse.status).toBe(200);
+        expect(sitemapResponse.type).toContain('xml');
+        expect(sitemapResponse.text).toContain('<urlset');
+        const baseUrl = (process.env.APP_URL || 'https://securerepos.com').replace(/\/$/, '');
+        expect(sitemapResponse.text).toContain(`<loc>${baseUrl}/</loc>`);
+        expect(sitemapResponse.text).toContain(`<loc>${baseUrl}/faqs</loc>`);
     });
 
     it('should reject cross-origin API writes', async function ()
@@ -122,20 +171,6 @@ describe('Application routes', function ()
 
         expect(response.status).toBe(302);
         expect(response.header.location).toBe('/sign-in?next=%2Fdashboard%3Fnext%3Dhttps%253A%252F%252F169.254.169.254%252Flatest%252Fmeta-data');
-    });
-
-    it('should render admin sign in and protect panel shells', async function ()
-    {
-        const signInResponse = await request(app).get('/admin/sign-in');
-        const panelResponse = await request(app).get('/admin/overview');
-        const pricingResponse = await request(app).get('/admin/pricing');
-
-        expect(signInResponse.status).toBe(200);
-        expect(signInResponse.text).toContain('Admin sign in');
-        expect(panelResponse.status).toBe(302);
-        expect(panelResponse.header.location).toBe('/admin/sign-in');
-        expect(pricingResponse.status).toBe(302);
-        expect(pricingResponse.header.location).toBe('/admin/sign-in');
     });
 
     it('should render password reset pages', async function ()

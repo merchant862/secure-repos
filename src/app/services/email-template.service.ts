@@ -128,20 +128,6 @@ ${rows(findings, ['severity', 'title', 'filePath'])}
     );
 }
 
-function renderWeeklyReport(payload: EmailTemplatePayload)
-{
-    const cadenceLabel = typeof payload.cadenceLabel === 'string' ? payload.cadenceLabel : 'Weekly';
-
-    return baseTemplate(
-        `${cadenceLabel} security report`,
-        `Your ${cadenceLabel.toLowerCase()} repository security summary is ready.`,
-        `<h1 style="margin:0 0 16px;color:#ffffff;font-size:28px;line-height:1.15">${escapeHtml(cadenceLabel)} security report</h1>
-<table width="100%" cellpadding="0" cellspacing="8"><tr>${stat('Critical', payload.critical ?? 0, '#ff6b6b')}${stat('High', payload.high ?? 0, '#f59e0b')}${stat('Total open', payload.total ?? 0, '#ffffff')}</tr></table>
-<p style="margin:16px 0 20px;color:#d0d5dd;line-height:1.65">Review open work and keep ownership moving.</p>
-${button('Open findings', `${getAppUrl()}/findings`)}`
-    );
-}
-
 function renderScanSummary(payload: EmailTemplatePayload)
 {
     return baseTemplate(
@@ -235,7 +221,6 @@ function renderEmailTemplate(type: string, payload: EmailTemplatePayload)
         welcome_owner: renderWelcomeOwner,
         checkout_link: renderCheckoutLink,
         security_alert: renderSecurityAlert,
-        weekly_report: renderWeeklyReport,
         scan_summary: renderScanSummary,
         scan_failed: renderScanFailed,
         finding_status_changed: renderFindingStatus,

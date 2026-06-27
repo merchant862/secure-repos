@@ -1150,7 +1150,7 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
     grid-template-columns: minmax(0, 0.92fr) minmax(420px, 1fr);
     gap: 58px;
     align-items: center;
-    padding: 76px 0 56px;
+    padding: 70px 0 54px;
 }
 
 .landing-hero-copy {
@@ -1161,14 +1161,14 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
 .landing-hero h1 {
     margin: 18px 0 18px;
     max-width: 720px;
-    font-size: clamp(42px, 5vw, 64px);
-    line-height: 1.02;
+    font-size: clamp(42px, 4.55vw, 60px);
+    line-height: 1.04;
     letter-spacing: 0;
 }
 
 .landing-hero p {
     max-width: 620px;
-    font-size: 18px;
+    font-size: 17px;
     line-height: 1.65;
 }
 
@@ -1262,26 +1262,33 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
     display: flex;
     flex-wrap: wrap;
     gap: 10px;
-    margin-top: 22px;
+    margin-top: 18px;
 }
 
 .landing-trust-row span {
     position: relative;
-    color: var(--muted);
-    padding-left: 14px;
-    font-size: 13px;
+    display: inline-flex;
+    align-items: center;
+    min-height: 32px;
+    border: 1px solid rgba(152, 162, 179, 0.16);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.035);
+    color: #b8c0cc;
+    padding: 0 12px 0 26px;
+    font-size: 12px;
     font-weight: 700;
 }
 
 .landing-trust-row span::before {
     content: "";
     position: absolute;
-    left: 0;
-    top: 7px;
+    left: 12px;
+    top: 50%;
     width: 6px;
     height: 6px;
     border-radius: 999px;
-    background: var(--brand);
+    background: #39d98a;
+    transform: translateY(-50%);
 }
 
 .landing-visual-column {
@@ -1579,15 +1586,6 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
 .landing-access > div > .badge {
     background: transparent;
     color: #fdb022;
-}
-
-.demo-frame-header .badge,
-.landing-demo-focus .badge,
-.landing-demo-list .badge {
-    border-radius: 5px;
-    padding: 3px 8px;
-    font-size: 11px;
-    font-weight: 850;
 }
 
 .landing-band-light .landing-feature-card {
@@ -2624,145 +2622,6 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
 
 .auth-card-inner { width: min(420px, 100%); }
 
-.admin-auth-shell .auth-copy {
-    background:
-        radial-gradient(circle at 20% 20%, rgba(117, 146, 255, 0.2), transparent 34%),
-        linear-gradient(135deg, #0b1220, #111827);
-}
-
-.admin-shell {
-    display: grid;
-    grid-template-columns: 260px minmax(0, 1fr);
-    min-height: 100vh;
-    background: var(--bg);
-}
-
-.admin-sidebar {
-    position: sticky;
-    top: 0;
-    height: 100vh;
-    overflow-y: auto;
-    border-right: 1px solid var(--border);
-    background: var(--surface);
-    padding: 22px 16px;
-}
-
-.admin-nav {
-    display: grid;
-    gap: 4px;
-}
-
-.admin-sidebar .brand-logo {
-    width: 200px;
-}
-
-.admin-main {
-    min-width: 0;
-}
-
-.admin-topbar {
-    position: sticky;
-    top: 0;
-    z-index: 20;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 18px;
-    border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--surface) 94%, transparent);
-    backdrop-filter: blur(10px);
-    padding: 16px 28px;
-}
-
-.admin-avatar-toggle {
-    display: none;
-    place-items: center;
-    width: 40px;
-    height: 40px;
-    border: 1px solid color-mix(in srgb, var(--brand) 40%, var(--border));
-    border-radius: 999px;
-    background: var(--brand);
-    color: #ffffff;
-    font: inherit;
-    font-size: 14px;
-    font-weight: 800;
-    cursor: pointer;
-}
-
-.admin-header-actions {
-    position: relative;
-}
-
-.admin-content {
-    width: min(1600px, 100%);
-}
-
-.admin-section {
-    margin-top: 18px;
-}
-
-.admin-jump-card {
-    transition: transform 160ms ease, border-color 160ms ease;
-}
-
-.admin-jump-card:hover {
-    border-color: color-mix(in srgb, var(--brand) 44%, var(--border));
-    transform: translateY(-1px);
-}
-
-.admin-form {
-    display: grid;
-    gap: 14px;
-}
-
-.admin-inline-actions {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-
-.admin-modal-overlay {
-    position: fixed;
-    inset: 0;
-    display: grid;
-    place-items: center;
-    padding: 18px;
-    background: rgba(12, 17, 29, 0.56);
-    z-index: 90;
-}
-
-.admin-modal-overlay[hidden] {
-    display: none;
-}
-
-.admin-modal {
-    width: min(860px, 100%);
-    max-height: min(820px, calc(100vh - 36px));
-    overflow: auto;
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    box-shadow: 0 24px 70px rgba(16, 24, 40, 0.3);
-}
-
-.admin-plan-link {
-    color: var(--text);
-    font-weight: 800;
-    text-decoration: none;
-}
-
-.admin-plan-link:hover {
-    color: var(--brand);
-}
-
-.admin-pagination {
-    display: flex;
-    justify-content: flex-end;
-    border-top: 1px solid var(--border);
-    padding: 14px 16px;
-}
-
 .checkbox-row {
     display: flex;
     align-items: center;
@@ -2770,11 +2629,6 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
     color: var(--muted);
     font-size: 14px;
     font-weight: 700;
-}
-
-.admin-shell textarea.input {
-    min-height: 104px;
-    resize: vertical;
 }
 
 .password-field {
@@ -2821,8 +2675,8 @@ body.sidebar-open .overlay { display: block; }
 }
 
 @keyframes codeBlink {
-    0%, 100% { opacity: 0.64; transform: translateX(0); }
-    45% { opacity: 1; transform: translateX(-5px); }
+    0%, 100% { opacity: 0.68; transform: translateX(0); }
+    45% { opacity: 1; transform: translateX(-4px); }
 }
 
 @keyframes typingDot {
@@ -3147,17 +3001,35 @@ body.sidebar-open .overlay { display: block; }
     .cookie-consent {
         bottom: 10px;
         grid-template-columns: 1fr;
-        gap: 12px;
-        max-height: calc(100vh - 20px);
+        gap: 10px;
+        max-height: min(680px, calc(100vh - 20px));
         overflow: auto;
-        padding: 14px;
+        padding: 12px;
+    }
+    .cookie-copy {
+        gap: 6px;
+    }
+    .cookie-copy h2 {
+        font-size: 17px;
+    }
+    .cookie-copy p {
+        line-height: 1.45;
     }
     .cookie-options {
         grid-template-columns: 1fr;
+        gap: 8px;
+    }
+    .cookie-option {
+        padding: 9px;
+    }
+    .cookie-option small {
+        font-size: 10px;
+        line-height: 1.35;
     }
     .cookie-actions {
         grid-template-columns: 1fr;
         min-width: 0;
+        gap: 7px;
     }
     .cookie-actions .button {
         width: 100%;
@@ -3207,72 +3079,5 @@ body.sidebar-open .overlay { display: block; }
     .security-code-stream span {
         font-size: 11px;
         padding: 7px 9px;
-    }
-    .admin-shell {
-        display: block;
-    }
-    .admin-sidebar {
-        position: fixed;
-        inset: 0 auto 0 0;
-        width: min(300px, calc(100vw - 64px));
-        height: 100vh;
-        transform: translateX(-100%);
-        transition: transform 180ms ease;
-        border-bottom: 0;
-        z-index: 35;
-    }
-    body.admin-menu-open .admin-sidebar {
-        transform: translateX(0);
-    }
-    .admin-nav {
-        grid-template-columns: 1fr;
-    }
-    .admin-topbar {
-        display: flex;
-        position: relative;
-        padding: 14px;
-    }
-    .admin-avatar-toggle {
-        display: grid;
-        margin-left: auto;
-    }
-    .admin-header-actions {
-        position: absolute;
-        top: calc(100% + 8px);
-        right: 14px;
-        display: none;
-        width: min(280px, calc(100vw - 28px));
-        align-items: center;
-        justify-content: flex-end;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        background: var(--surface);
-        box-shadow: 0 18px 42px rgba(16, 24, 40, 0.18);
-        padding: 12px;
-        z-index: 45;
-    }
-    body.admin-actions-open .admin-header-actions {
-        display: flex;
-    }
-    .admin-header-actions [data-admin-identity] {
-        margin-right: auto;
-    }
-    .admin-inline-actions {
-        display: grid;
-        min-width: 220px;
-    }
-    .admin-inline-actions .button,
-    .admin-inline-actions .input {
-        width: 100%;
-    }
-    .admin-modal-overlay {
-        align-items: end;
-        padding: 10px;
-    }
-    .admin-modal {
-        max-height: calc(100vh - 20px);
-    }
-    body.admin-menu-open .overlay {
-        display: block;
     }
 }

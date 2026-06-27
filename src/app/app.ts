@@ -6,12 +6,13 @@ import { errorMiddleware, notFoundMiddleware } from './middlewares/error.middlew
 import { githubWebhookRawBodyMiddleware } from './middlewares/github-webhook-raw.middleware';
 import { githubWebhookController } from './controllers/webhook/github-webhook.controller';
 import { paddleWebhookController } from './controllers/webhook/paddle-webhook.controller';
-import { securityHeadersMiddleware } from './middlewares/security.middleware';
+import { canonicalDomainMiddleware, securityHeadersMiddleware } from './middlewares/security.middleware';
 
 const app = express();
 
 app.disable('x-powered-by');
 app.set('trust proxy', process.env.TRUST_PROXY || 'loopback');
+app.use(canonicalDomainMiddleware);
 app.use(securityHeadersMiddleware);
 
 app.set('view engine', 'ejs');

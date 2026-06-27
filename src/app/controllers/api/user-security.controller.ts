@@ -12,7 +12,6 @@ import { enqueueRepositoryScan } from '../../services/scan.service';
 import { assertManualScanAllowed, getTenantPlan } from '../../services/plan-limit.service';
 import { recordAuditLog } from '../../services/audit.service';
 import { queueFindingStatusEmail } from '../../services/notification.service';
-import { buildScanJsonReport, buildScanXlsxReport } from '../../services/report-export.service';
 
 async function getTenantRepositoryIds(tenantId: number)
 {
@@ -413,54 +412,6 @@ async function getUserScanController(req: AuthenticatedRequest, res: Response)
     );
 }
 
-async function exportUserScanController(req: AuthenticatedRequest, res: Response)
-{
-    const user = req.currentUser;
-    const scanId = Number(req.params.scanId);
-    const format = String(req.query.format || 'json').toLowerCase();
-
-    if (!user)
-    {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    if (!Number.isFinite(scanId))
-    {
-        return res.status(400).json({ message: 'Invalid scan id' });
-    }
-
-    if (format !== 'json' && format !== 'xlsx')
-    {
-        return res.status(400).json({ message: 'Unsupported export format' });
-    }
-
-    const repositoryIds = await getTenantRepositoryIds(user.tenantId);
-    const scan = await Scan.findByPk(scanId);
-
-    const historyCutoff = await tenantHistoryCutoff(user.tenantId);
-    if (!scan || !repositoryIds.includes(scan.repositoryId) || scan.createdAt < historyCutoff)
-    {
-        return res.status(404).json({ message: 'Scan not found' });
-    }
-
-    const filename = `securerepos-scan-${scan.id}.${format}`;
-
-    if (format === 'xlsx')
-    {
-        const workbook = await buildScanXlsxReport(scan);
-
-        res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-        return res.send(workbook);
-    }
-
-    const report = await buildScanJsonReport(scan);
-
-    res.setHeader('Content-Type', 'application/json');
-    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-    return res.send(JSON.stringify(report, null, 2));
-}
-
 async function getUserRepositoryController(req: AuthenticatedRequest, res: Response)
 {
     const user = req.currentUser;
@@ -778,7 +729,6 @@ export {
     getUserRepositoryController,
     listUserScansController,
     getUserScanController,
-    exportUserScanController,
     listUserFindingsController,
     updateUserFindingController,
     getUserRepositoryChecklistController,

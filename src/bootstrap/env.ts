@@ -37,7 +37,6 @@ const env =
 
     tokenEncryptionKey: getEnv('TOKEN_ENCRYPTION_KEY', ''),
 
-    adminApiToken: getEnv('ADMIN_API_TOKEN', ''),
     scanWorkerPollMs: Number(getEnv('SCAN_WORKER_POLL_MS', '5000')),
     scanSchedulerIntervalMs: Number(getEnv('SCAN_SCHEDULER_INTERVAL_MS', '300000')),
     scanMaxBranches: Number(getEnv('SCAN_MAX_BRANCHES', '50')),

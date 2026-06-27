@@ -153,9 +153,9 @@ async function guestPageMiddleware(req: AuthenticatedRequest, res: Response, nex
     return next();
 }
 
-function requireOwnerOrAdmin(req: AuthenticatedRequest, res: Response, next: NextFunction)
+function requireOwner(req: AuthenticatedRequest, res: Response, next: NextFunction)
 {
-    if (!req.currentUser || !['owner', 'admin'].includes(req.currentUser.role))
+    if (!req.currentUser || req.currentUser.role !== 'owner')
     {
         return res.status(403).json({ message: 'Forbidden' });
     }
@@ -172,5 +172,5 @@ export {
     userPageAuthMiddleware,
     guestPageMiddleware,
     resolveUserFromRequest,
-    requireOwnerOrAdmin
+    requireOwner
 };

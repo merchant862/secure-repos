@@ -849,7 +849,7 @@
         const statusNote = options?.statusNote ? `<p class="muted small">${escapeHtml(options.statusNote)}</p>` : '';
         const featureList = features.length
             ? `<ul class="plan-list compact">${features.map((feature) => `<li>${escapeHtml(feature.label)}</li>`).join('')}</ul>`
-            : '<p class="muted small">Package features are managed from admin pricing.</p>';
+            : '<p class="muted small">Package features will appear here when configured.</p>';
 
         return `<div class="billing-plan-summary">
             <div class="metric-value">${price}</div>
@@ -1337,7 +1337,7 @@
         } else if (scanCount === 0) {
             updateOnboardingAction({
                 title: 'Run your first scan',
-                copy: `${repositoryCount} repositories are ready. Start a scan from the repository table to build your first findings report.`,
+                copy: `${repositoryCount} repositories are ready. Start a scan from the repository table to review your first findings.`,
                 badge: 'Step 5',
                 badgeClass: 'brand',
                 wizardTitle: 'First scan',

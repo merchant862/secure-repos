@@ -1,7 +1,6 @@
 import { Op } from 'sequelize';
 
 import {
-    AdminSession,
     AuditLog,
     Finding,
     GithubWebhookEvent,
@@ -51,7 +50,6 @@ async function runRetentionCleanup(force = false)
         [
             LoginOtp.destroy({ where: { expiresAt: { [Op.lt]: new Date() } } }),
             UserSession.destroy({ where: { expiresAt: { [Op.lt]: new Date() } } }),
-            AdminSession.destroy({ where: { expiresAt: { [Op.lt]: new Date() } } }),
             ProviderOauthState.destroy({ where: { expiresAt: { [Op.lt]: new Date() } } }),
             NotificationEvent.destroy({ where: { createdAt: { [Op.lt]: new Date(now - 180 * 24 * 60 * 60 * 1000) } } }),
             InAppNotification.destroy({ where: { createdAt: { [Op.lt]: new Date(now - 180 * 24 * 60 * 60 * 1000) } } }),

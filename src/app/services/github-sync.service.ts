@@ -176,7 +176,7 @@ async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
     if (payload.action === 'deleted' || payload.action === 'removed')
     {
         // Keep selected repositories active so plan slots cannot be freed by
-        // removing GitHub App access before an admin changes the subscription.
+        // removing GitHub App access before the subscription is changed.
         return [];
     }
 

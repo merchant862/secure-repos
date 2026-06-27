@@ -6,13 +6,16 @@ const rateLimitBuckets = new Map<string, RateLimitEntry>();
 
 function securityHeadersMiddleware(req: Request, res: Response, next: NextFunction)
 {
+    const cspNonce = crypto.randomBytes(16).toString('base64url');
+    res.locals.cspNonce = cspNonce;
+
     res.setHeader('Content-Security-Policy', [
         "default-src 'self'",
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
         "img-src 'self' data: https://github.com https://avatars.githubusercontent.com https://cdn.jsdelivr.net",
-        "script-src 'self' https://cdn.paddle.com https://sandbox-cdn.paddle.com",
+        `script-src 'self' 'nonce-${cspNonce}' https://cdn.paddle.com https://sandbox-cdn.paddle.com`,
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
         "connect-src 'self' https://checkout-api.paddle.com https://sandbox-checkout-api.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com",
         "frame-src https://checkout.paddle.com https://sandbox-checkout.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com",
@@ -95,4 +98,38 @@ function sameOriginApiMiddleware(req: Request, res: Response, next: NextFunction
     return next();
 }
 
-export { securityHeadersMiddleware, rateLimit, sameOriginApiMiddleware };
+function canonicalDomainMiddleware(req: Request, res: Response, next: NextFunction)
+{
+    if (process.env.NODE_ENV !== 'production' || !['GET', 'HEAD'].includes(req.method))
+    {
+        return next();
+    }
+
+    const configuredUrl = process.env.APP_URL || process.env.SITE_URL;
+    if (!configuredUrl)
+    {
+        return next();
+    }
+
+    try
+    {
+        const canonicalUrl = new URL(configuredUrl);
+        const requestHost = req.get('host') || '';
+        const hostMatches = requestHost.toLowerCase() === canonicalUrl.host.toLowerCase();
+        const protocolMatches = req.protocol === canonicalUrl.protocol.replace(':', '');
+
+        if (hostMatches && protocolMatches)
+        {
+            return next();
+        }
+
+        const target = `${canonicalUrl.origin}${req.originalUrl}`;
+        return res.redirect(301, target);
+    }
+    catch (error)
+    {
+        return next();
+    }
+}
+
+export { canonicalDomainMiddleware, securityHeadersMiddleware, rateLimit, sameOriginApiMiddleware };

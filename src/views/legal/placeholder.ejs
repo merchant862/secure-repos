@@ -44,13 +44,13 @@
                 <p>By visiting the website, creating an account, selecting a plan, installing the GitHub App, or using <%= appName %>, you agree to these Terms and Conditions, the Privacy Policy, Refund Policy, and any checkout or billing disclosures presented at the time of purchase.</p>
                 <p><%= appName %> is operated by Secure Repos. In these Terms, "we," "us," and "our" refer to Secure Repos and <%= appName %>. "You" and "user" refer to the person or organization using the service.</p>
                 <h2>2. Service Description</h2>
-                <p><%= appName %> provides repository security monitoring for individual GitHub users. Features may include repository inventory, automated scans, secret and configuration checks, GitHub Actions checks, dependency and container hygiene checks, finding review, notifications, account activity, reports, and related security workflow tools.</p>
+                <p><%= appName %> provides repository security monitoring for individual GitHub users. Features may include repository inventory, automated scans, secret and configuration checks, GitHub Actions checks, dependency and container hygiene checks, finding review, notifications, account activity, and related security workflow tools.</p>
                 <p>The service is a software tool. It is not a managed penetration test, legal service, incident response service, or guarantee that your repositories are secure.</p>
                 <h2>3. Accounts and Access</h2>
                 <p>You are responsible for the accuracy of account information, the security of login credentials, and all activity under your account. You must be authorized to connect the GitHub organizations, accounts, and repositories you add to <%= appName %>.</p>
                 <p>You may not share credentials, bypass plan limits, reverse engineer the service, interfere with platform security, scan repositories you are not authorized to access, or use the service for unlawful activity.</p>
                 <h2>4. GitHub App Connections</h2>
-                <p>When you install the GitHub App, you authorize <%= appName %> to access selected repository metadata and repository content needed to perform scans, generate findings, track repository status, and provide reports. You should select only repositories that you want monitored under your plan.</p>
+                <p>When you install the GitHub App, you authorize <%= appName %> to access selected repository metadata and repository content needed to perform scans, generate findings, and track repository status. You should select only repositories that you want monitored under your plan.</p>
                 <p>You may revoke GitHub App access from GitHub. If access is revoked, suspended, or reduced, scans and repository updates may stop or become incomplete.</p>
                 <h2>5. Plans and Billing</h2>
                 <p>Pricing, billing interval, included repositories, usage limits, and plan features are displayed before purchase. Payment processing is handled by the checkout provider shown at payment. By completing checkout, you authorize the applicable charges shown at purchase.</p>
@@ -60,7 +60,7 @@
                 <h2>7. Customer Data and Repository Content</h2>
                 <p>Your repository content, organization data, and account data remain yours. You grant us the limited rights needed to operate the service, process scans, generate findings, deliver notifications, provide support, maintain security, and comply with legal obligations.</p>
                 <h2>8. Intellectual Property</h2>
-                <p><%= appName %>, its interface, scanner logic, reports, branding, documentation, and platform materials are owned by Secure Repos or its licensors. You receive a limited, non-transferable right to use the service for your internal business purposes according to your plan.</p>
+                <p><%= appName %>, its interface, scanner logic, branding, documentation, and platform materials are owned by Secure Repos or its licensors. You receive a limited, non-transferable right to use the service for your internal business purposes according to your plan.</p>
                 <h2>9. Availability and Changes</h2>
                 <p>We may update, improve, suspend, or discontinue parts of the service. We work to keep the platform reliable, but we do not guarantee uninterrupted or error-free access.</p>
                 <h2>10. Limitation of Liability</h2>
@@ -73,15 +73,15 @@
         <% } else if (legalSlug === 'privacy') { %>
             <section class="legal-content">
                 <h2>1. Overview</h2>
-                <p>This Privacy Policy explains how Secure Repos and <%= appName %> collect, use, disclose, and protect information when you visit the website, create an account, connect GitHub repositories, use scans and reports, contact support, or interact with our services.</p>
+                <p>This Privacy Policy explains how Secure Repos and <%= appName %> collect, use, disclose, and protect information when you visit the website, create an account, connect GitHub repositories, use scans, contact support, or interact with our services.</p>
                 <h2>2. Information We Collect</h2>
                 <p>We may collect account information such as name, email address, password hash, notification preferences, support messages, billing status, and plan information.</p>
-                <p>We may also collect technical and product information such as IP address, browser, device data, login sessions, audit logs, page activity, repository IDs, repository names, default branches, GitHub App installation metadata, scan status, findings, reports, and error logs.</p>
+                <p>We may also collect technical and product information such as IP address, browser, device data, login sessions, audit logs, page activity, repository IDs, repository names, default branches, GitHub App installation metadata, scan status, findings, and error logs.</p>
                 <h2>3. Repository Data</h2>
-                <p>Repository access is used to run security checks, create findings, build reports, track repository health, and support workflow features. Depending on the scan, <%= appName %> may process repository file paths, selected file contents, configuration files, dependency files, workflow files, and detected patterns.</p>
+                <p>Repository access is used to run security checks, create findings, track repository health, and support workflow features. Depending on the scan, <%= appName %> may process repository file paths, selected file contents, configuration files, dependency files, workflow files, and detected patterns.</p>
                 <p>We do not sell repository code. You control repository access through the GitHub App installation and should limit access to repositories you want monitored.</p>
                 <h2>4. How We Use Information</h2>
-                <p>We use information to create and operate accounts, authenticate users, connect GitHub, run scans, generate findings, send emails and in-app notifications, enforce plan limits, provide reports, improve reliability, prevent abuse, investigate errors, respond to support requests, process billing status, and comply with legal obligations.</p>
+                <p>We use information to create and operate accounts, authenticate users, connect GitHub, run scans, generate findings, send emails and in-app notifications, enforce plan limits, improve reliability, prevent abuse, investigate errors, respond to support requests, process billing status, and comply with legal obligations.</p>
                 <h2>5. Service Providers</h2>
                 <p>We may use trusted providers for hosting, databases, infrastructure, email delivery, analytics, logging, security monitoring, payment processing, fraud prevention, and customer support. These providers process information only as needed to provide services to us.</p>
                 <p>For dependency vulnerability checks, package names, exact versions, ecosystems, and dependency file paths may be sent to a vulnerability intelligence provider. Repository source code and dependency file contents are not sent for this lookup.</p>
@@ -92,7 +92,7 @@
                 <h2>8. Your Rights</h2>
                 <p>Depending on your location, you may request access, correction, deletion, portability, restriction, or opt-out of certain processing. We may verify your identity before processing a request.</p>
                 <h2>9. Security</h2>
-                <p>We use reasonable administrative, technical, and organizational safeguards designed to protect information. No online service is completely secure, and you are responsible for managing GitHub permissions and account access carefully.</p>
+                <p>We use reasonable operational, technical, and organizational safeguards designed to protect information. No online service is completely secure, and you are responsible for managing GitHub permissions and account access carefully.</p>
                 <h2>10. International Processing</h2>
                 <p>Your information may be processed in countries where we or our service providers operate. By using the service, you understand that information may be transferred and processed outside your country of residence where permitted by law.</p>
                 <h2>11. Contact</h2>
@@ -109,7 +109,7 @@
                 <h2>4. Cancellations</h2>
                 <p>If your plan renews, cancellation stops future renewal according to the selected checkout terms. Cancellation does not automatically refund prior charges, partial billing periods, or unused repository capacity.</p>
                 <h2>5. Plan Changes and Access</h2>
-                <p>Changing or cancelling a plan may affect repository limits, scans, reports, and access to account features. We may retain certain records for audit, billing, dispute, and legal purposes.</p>
+                <p>Changing or cancelling a plan may affect repository limits, scans, and access to account features. We may retain certain records for audit, billing, dispute, and legal purposes.</p>
                 <h2>6. Chargebacks</h2>
                 <p>Please contact support before opening a payment dispute. Chargebacks may result in account suspension while the dispute is reviewed. We may provide account, checkout, access, and usage records to payment processors or banks to respond to disputes.</p>
             </section>
@@ -125,7 +125,7 @@
         <footer class="landing-footer compact-footer">
             <div class="landing-footer-brand">
                 <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
-                <p class="muted small">GitHub repository scanning, branch-level findings, remediation guidance, and exports for independent developers.</p>
+                <p class="muted small">GitHub repository scanning, branch-level findings, and remediation guidance for independent developers.</p>
             </div>
             <div class="landing-footer-grid">
                 <div>

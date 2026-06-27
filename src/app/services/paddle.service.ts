@@ -56,11 +56,11 @@ function getPaddlePriceId(planSlug: string)
 
 function getCheckoutTokenSecret()
 {
-    const secret = env.tokenEncryptionKey || env.adminApiToken;
+    const secret = env.tokenEncryptionKey || env.paddleWebhookSecret;
 
     if (!secret)
     {
-        throw new Error('Checkout token secret is not configured');
+        throw new Error('TOKEN_ENCRYPTION_KEY or PADDLE_WEBHOOK_SECRET is required for checkout token signing');
     }
 
     return secret;
