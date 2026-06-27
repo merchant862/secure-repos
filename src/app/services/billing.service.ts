@@ -1,9 +1,9 @@
 import { env } from '../../bootstrap/env';
-import { CodeHostConnection, PricingPlan, Repository, TenantSubscription } from '../../db/models';
+import { CodeHostConnection, PricingPlan, PricingPlanFeature, Repository, TenantSubscription } from '../../db/models';
 import { sequelize } from '../../db/sequelize';
 import { recordAuditLog } from './audit.service';
 import { queueEmailEvent } from './notification.service';
-import { cancelPaddleSubscription, getPaddlePriceId, updatePaddleSubscriptionPlan } from './paddle.service';
+import { cancelPaddleSubscription, createPaddlePaymentMethodUpdateUrl, getPaddlePriceId, updatePaddleSubscriptionPlan } from './paddle.service';
 
 type PlanChangeInput = {
     tenantId: number;
@@ -12,6 +12,14 @@ type PlanChangeInput = {
     repositoryIds: number[];
     ipAddress?: string | null;
 };
+
+type PaymentMethodUpdateInput = {
+    tenantId: number;
+    userId: number;
+    ipAddress?: string | null;
+};
+
+const paymentMethodUpdateCooldownMs = 24 * 60 * 60 * 1000;
 
 function numericIds(value: number[])
 {
@@ -29,7 +37,19 @@ async function getTenantPlanChangeOptions(tenantId: number)
     const [subscription, plans, connectionIds] = await Promise.all(
         [
             TenantSubscription.findOne({ where: { tenantId } }),
-            PricingPlan.findAll({ where: { isActive: true }, order: [['sortOrder', 'ASC'], ['priceMonthlyCents', 'ASC']] }),
+            PricingPlan.findAll(
+                {
+                    where: { isActive: true },
+                    include:
+                    [
+                        {
+                            model: PricingPlanFeature,
+                            as: 'features'
+                        }
+                    ],
+                    order: [['sortOrder', 'ASC'], ['priceMonthlyCents', 'ASC'], [{ model: PricingPlanFeature, as: 'features' }, 'sortOrder', 'ASC']]
+                }
+            ),
             getTenantConnectionIds(tenantId)
         ]
     );
@@ -316,8 +336,68 @@ async function cancelTenantSubscription(tenantId: number, cancelledBy: 'owner' |
     return subscription;
 }
 
+async function createTenantPaymentMethodUpdateLink(input: PaymentMethodUpdateInput)
+{
+    const subscription = await TenantSubscription.findOne({ where: { tenantId: input.tenantId } });
+
+    if (!subscription)
+    {
+        throw new Error('Subscription not found');
+    }
+
+    if (!['active', 'past_due'].includes(subscription.status))
+    {
+        throw new Error('Payment method updates are available after checkout is confirmed.');
+    }
+
+    if (subscription.provider !== 'paddle' || !subscription.providerSubscriptionId)
+    {
+        throw new Error('Paddle subscription is not linked yet.');
+    }
+
+    const now = new Date();
+    const isPastDue = subscription.status === 'past_due';
+
+    if (!isPastDue && subscription.lastPaymentMethodUpdateLinkAt)
+    {
+        const nextAllowedAt = new Date(subscription.lastPaymentMethodUpdateLinkAt.getTime() + paymentMethodUpdateCooldownMs);
+
+        if (now < nextAllowedAt)
+        {
+            throw new Error(`Payment method updates are limited to once every 24 hours. Try again after ${nextAllowedAt.toISOString()}.`);
+        }
+    }
+
+    const updateLink = await createPaddlePaymentMethodUpdateUrl(subscription.providerSubscriptionId);
+    await subscription.update({ lastPaymentMethodUpdateLinkAt: now });
+    await recordAuditLog(
+        {
+            tenantId: input.tenantId,
+            userId: input.userId,
+            action: 'billing.payment_method_update_link.created',
+            entityType: 'tenant_subscription',
+            entityId: String(subscription.id),
+            ipAddress: input.ipAddress ?? null,
+            metadata:
+            {
+                provider: 'paddle',
+                providerSubscriptionId: subscription.providerSubscriptionId,
+                transactionId: updateLink.transactionId,
+                cooldownHours: 24,
+                bypassedCooldown: isPastDue
+            }
+        }
+    );
+
+    return {
+        url: updateLink.url,
+        restrictedUntil: isPastDue ? null : new Date(now.getTime() + paymentMethodUpdateCooldownMs)
+    };
+}
+
 export {
     cancelTenantSubscription,
     changeTenantPlan,
+    createTenantPaymentMethodUpdateLink,
     getTenantPlanChangeOptions
 };

@@ -39,6 +39,42 @@ describe('Application routes', function ()
         expect(response.text).toContain('Page not found');
     });
 
+    it('should not expose the removed profile page', async function ()
+    {
+        const response = await request(app).get('/profile');
+
+        expect(response.status).toBe(404);
+        expect(response.text).toContain('Page not found');
+    });
+
+    it('should not expose the removed reports page', async function ()
+    {
+        const pageResponse = await request(app).get('/reports');
+
+        expect(pageResponse.status).toBe(404);
+        expect(pageResponse.text).toContain('Page not found');
+    });
+
+    it('should not expose the removed in-app pricing page', async function ()
+    {
+        const response = await request(app).get('/pricing');
+
+        expect(response.status).toBe(404);
+        expect(response.text).toContain('Page not found');
+    });
+
+    it('should render account controls in the demo topbar without a profile link', async function ()
+    {
+        const response = await request(app).get('/demo');
+
+        expect(response.status).toBe(200);
+        expect(response.text).toContain('owner@example.com');
+        expect(response.text).toContain('data-logout-request');
+        expect(response.text).not.toContain('href="/profile"');
+        expect(response.text).not.toContain('href="/demo/reports"');
+        expect(response.text).not.toContain('href="/demo/pricing"');
+    });
+
     it('should not expose temporary error test routes', async function ()
     {
         const response = await request(app).get('/test-500');
@@ -54,6 +90,30 @@ describe('Application routes', function ()
 
         expect(response.status).toBe(302);
         expect(response.header.location).toBe('/sign-in?next=%2Fdashboard');
+    });
+
+    it('should require authentication for password changes', async function ()
+    {
+        const response = await request(app)
+            .put('/api/user/auth/password')
+            .send(
+                {
+                    currentPassword: 'CurrentPassword123!',
+                    newPassword: 'DifferentPassword123!',
+                    confirmPassword: 'DifferentPassword123!'
+                }
+            );
+
+        expect(response.status).toBe(401);
+        expect(response.body.message).toBe('Unauthorized');
+    });
+
+    it('should require authentication for payment method update links', async function ()
+    {
+        const response = await request(app).post('/api/user/billing/payment-method/update-link');
+
+        expect(response.status).toBe(401);
+        expect(response.body.message).toBe('Unauthorized');
     });
 
     it('should only include internal allowlisted paths in sign in next redirects', async function ()

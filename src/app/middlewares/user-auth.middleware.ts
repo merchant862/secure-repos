@@ -16,9 +16,6 @@ const allowedNextPathPrefixes =
     '/findings',
     '/notifications',
     '/onboarding',
-    '/pricing',
-    '/profile',
-    '/reports',
     '/repositories',
     '/scans',
     '/settings'

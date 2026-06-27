@@ -19,7 +19,9 @@
                         <div class="card-header"><h2 class="card-title">Selected Plan</h2><span class="badge brand">Workspace</span></div>
                         <div class="card-body">
                             <div class="metric-value" data-billing-plan-name>--</div>
-                            <p class="muted" data-billing-plan-copy>Plan details load from your workspace subscription record.</p>
+                            <div class="billing-plan-details" data-billing-plan-details>
+                                <p class="muted">Plan details load from your workspace subscription record.</p>
+                            </div>
                             <button class="button" type="button" data-billing-change-plan>Change plan</button>
                         </div>
                     </article>
@@ -31,13 +33,20 @@
                                 <article><span class="badge success" data-billing-step-plan-badge>Ready</span><div><strong>Plan selected</strong><p class="muted small" data-billing-step-plan>Checking your selected package.</p></div></article>
                                 <article><span class="badge brand" data-billing-step-payment-badge>Next</span><div><strong>Paddle checkout</strong><p class="muted small" data-billing-step-payment>Complete payment to unlock scans.</p></div></article>
                             </div>
-                            <a class="button primary" href="/pricing" data-billing-checkout-action>Choose plan and checkout</a>
+                            <a class="button primary" href="/checkout" data-billing-checkout-action>Choose plan and checkout</a>
                         </div>
                     </article>
                 </section>
                 <section class="card" style="margin-top:18px">
                     <div class="card-header"><h2 class="card-title">Subscription Controls</h2><span class="badge warning">Owner only</span></div>
                     <form class="card-body" data-api-form="cancel-subscription">
+                        <div class="billing-payment-method">
+                            <div>
+                                <strong>Payment method</strong>
+                                <p class="muted small" data-billing-payment-method-copy>Paddle payment method details load after checkout is confirmed.</p>
+                            </div>
+                            <button class="button" type="button" data-billing-payment-method-update>Update payment method</button>
+                        </div>
                         <p class="muted" data-billing-cancel-copy>This account is for one independent developer. You can cancel future renewals from this page after a payment provider is connected.</p>
                         <button class="button danger" type="submit" data-billing-cancel-button>Cancel subscription</button>
                         <span class="small muted" data-form-status></span>

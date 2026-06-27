@@ -20,6 +20,18 @@ import { env } from '../../bootstrap/env';
 
 let githubPrivateKeyCache: string | null = null;
 
+class GithubApiError extends Error
+{
+    declare statusCode: number;
+
+    constructor(statusCode: number, responseBody: string)
+    {
+        super(`GitHub API request failed (${statusCode}): ${responseBody}`);
+        this.name = 'GithubApiError';
+        this.statusCode = statusCode;
+    }
+}
+
 function getGithubAppConfig(): GithubConfig
 {
     return getGithubConfig();
@@ -149,7 +161,7 @@ function githubRequest<T>(pathName: string, options: { method?: string; token?: 
 
                     if (statusCode < 200 || statusCode >= 300)
                     {
-                        reject(new Error(`GitHub API request failed (${statusCode}): ${raw}`));
+                        reject(new GithubApiError(statusCode, raw));
                         return;
                     }
 
@@ -264,30 +276,60 @@ async function fetchRepositoryBlob(accessToken: string, fullName: string, sha: s
 
 async function fetchOpenDependabotAlerts(accessToken: string, fullName: string): Promise<GithubDependabotAlertResponse[]>
 {
-    return githubRequest<GithubDependabotAlertResponse[]>(
-        `/repos/${fullName}/dependabot/alerts?state=open&per_page=100`,
+    const alerts: GithubDependabotAlertResponse[] = [];
+
+    try
+    {
+        for (let page = 1; ; page += 1)
         {
-            token: accessToken
+            const response = await githubRequest<GithubDependabotAlertResponse[]>(
+                `/repos/${fullName}/dependabot/alerts?state=open&per_page=100&page=${page}`,
+                { token: accessToken }
+            );
+            alerts.push(...response);
+            if (response.length < 100) break;
         }
-    ).catch(function (error)
+    }
+    catch (error)
     {
         console.warn(`GitHub Dependabot alerts unavailable for ${fullName}:`, error instanceof Error ? error.message : error);
-        return [];
-    });
+        if (error instanceof GithubApiError && (error.statusCode === 403 || error.statusCode === 404))
+        {
+            return [];
+        }
+        throw error;
+    }
+
+    return alerts;
 }
 
 async function fetchOpenSecretScanningAlerts(accessToken: string, fullName: string): Promise<GithubSecretScanningAlertResponse[]>
 {
-    return githubRequest<GithubSecretScanningAlertResponse[]>(
-        `/repos/${fullName}/secret-scanning/alerts?state=open&per_page=100`,
+    const alerts: GithubSecretScanningAlertResponse[] = [];
+
+    try
+    {
+        for (let page = 1; ; page += 1)
         {
-            token: accessToken
+            const response = await githubRequest<GithubSecretScanningAlertResponse[]>(
+                `/repos/${fullName}/secret-scanning/alerts?state=open&per_page=100&page=${page}`,
+                { token: accessToken }
+            );
+            alerts.push(...response);
+            if (response.length < 100) break;
         }
-    ).catch(function (error)
+    }
+    catch (error)
     {
         console.warn(`GitHub secret scanning alerts unavailable for ${fullName}:`, error instanceof Error ? error.message : error);
-        return [];
-    });
+        if (error instanceof GithubApiError && (error.statusCode === 403 || error.statusCode === 404))
+        {
+            return [];
+        }
+        throw error;
+    }
+
+    return alerts;
 }
 
 async function createRepositoryCheckRun(

@@ -1,43 +1,20 @@
-import { Finding, NotificationEvent, NotificationSetting, Repository, Scan, User } from '../../db/models';
+import { Finding, NotificationEvent, Repository, Scan, User } from '../../db/models';
 import { Op } from 'sequelize';
 import { ScannerFinding } from './scan-rules.service';
 import { createTenantNotification } from './in-app-notification.service';
 import { getTenantPlan } from './plan-limit.service';
 
-async function getTenantEmailRecipients(tenantId: number, fallbackUserId?: number): Promise<string[]>
+async function getTenantEmailRecipients(tenantId: number): Promise<string[]>
 {
-    const settings = await NotificationSetting.findOne({ where: { tenantId } });
-    const users = await User.findAll(
+    const owner = await User.findOne(
         {
-            where: fallbackUserId ? { id: fallbackUserId, tenantId, status: 'active' } : { tenantId, status: 'active' },
-            attributes: ['email']
+            where: { tenantId, role: 'owner', status: 'active' },
+            attributes: ['email'],
+            order: [['id', 'ASC']]
         }
     );
-    const allowedEmails = new Set(users.map((user) => user.email.toLowerCase()));
-    const configured = settings?.emailRecipients as unknown;
 
-    if (Array.isArray(configured))
-    {
-        const valid = configured.filter((email): email is string => typeof email === 'string' && allowedEmails.has(email.toLowerCase()));
-        return valid.length > 0 ? valid : users.map((user) => user.email);
-    }
-
-    if (typeof configured === 'string')
-    {
-        const valid = configured
-            .split(/[\s,;]+/)
-            .map((email) => email.trim())
-            .filter((email) => allowedEmails.has(email.toLowerCase()));
-        return valid.length > 0 ? valid : users.map((user) => user.email);
-    }
-
-    if (configured && typeof configured === 'object' && Array.isArray((configured as { recipients?: unknown }).recipients))
-    {
-        const valid = (configured as { recipients: unknown[] }).recipients.filter((email): email is string => typeof email === 'string' && allowedEmails.has(email.toLowerCase()));
-        return valid.length > 0 ? valid : users.map((user) => user.email);
-    }
-
-    return users.map((user) => user.email);
+    return owner ? [owner.email] : [];
 }
 
 async function queueEmailEvent(input: {
@@ -74,13 +51,10 @@ async function queueSecurityAlert(
     findings: ScannerFinding[]
 )
 {
-    const [settings, plan] = await Promise.all(
-        [NotificationSetting.findOne({ where: { tenantId } }), getTenantPlan(tenantId)]
-    );
-    const allowHigh = plan?.slug === 'solo-pro' && settings?.instantHigh !== false;
-    const allowCritical = settings?.instantCritical !== false;
+    const plan = await getTenantPlan(tenantId);
+    const allowHigh = plan?.slug === 'solo-pro';
     const severeFindings = findings.filter((finding) =>
-        (finding.severity === 'critical' && allowCritical) || (finding.severity === 'high' && allowHigh));
+        finding.severity === 'critical' || (finding.severity === 'high' && allowHigh));
 
     if (severeFindings.length === 0)
     {
@@ -130,14 +104,18 @@ async function queueSecurityAlert(
     );
 }
 
-async function queueWeeklyReport(tenantId: number, summary: object)
+async function queueSecurityReport(tenantId: number, summary: object, cadenceLabel: string)
 {
     return queueEmailEvent(
         {
             tenantId,
             type: 'weekly_report',
-            subject: 'Weekly security report',
-            payload: summary as Record<string, unknown>
+            subject: `${cadenceLabel} security report`,
+            payload:
+            {
+                ...(summary as Record<string, unknown>),
+                cadenceLabel
+            }
         }
     );
 }
@@ -289,7 +267,22 @@ async function queueProviderStatusEmail(tenantId: number, provider: string, acco
     );
 }
 
-async function queueWeeklyReportsForAllTenants()
+function reportCadenceForSchedule(scanSchedule: string | null | undefined)
+{
+    if (scanSchedule === 'weekly')
+    {
+        return { label: 'Weekly', intervalMs: 7 * 24 * 60 * 60 * 1000 };
+    }
+
+    if (scanSchedule === 'every_4_days')
+    {
+        return { label: '4-day', intervalMs: 4 * 24 * 60 * 60 * 1000 };
+    }
+
+    return { label: 'Daily', intervalMs: 24 * 60 * 60 * 1000 };
+}
+
+async function queuePlanReportsForAllTenants()
 {
     const rows = await Finding.findAll(
         {
@@ -354,25 +347,22 @@ async function queueWeeklyReportsForAllTenants()
     {
         if (tenantId > 0)
         {
-            const [settings, recentReport] = await Promise.all(
-                [
-                    NotificationSetting.findOne({ where: { tenantId } }),
-                    NotificationEvent.findOne(
-                        {
-                            where:
-                            {
-                                tenantId,
-                                type: 'weekly_report',
-                                createdAt: { [Op.gte]: new Date(Date.now() - 6 * 24 * 60 * 60 * 1000) }
-                            }
-                        }
-                    )
-                ]
+            const plan = await getTenantPlan(tenantId);
+            const cadence = reportCadenceForSchedule(plan?.scanSchedule);
+            const recentReport = await NotificationEvent.findOne(
+                {
+                    where:
+                    {
+                        tenantId,
+                        type: 'weekly_report',
+                        createdAt: { [Op.gte]: new Date(Date.now() - cadence.intervalMs + 60 * 60 * 1000) }
+                    }
+                }
             );
 
-            if (settings?.weeklyReport !== false && !recentReport)
+            if (!recentReport)
             {
-                await queueWeeklyReport(tenantId, summary);
+                await queueSecurityReport(tenantId, summary, cadence.label);
             }
         }
     }
@@ -382,8 +372,9 @@ export {
     getTenantEmailRecipients,
     queueEmailEvent,
     queueSecurityAlert,
-    queueWeeklyReport,
-    queueWeeklyReportsForAllTenants,
+    queueSecurityReport,
+    queuePlanReportsForAllTenants,
+    reportCadenceForSchedule,
     queueWelcomeOwnerEmail,
     queueCheckoutLinkEmail,
     queueScanSummaryEmail,

@@ -1,6 +1,6 @@
 # Secure Repos
 
-Secure Repos is a focused security dashboard for GitHub teams. It connects through a GitHub App, scans selected repositories, and helps teams review exposed secrets, risky CI/CD settings, weak configurations, dependency concerns, and repository security workflow gaps.
+Secure Repos is a focused, AI-assisted security dashboard for independent GitHub developers. It connects through a GitHub App, scans selected repositories, and helps users review exposed secrets, risky CI/CD settings, weak configurations, dependency concerns, and repository security workflow gaps with clearer remediation context.
 
 Built for founders, agencies, and small teams that want practical repository security without enterprise complexity.
 
@@ -141,12 +141,9 @@ These pages require a user session:
 /onboarding
 /repositories
 /findings
-/reports
 /settings
 /notifications
 /billing
-/profile
-/pricing
 ```
 
 The `/demo` route stays public and uses demo data.
@@ -157,3 +154,31 @@ The `/demo` route stays public and uses demo data.
 npm run build
 npm test
 ```
+
+## CI/CD Deployment
+
+GitHub Actions deploys `main` only after the package passes build, tests, production dependency audit, and OSV dependency scanning.
+
+Add these repository secrets before enabling production deployment:
+
+```txt
+VPS_HOST              # VPS IP or hostname
+VPS_PORT              # SSH port, optional; defaults to 22
+VPS_USER              # SSH username
+VPS_PASSWORD          # SSH password
+VPS_APP_DIR           # Absolute path to this app on the VPS
+VPS_RESTART_COMMAND   # Optional; defaults to npm run pm2:reload
+```
+
+The VPS deploy step runs:
+
+```bash
+git fetch origin main
+git pull --ff-only origin main
+npm ci
+npm run build
+npx sequelize-cli db:migrate
+npm run pm2:reload
+```
+
+Set `VPS_RESTART_COMMAND` if the server uses a different process manager.

@@ -26,6 +26,15 @@ type PaddleWebhookPayload = {
 
 type PaddleClientEventPayload = Record<string, unknown>;
 
+type PaddlePaymentMethodSummary = {
+    id: string | null;
+    type: string | null;
+    brand: string | null;
+    last4: string | null;
+    expiryMonth: string | null;
+    expiryYear: string | null;
+};
+
 const paddlePriceByPlanSlug: Record<string, () => string> =
 {
     'solo-starter': () => env.paddleSoloStarterPriceId,
@@ -220,6 +229,98 @@ async function findPaddleSubscriptionsByCustomer(customerId: string)
 {
     const response = await paddleApiRequest<{ data?: Array<Record<string, unknown>> }>(`/subscriptions?customer_id=${encodeURIComponent(customerId)}`);
     return Array.isArray(response.data) ? response.data : [];
+}
+
+async function fetchPaddleCustomerPaymentMethods(customerId: string)
+{
+    const response = await paddleApiRequest<{ data?: Array<Record<string, unknown>> }>(`/customers/${encodeURIComponent(customerId)}/payment-methods`);
+    return Array.isArray(response.data) ? response.data : [];
+}
+
+function summarizePaddlePaymentMethod(value: Record<string, unknown>): PaddlePaymentMethodSummary
+{
+    const card = getObject(value.card);
+    const paymentMethod = getObject(value.payment_method ?? value.paymentMethod);
+    const nestedCard = getObject(paymentMethod.card);
+    const source = Object.keys(card).length ? card : Object.keys(nestedCard).length ? nestedCard : value;
+
+    return {
+        id: getString(value.id),
+        type: getString(value.type ?? paymentMethod.type),
+        brand: getString(source.brand ?? source.card_type ?? source.cardType ?? source.scheme),
+        last4: getString(source.last4 ?? source.last_four ?? source.lastFour),
+        expiryMonth: getString(source.expiry_month ?? source.expiryMonth ?? source.exp_month ?? source.expMonth),
+        expiryYear: getString(source.expiry_year ?? source.expiryYear ?? source.exp_year ?? source.expYear)
+    };
+}
+
+async function getPaddleCustomerPaymentMethodSummary(customerId: string)
+{
+    const paymentMethods = await fetchPaddleCustomerPaymentMethods(customerId);
+    const preferred = paymentMethods.find((method) => Boolean(method.is_default ?? method.isDefault)) ?? paymentMethods[0];
+
+    return preferred ? summarizePaddlePaymentMethod(preferred) : null;
+}
+
+function findUrlByKeys(value: unknown, keys: string[], depth = 0): string | null
+{
+    if (depth > 5 || !value || typeof value !== 'object')
+    {
+        return null;
+    }
+
+    if (Array.isArray(value))
+    {
+        for (const item of value)
+        {
+            const found = findUrlByKeys(item, keys, depth + 1);
+            if (found) return found;
+        }
+
+        return null;
+    }
+
+    const objectValue = value as Record<string, unknown>;
+
+    for (const key of keys)
+    {
+        const direct = getString(objectValue[key]);
+        if (direct && /^https?:\/\//i.test(direct)) return direct;
+    }
+
+    for (const nested of Object.values(objectValue))
+    {
+        const found = findUrlByKeys(nested, keys, depth + 1);
+        if (found) return found;
+    }
+
+    return null;
+}
+
+async function createPaddlePaymentMethodUpdateUrl(subscriptionId: string)
+{
+    const response = await paddleApiRequest<{ data?: Record<string, unknown> }>(`/subscriptions/${encodeURIComponent(subscriptionId)}/update-payment-method-transaction`);
+    const data = getObject(response.data);
+    const url = findUrlByKeys(
+        data,
+        [
+            'url',
+            'checkout_url',
+            'checkoutUrl',
+            'payment_method_update_url',
+            'paymentMethodUpdateUrl'
+        ]
+    );
+
+    if (!url)
+    {
+        throw new Error('Paddle did not return a payment method update link');
+    }
+
+    return {
+        url,
+        transactionId: getString(data.id)
+    };
 }
 
 async function getCheckoutConfig(input: CheckoutConfigInput)
@@ -775,7 +876,9 @@ export {
     applyPaddleWebhook,
     cancelPaddleSubscription,
     createCheckoutToken,
+    createPaddlePaymentMethodUpdateUrl,
     getCheckoutConfig,
+    getPaddleCustomerPaymentMethodSummary,
     getPaddlePriceId,
     syncPaddleCheckoutCompletion,
     syncPaddleSubscriptionByCustomerEmail,

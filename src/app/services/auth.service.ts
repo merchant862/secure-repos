@@ -377,6 +377,54 @@ async function resetPasswordWithToken(token: string, password: string)
     });
 }
 
+async function changeUserPassword(userId: number, currentSessionId: number, currentPassword: string, newPassword: string)
+{
+    if (newPassword.length < 12 || newPassword.length > 128)
+    {
+        throw new Error('New password must be between 12 and 128 characters.');
+    }
+
+    const user = await User.findOne({ where: { id: userId, status: 'active' } });
+
+    if (!user || !(await verifyPassword(currentPassword, user.password ?? null)))
+    {
+        throw new Error('Current password is incorrect.');
+    }
+
+    if (currentPassword === newPassword)
+    {
+        throw new Error('New password must be different from the current password.');
+    }
+
+    const passwordHash = await hashPassword(newPassword);
+    const now = new Date();
+
+    await sequelize.transaction(async function (transaction)
+    {
+        await user.update({ password: passwordHash }, { transaction });
+        await UserSession.update(
+            { revokedAt: now },
+            {
+                where:
+                {
+                    userId: user.id,
+                    id: { [Op.ne]: currentSessionId },
+                    revokedAt: null
+                },
+                transaction
+            }
+        );
+        await PasswordResetToken.update(
+            { usedAt: now },
+            { where: { userId: user.id, usedAt: null }, transaction }
+        );
+        await LoginOtp.update(
+            { usedAt: now },
+            { where: { userId: user.id, usedAt: null }, transaction }
+        );
+    });
+}
+
 async function resolveSession(token: string)
 {
     const session = await UserSession.findOne(
@@ -443,5 +491,6 @@ export {
     createLoginOtpChallenge,
     verifyLoginOtpChallenge,
     createPasswordResetRequest,
-    resetPasswordWithToken
+    resetPasswordWithToken,
+    changeUserPassword
 };

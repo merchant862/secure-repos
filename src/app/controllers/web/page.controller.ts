@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import { verifyCheckoutToken } from '../../services/paddle.service';
 
 const appName = process.env.APP_NAME && process.env.APP_NAME.trim() !== '' ? process.env.APP_NAME : 'SecureRepos';
-const defaultDescription = 'SecureRepos helps independent developers scan GitHub repositories for secrets, risky configuration, CI/CD issues, dependency concerns, and branch-level security findings.';
+const defaultDescription = 'SecureRepos helps independent developers run AI-assisted GitHub repository security checks for secrets, risky configuration, CI/CD issues, dependency concerns, and branch-level findings.';
 const supportEmail = 'support@securerepos.com';
 
 function getBaseUrl(req: Request): string
@@ -46,7 +46,7 @@ function landingPageController(req: Request, res: Response)
     {
         title: 'Repository Security Scanning',
         appName,
-        seo: publicSeo(req, 'SecureRepos | GitHub Repository Security Scanning')
+        seo: publicSeo(req, 'SecureRepos | AI-Assisted GitHub Repository Security Scanning')
     });
 }
 
@@ -54,7 +54,7 @@ function demoPageController(req: Request, res: Response)
 {
     const requestedPage = Array.isArray(req.params.page) ? req.params.page[0] : req.params.page;
     const page = requestedPage ?? 'dashboard';
-    const allowedPages = ['dashboard', 'repositories', 'scans', 'findings', 'reports', 'settings', 'notifications', 'pricing', 'billing', 'profile', 'onboarding'];
+    const allowedPages = ['dashboard', 'repositories', 'scans', 'findings', 'settings', 'notifications', 'billing', 'onboarding'];
     const normalizedPage = allowedPages.includes(page) ? page : 'dashboard';
     const titles: Record<string, string> =
     {
@@ -63,9 +63,6 @@ function demoPageController(req: Request, res: Response)
         findings: 'Findings',
         notifications: 'Notifications',
         onboarding: 'Onboarding',
-        pricing: 'Pricing',
-        profile: 'Profile',
-        reports: 'Reports',
         repositories: 'Repositories',
         scans: 'Scans',
         settings: 'Settings'
@@ -75,7 +72,7 @@ function demoPageController(req: Request, res: Response)
     {
         title: `Demo ${titles[normalizedPage]}`,
         appName,
-        seo: publicSeo(req, `${titles[normalizedPage]} Demo | SecureRepos`, 'Explore a SecureRepos product demo for GitHub repository scanning, branch-level findings, remediation guidance, reports, and app setup.', req.path),
+        seo: publicSeo(req, `${titles[normalizedPage]} Demo | SecureRepos`, 'Explore a SecureRepos product demo for AI-assisted GitHub repository scanning, branch-level findings, remediation guidance, and app setup.', req.path),
         page: normalizedPage,
         pageTitle: titles[normalizedPage]
     });
@@ -143,16 +140,6 @@ async function signUpPageController(req: Request, res: Response)
     });
 }
 
-function pricingPageController(req: Request, res: Response)
-{
-    return res.render('pricing/index',
-    {
-        title: 'Pricing',
-        appName,
-        seo: publicSeo(req, 'SecureRepos Pricing | GitHub Security Scanning Plans', 'Compare SecureRepos plans for solo GitHub repository security scanning, scheduled scans, branch-level findings, alerts, and reports.')
-    });
-}
-
 function faqPageController(req: Request, res: Response)
 {
     return res.render('public/faq',
@@ -160,7 +147,7 @@ function faqPageController(req: Request, res: Response)
         title: 'FAQ',
         appName,
         supportEmail,
-        seo: publicSeo(req, 'SecureRepos FAQ | GitHub Security Scanner Questions', 'Answers about SecureRepos GitHub repository scanning, app access, findings, reports, plans, billing, and support.', '/faqs')
+        seo: publicSeo(req, 'SecureRepos FAQ | AI-Assisted GitHub Security Scanner Questions', 'Answers about SecureRepos AI-assisted GitHub repository scanning, app access, findings, reports, plans, billing, and support.', '/faqs')
     });
 }
 
@@ -171,7 +158,7 @@ function contactPageController(req: Request, res: Response)
         title: 'Contact Us',
         appName,
         supportEmail,
-        seo: publicSeo(req, 'Contact SecureRepos | GitHub Security Scanner Support', 'Contact SecureRepos for account, billing, support, GitHub repository scanning, and security workflow questions.', '/contact')
+        seo: publicSeo(req, 'Contact SecureRepos | AI-Assisted GitHub Security Scanner Support', 'Contact SecureRepos for account, billing, support, AI-assisted GitHub repository scanning, and security workflow questions.', '/contact')
     });
 }
 
@@ -195,11 +182,6 @@ function scanDetailPageController(req: Request, res: Response)
     return res.render('dashboard/scan-detail', { title: 'Scan Detail', appName, scanId: req.params.scanId, seo: privateSeo() });
 }
 
-function reportsPageController(req: Request, res: Response)
-{
-    return res.render('dashboard/reports', { title: 'Reports', appName, seo: privateSeo() });
-}
-
 function settingsPageController(req: Request, res: Response)
 {
     return res.render('dashboard/settings', { title: 'Settings', appName, seo: privateSeo() });
@@ -218,11 +200,6 @@ function onboardingPageController(req: Request, res: Response)
 function billingPageController(req: Request, res: Response)
 {
     return res.render('dashboard/billing', { title: 'Billing', appName, seo: privateSeo() });
-}
-
-function profilePageController(req: Request, res: Response)
-{
-    return res.render('dashboard/profile', { title: 'Profile', appName, seo: privateSeo() });
 }
 
 function repositoryDetailPageController(req: Request, res: Response)
@@ -256,7 +233,7 @@ function legalPlaceholderPageController(req: Request, res: Response)
         supportEmail,
         websiteUrl: rootUrl,
         legalSlug: normalizedSlug,
-        seo: publicSeo(req, `${legalPages[normalizedSlug]} | SecureRepos`, `${legalPages[normalizedSlug]} for SecureRepos GitHub repository security scanning and account services.`)
+        seo: publicSeo(req, `${legalPages[normalizedSlug]} | SecureRepos`, `${legalPages[normalizedSlug]} for SecureRepos AI-assisted GitHub repository security scanning and account services.`)
     });
 }
 
@@ -272,9 +249,6 @@ export
     legalPlaceholderPageController,
     notificationsPageController,
     onboardingPageController,
-    pricingPageController,
-    profilePageController,
-    reportsPageController,
     repositoryDetailPageController,
     repositoriesPageController,
     scanDetailPageController,

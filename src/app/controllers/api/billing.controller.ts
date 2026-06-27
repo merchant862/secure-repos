@@ -1,9 +1,9 @@
 import { Response } from 'express';
 
-import { PricingPlan, TenantSubscription } from '../../../db/models';
+import { PricingPlan, PricingPlanFeature, TenantSubscription } from '../../../db/models';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
-import { cancelTenantSubscription, changeTenantPlan, getTenantPlanChangeOptions } from '../../services/billing.service';
-import { createCheckoutToken, syncPaddleCheckoutCompletion, syncPaddleSubscriptionByCustomerEmail } from '../../services/paddle.service';
+import { cancelTenantSubscription, changeTenantPlan, createTenantPaymentMethodUpdateLink, getTenantPlanChangeOptions } from '../../services/billing.service';
+import { createCheckoutToken, getPaddleCustomerPaymentMethodSummary, syncPaddleCheckoutCompletion, syncPaddleSubscriptionByCustomerEmail } from '../../services/paddle.service';
 
 async function getUserBillingController(req: AuthenticatedRequest, res: Response)
 {
@@ -21,16 +21,59 @@ async function getUserBillingController(req: AuthenticatedRequest, res: Response
             [
                 {
                     model: PricingPlan,
-                    as: 'pricingPlan'
+                    as: 'pricingPlan',
+                    include:
+                    [
+                        {
+                            model: PricingPlanFeature,
+                            as: 'features'
+                        }
+                    ]
                 }
             ]
         }
     );
     const selectedPlan = subscription
-        ? (subscription.get('pricingPlan') as PricingPlan | undefined ?? await PricingPlan.findByPk(subscription.pricingPlanId))
+        ? (subscription.get('pricingPlan') as PricingPlan | undefined ?? await PricingPlan.findByPk(
+            subscription.pricingPlanId,
+            {
+                include:
+                [
+                    {
+                        model: PricingPlanFeature,
+                        as: 'features'
+                    }
+                ]
+            }
+        ))
         : null;
-    const pendingPlan = subscription?.pendingPricingPlanId ? await PricingPlan.findByPk(subscription.pendingPricingPlanId) : null;
+    const pendingPlan = subscription?.pendingPricingPlanId ? await PricingPlan.findByPk(
+        subscription.pendingPricingPlanId,
+        {
+            include:
+            [
+                {
+                    model: PricingPlanFeature,
+                    as: 'features'
+                }
+            ]
+        }
+    ) : null;
     const checkoutToken = selectedPlan ? createCheckoutToken(selectedPlan.slug) : null;
+    let paymentMethod = null;
+    let paymentMethodError = null;
+
+    if (subscription?.provider === 'paddle' && subscription.providerCustomerId)
+    {
+        try
+        {
+            paymentMethod = await getPaddleCustomerPaymentMethodSummary(subscription.providerCustomerId);
+        }
+        catch (error)
+        {
+            paymentMethodError = error instanceof Error ? error.message : 'Payment method could not be loaded';
+        }
+    }
 
     return res.json(
         {
@@ -39,7 +82,9 @@ async function getUserBillingController(req: AuthenticatedRequest, res: Response
                 subscription,
                 selectedPlan,
                 pendingPlan,
-                checkoutToken
+                checkoutToken,
+                paymentMethod,
+                paymentMethodError
             }
         }
     );
@@ -136,6 +181,43 @@ async function changeUserPlanController(req: AuthenticatedRequest, res: Response
     }
 }
 
+async function createUserPaymentMethodUpdateController(req: AuthenticatedRequest, res: Response)
+{
+    const user = req.currentUser;
+
+    if (!user)
+    {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (user.role !== 'owner')
+    {
+        return res.status(403).json({ message: 'Only the workspace owner can update the payment method' });
+    }
+
+    try
+    {
+        const updateLink = await createTenantPaymentMethodUpdateLink(
+            {
+                tenantId: user.tenantId,
+                userId: user.id,
+                ipAddress: req.ip
+            }
+        );
+
+        return res.json(
+            {
+                message: 'Payment method update link created',
+                data: updateLink
+            }
+        );
+    }
+    catch (error)
+    {
+        return res.status(400).json({ message: error instanceof Error ? error.message : 'Payment method update link could not be created' });
+    }
+}
+
 async function syncUserPaddleCheckoutController(req: AuthenticatedRequest, res: Response)
 {
     const user = req.currentUser;
@@ -170,6 +252,7 @@ async function syncUserPaddleCheckoutController(req: AuthenticatedRequest, res: 
 export {
     getUserBillingController,
     cancelUserSubscriptionController,
+    createUserPaymentMethodUpdateController,
     getUserPlanChangeOptionsController,
     changeUserPlanController,
     syncUserPaddleCheckoutController

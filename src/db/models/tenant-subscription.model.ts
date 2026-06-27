@@ -23,6 +23,7 @@ class TenantSubscription extends Model<InferAttributes<TenantSubscription>, Infe
     declare currentPeriodEndsAt: CreationOptional<Date | null>;
     declare pendingPlanChangeEffectiveAt: CreationOptional<Date | null>;
     declare lastPlanChangedAt: CreationOptional<Date | null>;
+    declare lastPaymentMethodUpdateLinkAt: CreationOptional<Date | null>;
     declare planChangeCount: CreationOptional<number>;
     declare cancelledAt: CreationOptional<Date | null>;
     declare cancelledBy: CreationOptional<string | null>;
@@ -90,6 +91,11 @@ function initTenantSubscriptionModel(sequelize: Sequelize)
                 allowNull: true
             },
             lastPlanChangedAt:
+            {
+                type: DataTypes.DATE,
+                allowNull: true
+            },
+            lastPaymentMethodUpdateLinkAt:
             {
                 type: DataTypes.DATE,
                 allowNull: true

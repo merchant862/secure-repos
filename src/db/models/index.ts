@@ -14,8 +14,6 @@ import { PricingPlanFeature, initPricingPlanFeatureModel } from './pricing-plan-
 import { TenantSubscription, initTenantSubscriptionModel } from './tenant-subscription.model';
 import { NotificationEvent, initNotificationEventModel } from './notification-event.model';
 import { AuditLog, initAuditLogModel } from './audit-log.model';
-import { IgnoreRule, initIgnoreRuleModel } from './ignore-rule.model';
-import { NotificationSetting, initNotificationSettingModel } from './notification-setting.model';
 import { InAppNotification, initInAppNotificationModel } from './in-app-notification.model';
 import { SecurityScoreSnapshot, initSecurityScoreSnapshotModel } from './security-score-snapshot.model';
 import { LoginOtp, initLoginOtpModel } from './login-otp.model';
@@ -42,8 +40,6 @@ function initModels(sequelize: Sequelize)
     initTenantSubscriptionModel(sequelize);
     initNotificationEventModel(sequelize);
     initAuditLogModel(sequelize);
-    initIgnoreRuleModel(sequelize);
-    initNotificationSettingModel(sequelize);
     initInAppNotificationModel(sequelize);
     initSecurityScoreSnapshotModel(sequelize);
     initLoginOtpModel(sequelize);
@@ -244,26 +240,6 @@ function initModels(sequelize: Sequelize)
         as: 'user'
     });
 
-    Tenant.hasMany(IgnoreRule, {
-        foreignKey: 'tenantId',
-        as: 'ignoreRules'
-    });
-
-    IgnoreRule.belongsTo(Tenant, {
-        foreignKey: 'tenantId',
-        as: 'tenant'
-    });
-
-    Tenant.hasOne(NotificationSetting, {
-        foreignKey: 'tenantId',
-        as: 'notificationSetting'
-    });
-
-    NotificationSetting.belongsTo(Tenant, {
-        foreignKey: 'tenantId',
-        as: 'tenant'
-    });
-
     Tenant.hasMany(InAppNotification, {
         foreignKey: 'tenantId',
         as: 'inAppNotifications'
@@ -311,8 +287,6 @@ export
     TenantSubscription,
     NotificationEvent,
     AuditLog,
-    IgnoreRule,
-    NotificationSetting,
     InAppNotification,
     SecurityScoreSnapshot,
     LoginOtp,

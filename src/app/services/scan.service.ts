@@ -16,12 +16,42 @@ import {
 import { GithubBranchResponse, GithubCheckRunAnnotation, GithubDependabotAlertResponse, GithubSecretScanningAlertResponse, GithubTreeItem } from '../../modules/github/github.types';
 import { queueScanFailedEmail, queueScanSummaryEmail, queueSecurityAlert } from './notification.service';
 import { refreshRepositorySecurityScore } from './security-posture.service';
-import { filterIgnoredFindings } from './ignore-rule.service';
 import { RepositoryFile, ScannerFinding, scanFiles } from './scan-rules.service';
+import { extractDependencies } from './dependency-inventory.service';
+import { scanDependencyVulnerabilities } from './osv.service';
 import { getTenantPlan } from './plan-limit.service';
 import { sequelize } from '../../db/sequelize';
 
 const maxFileSizeBytes = 300 * 1024;
+const maxDependencyFileSizeBytes = 2 * 1024 * 1024;
+const dependencyFileNames = new Set(
+    [
+        'package.json',
+        'package-lock.json',
+        'npm-shrinkwrap.json',
+        'pnpm-lock.yaml',
+        'pnpm-lock.yml',
+        'yarn.lock',
+        'composer.json',
+        'composer.lock',
+        'pipfile.lock',
+        'poetry.lock',
+        'uv.lock',
+        'cargo.lock',
+        'manifest.toml',
+        'gemfile.lock',
+        'go.sum',
+        'packages.lock.json',
+        'project.assets.json',
+        'pubspec.lock',
+        'pom.xml',
+        'gradle.lockfile',
+        'package.resolved',
+        'mix.lock',
+        'renv.lock',
+        'cabal.project.freeze'
+    ]
+);
 const textFileExtensions = new Set(
     [
         '.js',
@@ -134,6 +164,16 @@ function getExtension(filePath: string): string
     return index >= 0 ? lowerPath.slice(index) : '';
 }
 
+function isDependencyFilePath(filePath: string)
+{
+    const lowerPath = filePath.toLowerCase();
+    const baseName = lowerPath.split('/').pop() ?? lowerPath;
+
+    return dependencyFileNames.has(baseName)
+        || /^(requirements(?:[._-].*)?\.txt|constraints(?:[._-].*)?\.txt)$/.test(baseName)
+        || lowerPath.includes('/dependency-locks/');
+}
+
 function shouldScanTreeItem(item: GithubTreeItem): boolean
 {
     if (item.type !== 'blob')
@@ -141,12 +181,15 @@ function shouldScanTreeItem(item: GithubTreeItem): boolean
         return false;
     }
 
-    if (item.size !== undefined && item.size > maxFileSizeBytes)
+    const isDependencyFile = isDependencyFilePath(item.path);
+    const sizeLimit = isDependencyFile ? maxDependencyFileSizeBytes : maxFileSizeBytes;
+
+    if (item.size !== undefined && item.size > sizeLimit)
     {
         return false;
     }
 
-    return textFileExtensions.has(getExtension(item.path));
+    return isDependencyFile || textFileExtensions.has(getExtension(item.path));
 }
 
 function decodeBlobContent(content: string, encoding: string): string
@@ -444,7 +487,10 @@ function normalizeBranches(repository: Repository, branches: GithubBranchRespons
 async function fetchScannableFilesForBranch(repository: Repository, accessToken: string, branch: GithubBranchResponse, remainingFiles: number): Promise<RepositoryFile[]>
 {
     const tree = await fetchRepositoryTree(accessToken, repository.fullName, branch.commit.sha || branch.name);
-    const treeItems = tree.tree.filter(shouldScanTreeItem).slice(0, Math.min(env.scanMaxFilesPerBranch, remainingFiles));
+    const treeItems = tree.tree
+        .filter(shouldScanTreeItem)
+        .sort((left, right) => Number(isDependencyFilePath(right.path)) - Number(isDependencyFilePath(left.path)))
+        .slice(0, Math.min(env.scanMaxFilesPerBranch, remainingFiles));
     const files: RepositoryFile[] = [];
 
     for (const item of treeItems)
@@ -481,6 +527,10 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
         ]
     );
     const findings: ScannerFinding[] = [];
+    const dependencyInventories: Array<{
+        branch: string;
+        dependencies: ReturnType<typeof extractDependencies>;
+    }> = [];
     const startedAt = Date.now();
     let scannedFiles = 0;
 
@@ -504,6 +554,12 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
 
         const files = await fetchScannableFilesForBranch(repository, accessToken, branch, remainingFiles);
         scannedFiles += files.length;
+        dependencyInventories.push(
+            {
+                branch: branch.name,
+                dependencies: extractDependencies(files)
+            }
+        );
         const branchFindings = scanFiles(files).map(function (finding)
         {
             return {
@@ -520,10 +576,46 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
         findings.push(...branchFindings);
     }
 
+    findings.push(...await scanDependencyVulnerabilities(dependencyInventories));
     findings.push(...dependabotAlerts.map((alert) => mapDependabotAlert(repository, alert)));
     findings.push(...secretScanningAlerts.map((alert) => mapSecretScanningAlert(repository, alert)));
 
-    return findings;
+    return dedupeNativeDependencyAlerts(findings);
+}
+
+function dedupeNativeDependencyAlerts(findings: ScannerFinding[])
+{
+    const osvIdentifiersByDependency = new Map<string, Set<string>>();
+
+    for (const finding of findings)
+    {
+        if (finding.ruleId !== 'dependency.osv-vulnerability') continue;
+
+        const metadata = finding.metadata as {
+            dependencyName?: unknown;
+            advisoryId?: unknown;
+            osvId?: unknown;
+            aliases?: unknown;
+        } | undefined;
+        if (typeof metadata?.dependencyName !== 'string') continue;
+
+        const identifiers = osvIdentifiersByDependency.get(metadata.dependencyName) ?? new Set<string>();
+        for (const identifier of [metadata.advisoryId, metadata.osvId, ...(Array.isArray(metadata.aliases) ? metadata.aliases : [])])
+        {
+            if (typeof identifier === 'string') identifiers.add(identifier);
+        }
+        osvIdentifiersByDependency.set(metadata.dependencyName, identifiers);
+    }
+
+    return findings.filter(function (finding)
+    {
+        if (finding.ruleId !== 'github.dependabot-alert') return true;
+
+        const metadata = finding.metadata as { dependencyName?: unknown; advisoryId?: unknown } | undefined;
+        if (typeof metadata?.dependencyName !== 'string' || typeof metadata.advisoryId !== 'string') return true;
+
+        return !osvIdentifiersByDependency.get(metadata.dependencyName)?.has(metadata.advisoryId);
+    });
 }
 
 function checkAnnotationLevel(severity: string): GithubCheckRunAnnotation['annotation_level']
@@ -647,7 +739,7 @@ async function processScan(scan: Scan)
             throw new Error('Repository not found for scan');
         }
 
-        const scannerFindings = await filterIgnoredFindings(scan.tenantId, await scanRepositoryBranches(repository));
+        const scannerFindings = await scanRepositoryBranches(repository);
         const dedupedFindings = Array.from(
             new Map(scannerFindings.map((finding) => [finding.fingerprint, finding])).values()
         );

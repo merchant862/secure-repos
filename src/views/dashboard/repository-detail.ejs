@@ -7,7 +7,7 @@
         <div class="main-area">
             <%- include('../partials/navbar', { title, appName, eyebrow: `Repository #${repositoryId}` }) %>
             <main class="content">
-                <section class="page-toolbar" data-repository-detail="<%= repositoryId %>"><div><h2 data-repository-title>Repository posture</h2><p class="muted" data-repository-subtitle>Score, checklist, findings, and scan history for one repository.</p></div><div class="toolbar-actions"><button class="button" type="button" data-repository-scan="<%= repositoryId %>">Run scan</button><button class="button primary" type="button" data-report-export>Export</button></div></section>
+                <section class="page-toolbar" data-repository-detail="<%= repositoryId %>"><div><h2 data-repository-title>Repository posture</h2><p class="muted" data-repository-subtitle>Score, checklist, findings, and scan history for one repository.</p></div><div class="toolbar-actions"><button class="button primary" type="button" data-repository-scan="<%= repositoryId %>">Run scan</button></div></section>
                 <section class="grid grid-4">
                     <article class="card card-body"><span class="badge success">Score</span><div class="metric-value" data-repository-metric="score">--</div><div class="metric-label">latest scan</div></article>
                     <article class="card card-body"><span class="badge danger">Open</span><div class="metric-value" data-repository-metric="openFindings">--</div><div class="metric-label">findings</div></article>

@@ -1,11 +1,12 @@
 import { Request, Response } from 'express';
 
-import { createLoginOtpChallenge, createPasswordResetRequest, loginUser, registerOwner, resetPasswordWithToken, revokeSession, verifyLoginOtpChallenge } from '../../services/auth.service';
+import { changeUserPassword, createLoginOtpChallenge, createPasswordResetRequest, loginUser, registerOwner, resetPasswordWithToken, revokeSession, verifyLoginOtpChallenge } from '../../services/auth.service';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import { User } from '../../../db/models';
 import { createCheckoutToken, verifyCheckoutToken } from '../../services/paddle.service';
 import { queueCheckoutLinkEmail } from '../../services/notification.service';
 import { env } from '../../../bootstrap/env';
+import { recordAuditLog } from '../../services/audit.service';
 
 const authCookieName = process.env.AUTH_COOKIE_NAME && process.env.AUTH_COOKIE_NAME.trim() !== ''
     ? process.env.AUTH_COOKIE_NAME
@@ -215,6 +216,48 @@ async function passwordResetConfirmController(req: Request, res: Response)
     }
 }
 
+async function changePasswordController(req: AuthenticatedRequest, res: Response)
+{
+    try
+    {
+        const user = req.currentUser;
+        const session = req.currentSession;
+        const { currentPassword, newPassword, confirmPassword } = req.body;
+
+        if (!user || !session)
+        {
+            return res.status(401).json({ message: 'Unauthorized' });
+        }
+
+        if (typeof currentPassword !== 'string' || typeof newPassword !== 'string' || typeof confirmPassword !== 'string')
+        {
+            return res.status(400).json({ message: 'All password fields are required.' });
+        }
+
+        if (newPassword !== confirmPassword)
+        {
+            return res.status(400).json({ message: 'New password and confirmation do not match.' });
+        }
+
+        await changeUserPassword(user.id, session.id, currentPassword, newPassword);
+        await recordAuditLog(
+            {
+                tenantId: user.tenantId,
+                userId: user.id,
+                action: 'user.password.changed',
+                entityType: 'user',
+                entityId: String(user.id)
+            }
+        ).catch((error) => console.warn('Password change audit log failed:', error));
+
+        return res.json({ message: 'Password updated. Other sessions have been signed out.' });
+    }
+    catch (error)
+    {
+        return res.status(400).json({ message: error instanceof Error ? error.message : 'Password could not be updated.' });
+    }
+}
+
 function meController(req: AuthenticatedRequest, res: Response)
 {
     const session = req.currentSession;
@@ -260,6 +303,7 @@ export {
     loginOtpController,
     passwordResetRequestController,
     passwordResetConfirmController,
+    changePasswordController,
     meController,
     logoutController
 };

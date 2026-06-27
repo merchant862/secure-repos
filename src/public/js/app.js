@@ -41,9 +41,6 @@
             '/findings',
             '/notifications',
             '/onboarding',
-            '/pricing',
-            '/profile',
-            '/reports',
             '/repositories',
             '/scans',
             '/settings'
@@ -118,11 +115,9 @@
         const sidebarButton = event.target.closest('[data-sidebar-toggle]');
         const overlay = event.target.closest('[data-sidebar-overlay]');
         const notificationButton = event.target.closest('[data-notification-toggle]');
-        const quickSettingsButton = event.target.closest('[data-quick-settings-toggle]');
         const mobileHeaderButton = event.target.closest('[data-mobile-header-toggle]');
         const mobileHeaderMenu = event.target.closest('[data-mobile-header-menu]');
         const providerButton = event.target.closest('[data-provider-connect]');
-        const reportButton = event.target.closest('[data-report-export]');
         const landingMenuButton = event.target.closest('[data-landing-menu-toggle]');
         const landingMenu = event.target.closest('[data-landing-menu]');
         const landingMenuLink = event.target.closest('[data-landing-menu] a');
@@ -130,6 +125,7 @@
         const cookieActionButton = event.target.closest('[data-cookie-action]');
         const passwordToggle = event.target.closest('[data-password-toggle]');
         const billingChangePlanButton = event.target.closest('[data-billing-change-plan]');
+        const billingPaymentMethodButton = event.target.closest('[data-billing-payment-method-update]');
         const scanButton = event.target.closest('[data-repository-scan]');
         const repositoryFilterButton = event.target.closest('[data-repository-filter]');
         const repositoryPageButton = event.target.closest('[data-repository-page]');
@@ -141,7 +137,6 @@
         const mitigationResolveButton = event.target.closest('[data-mitigation-resolve]');
         const findingResolveButton = event.target.closest('[data-finding-resolve]');
         const panel = document.querySelector('[data-notification-panel]');
-        const quickSettingsPanel = document.querySelector('[data-quick-settings-panel]');
         const mobileHeaderMenuPanel = document.querySelector('[data-mobile-header-menu]');
 
         if (themeButton) {
@@ -166,26 +161,14 @@
 
         if (notificationButton && panel) {
             panel.classList.toggle('open');
-            quickSettingsPanel?.classList.remove('open');
         } else if (panel && !event.target.closest('[data-notification-panel]')) {
             panel.classList.remove('open');
-        }
-
-        if (quickSettingsButton && quickSettingsPanel) {
-            quickSettingsPanel.classList.toggle('open');
-            panel?.classList.remove('open');
-        } else if (quickSettingsPanel && !event.target.closest('[data-quick-settings-panel]')) {
-            quickSettingsPanel.classList.remove('open');
         }
 
         if (providerButton && !providerButton.disabled) {
             event.preventDefault();
             const provider = providerButton.dataset.providerConnect;
             connectProvider(providerButton, provider);
-        }
-
-        if (reportButton) {
-            exportReport(reportButton);
         }
 
         if (scanButton) {
@@ -258,6 +241,10 @@
 
         if (billingChangePlanButton) {
             openPlanChangeModal(billingChangePlanButton);
+        }
+
+        if (billingPaymentMethodButton) {
+            updatePaymentMethod(billingPaymentMethodButton);
         }
     });
 
@@ -583,15 +570,8 @@
             const formType = form.dataset.apiForm;
             const body = Object.fromEntries(new FormData(form).entries());
 
-            if (formType === 'notification-settings') {
-                ['instantCritical', 'instantHigh', 'dailyDigest', 'weeklyReport'].forEach(function (key) {
-                    body[key] = Boolean(form.querySelector(`[name="${key}"]`)?.checked);
-                });
-            }
-
             const map = {
-                'notification-settings': { path: '/api/user/settings/notifications', method: 'PUT' },
-                'ignore-rule': { path: '/api/user/ignore-rules', method: 'POST' },
+                'password-change': { path: '/api/user/auth/password', method: 'PUT' },
                 'cancel-subscription': { path: '/api/user/billing/cancel', method: 'POST' },
                 'contact-message': { path: '/api/contact', method: 'POST' }
             };
@@ -602,15 +582,17 @@
             }
 
             try {
+                if (formType === 'password-change' && body.newPassword !== body.confirmPassword) {
+                    throw new Error('New password and confirmation do not match.');
+                }
+
                 const payload = await apiFetch(target.path, { method: target.method, body: JSON.stringify(body) });
-                showFormStatus(form, formType === 'contact-message' ? 'Message sent. We will reply by email.' : 'Saved successfully.');
+                showFormStatus(form, formType === 'contact-message' ? 'Message sent. We will reply by email.' : payload.message || 'Saved successfully.');
                 if (formType === 'cancel-subscription') {
                     await hydrateBilling();
                     await hydrateOnboarding();
                 }
-                if (formType !== 'notification-settings') {
-                    form.reset();
-                }
+                form.reset();
             } catch (error) {
                 showFormStatus(form, formType === 'contact-message' || getToken() ? error.message : 'Sign in first, then retry this action.', true);
             }
@@ -627,11 +609,9 @@
             hydrateRepositoryDetail(),
             hydrateFindings(),
             hydrateNotificationsPage(),
-            hydrateNotificationSettings(),
             hydrateAuditLogs(),
             hydrateTrend(),
             hydrateSessionSummary(),
-            hydrateProfile(),
             hydrateBilling(),
             hydrateOnboarding(),
             hydratePublicPricing(),
@@ -836,6 +816,56 @@
         }).format(Number(cents || 0) / 100);
     }
 
+    function includedPlanFeatures(plan) {
+        return (plan?.features || [])
+            .filter((feature) => feature && feature.isIncluded !== false)
+            .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+    }
+
+    function planRepositoryLimitCopy(plan) {
+        if (!plan) {
+            return 'No repository limit loaded';
+        }
+
+        return plan.repositoryLimit === null || plan.repositoryLimit === undefined
+            ? 'Unlimited repositories'
+            : `${plan.repositoryLimit} repositories`;
+    }
+
+    function planScheduleCopy(plan) {
+        const schedule = String(plan?.scanSchedule || '').replace(/_/g, ' ');
+        return schedule ? schedule : 'Manual scans';
+    }
+
+    function renderPlanDetailBlock(plan, options) {
+        if (!plan) {
+            return '<p class="muted">No package is selected yet.</p>';
+        }
+
+        const price = `${formatMoney(plan.priceMonthlyCents, plan.currency)}<span class="plan-period">/mo</span>`;
+        const features = includedPlanFeatures(plan);
+        const periodEnd = options?.periodEnd ? `<p class="muted small">${escapeHtml(options.periodEnd)}</p>` : '';
+        const pendingCopy = options?.pendingCopy ? `<p class="muted small">${escapeHtml(options.pendingCopy)}</p>` : '';
+        const statusNote = options?.statusNote ? `<p class="muted small">${escapeHtml(options.statusNote)}</p>` : '';
+        const featureList = features.length
+            ? `<ul class="plan-list compact">${features.map((feature) => `<li>${escapeHtml(feature.label)}</li>`).join('')}</ul>`
+            : '<p class="muted small">Package features are managed from admin pricing.</p>';
+
+        return `<div class="billing-plan-summary">
+            <div class="metric-value">${price}</div>
+            <p class="muted">${escapeHtml(plan.description || 'Repository security scanning package.')}</p>
+            <div class="plan-detail-grid">
+                <span><strong>${escapeHtml(planRepositoryLimitCopy(plan))}</strong><small>Repository coverage</small></span>
+                <span><strong>${escapeHtml(planScheduleCopy(plan))}</strong><small>Scan schedule</small></span>
+                <span><strong>${escapeHtml(`${plan.findingHistoryDays ?? 30} days`)}</strong><small>Finding history</small></span>
+            </div>
+            ${featureList}
+            ${periodEnd}
+            ${pendingCopy}
+            ${statusNote}
+        </div>`;
+    }
+
     function subscriptionState(subscription) {
         const status = String(subscription?.status || 'pending');
         return {
@@ -877,15 +907,16 @@
         const plan = subscription?.pricingPlan || payload.data?.selectedPlan;
         const pendingPlan = payload.data?.pendingPlan;
         const checkoutToken = payload.data?.checkoutToken || '';
+        const paymentMethod = payload.data?.paymentMethod;
+        const paymentMethodError = payload.data?.paymentMethodError;
         const state = subscriptionState(subscription);
         const statusLabel = state.isActive ? 'Active' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Payment issue' : 'Pending';
         const statusClass = state.isActive ? 'success' : state.isCancelled ? 'danger' : state.isPastDue ? 'warning' : 'brand';
         const checkoutLabel = state.isActive ? 'Complete' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Needs attention' : plan ? 'Checkout needed' : 'Plan needed';
         const checkoutClass = state.isActive ? 'success' : state.isCancelled ? 'danger' : state.isPastDue ? 'warning' : 'brand';
         const planName = plan?.name || (subscription?.pricingPlanId ? `Plan #${subscription.pricingPlanId}` : 'No selected plan');
-        const price = plan ? `${formatMoney(plan.priceMonthlyCents, plan.currency)}/mo` : '';
-        const periodEnd = subscription?.currentPeriodEndsAt ? ` · renews/ends ${formatDate(subscription.currentPeriodEndsAt)}` : '';
-        const pendingCopy = pendingPlan ? ` Scheduled change: ${pendingPlan.name} on ${subscription?.pendingPlanChangeEffectiveAt ? formatDate(subscription.pendingPlanChangeEffectiveAt) : 'the next billing period'}.` : '';
+        const periodEnd = subscription?.currentPeriodEndsAt ? `Renews/ends ${formatDate(subscription.currentPeriodEndsAt)}.` : '';
+        const pendingCopy = pendingPlan ? `Scheduled change: ${pendingPlan.name} on ${subscription?.pendingPlanChangeEffectiveAt ? formatDate(subscription.pendingPlanChangeEffectiveAt) : 'the next billing period'}.` : '';
         const provider = subscription?.provider === 'paddle' ? 'Paddle' : 'Checkout provider';
         const setText = (selector, text) => {
             const node = document.querySelector(selector);
@@ -909,7 +940,10 @@
                     ? `${plan.name} is selected. Complete checkout to activate repository scanning.`
                     : 'Choose a plan and complete checkout to activate repository scanning for this workspace.');
         setText('[data-billing-plan-name]', planName);
-        setText('[data-billing-plan-copy]', plan ? `${price}${periodEnd}. Repository limit: ${plan.repositoryLimit ?? 'custom'}.${pendingCopy}` : 'No package is selected yet.');
+        const planDetails = document.querySelector('[data-billing-plan-details]');
+        if (planDetails) {
+            planDetails.innerHTML = renderPlanDetailBlock(plan, { periodEnd, pendingCopy });
+        }
         setText('[data-billing-provider-copy]', subscription?.providerSubscriptionId
             ? `${provider} subscription ${subscription.providerSubscriptionId} is linked to this workspace.`
             : state.isActive
@@ -929,13 +963,31 @@
                 ? '/onboarding'
                 : checkoutToken
                     ? `/checkout?t=${encodeURIComponent(checkoutToken)}`
-                    : '/pricing';
+                    : '/checkout';
         }
 
         const cancelButton = document.querySelector('[data-billing-cancel-button]');
         if (cancelButton) {
             cancelButton.disabled = !state.isActive || !subscription?.providerSubscriptionId;
             cancelButton.textContent = state.isCancelled ? 'Subscription cancelled' : 'Cancel subscription';
+        }
+        const paymentMethodButton = document.querySelector('[data-billing-payment-method-update]');
+        const paymentMethodCopy = document.querySelector('[data-billing-payment-method-copy]');
+        if (paymentMethodButton) {
+            paymentMethodButton.disabled = !['active', 'past_due'].includes(state.status) || subscription?.provider !== 'paddle' || !subscription?.providerSubscriptionId;
+        }
+        if (paymentMethodCopy) {
+            if (paymentMethod?.last4) {
+                const brand = paymentMethod.brand ? `${paymentMethod.brand} ` : '';
+                const expiry = paymentMethod.expiryMonth && paymentMethod.expiryYear ? ` · expires ${paymentMethod.expiryMonth}/${paymentMethod.expiryYear}` : '';
+                paymentMethodCopy.textContent = `${brand}ending in ${paymentMethod.last4}${expiry}. Updates happen securely on Paddle.`;
+            } else if (paymentMethodError) {
+                paymentMethodCopy.textContent = 'Payment method is linked in Paddle, but details could not be loaded right now.';
+            } else if (subscription?.provider === 'paddle' && subscription.providerSubscriptionId) {
+                paymentMethodCopy.textContent = 'Payment method is managed by Paddle. Open Paddle to update it.';
+            } else {
+                paymentMethodCopy.textContent = 'Payment method details load after checkout is confirmed.';
+            }
         }
         setText('[data-billing-cancel-copy]', state.isActive
             ? pendingPlan
@@ -944,6 +996,30 @@
             : state.isCancelled
                 ? 'This subscription has already been cancelled.'
                 : 'Cancellation becomes available after checkout is confirmed.');
+    }
+
+    async function updatePaymentMethod(button) {
+        const originalText = button.textContent;
+
+        try {
+            button.disabled = true;
+            button.textContent = 'Opening Paddle...';
+            const payload = await apiFetch('/api/user/billing/payment-method/update-link', { method: 'POST', body: JSON.stringify({}) });
+            const url = payload.data?.url || payload.url;
+
+            if (!url) {
+                throw new Error('Payment method update link was not returned.');
+            }
+
+            window.location.href = url;
+        } catch (error) {
+            button.textContent = 'Try later';
+            button.title = error.message;
+            setTimeout(function () {
+                button.disabled = false;
+                button.textContent = originalText;
+            }, 2200);
+        }
     }
 
     function closePlanChangeModal() {
@@ -1023,7 +1099,10 @@
                             const checked = !isCurrent && !pendingPlan && !isPending ? '' : '';
                             return `<label class="plan-change-option ${isCurrent ? 'current' : ''} ${isPending ? 'current' : ''}">
                                 <input type="radio" name="pricingPlanId" value="${escapeHtml(plan.id)}" ${checked} ${isCurrent || pendingPlan ? 'disabled' : ''}>
-                                <span><strong>${escapeHtml(plan.name)}</strong><small>${escapeHtml(formatMoney(plan.priceMonthlyCents, plan.currency))}/mo · ${plan.repositoryLimit ?? 'Unlimited'} repos${isCurrent ? ' · current' : ''}${isPending ? ' · scheduled' : ''}</small></span>
+                                <span>
+                                    <strong>${escapeHtml(plan.name)}${isCurrent ? ' · current' : ''}${isPending ? ' · scheduled' : ''}</strong>
+                                    ${renderPlanDetailBlock(plan, { statusNote: isCurrent ? 'Current package' : isPending ? 'Scheduled package' : '' })}
+                                </span>
                             </label>`;
                         }).join('')}
                     </div>
@@ -1224,7 +1303,7 @@
                 wizardTitle: 'Plan activation',
                 wizardBadge: signupStatus === 'check-email' ? 'Email sent' : checkoutStatus === 'success' ? 'Waiting' : 'Next',
                 primaryText: signupStatus === 'check-email' ? 'Open billing' : checkoutStatus === 'success' ? 'Refresh status' : 'Choose plan',
-                primaryHref: signupStatus === 'check-email' ? '/billing' : checkoutStatus === 'success' ? '/onboarding?checkout=success' : '/pricing',
+                primaryHref: signupStatus === 'check-email' ? '/billing' : checkoutStatus === 'success' ? '/onboarding?checkout=success' : '/billing',
                 secondaryText: 'Open billing',
                 secondaryHref: '/billing'
             });
@@ -1876,31 +1955,6 @@
         await hydrateNotificationsPage();
     }
 
-    async function hydrateNotificationSettings() {
-        const forms = document.querySelectorAll('[data-api-form="notification-settings"]');
-        if (!forms.length) {
-            return;
-        }
-
-        const payload = await apiFetch('/api/user/settings/notifications');
-        const settings = payload.data || {};
-
-        forms.forEach(function (form) {
-            ['instantCritical', 'instantHigh', 'dailyDigest', 'weeklyReport'].forEach(function (key) {
-                const input = form.querySelector(`[name="${key}"]`);
-                if (input) {
-                    input.checked = Boolean(settings[key]);
-                }
-            });
-
-            const recipients = form.querySelector('[name="emailRecipients"]');
-            if (recipients) {
-                const value = settings.emailRecipients;
-                recipients.value = Array.isArray(value) ? value.join(', ') : typeof value === 'string' ? value : '';
-            }
-        });
-    }
-
     async function loadMore(type, button) {
         if (type === 'scans') {
             return;
@@ -1968,7 +2022,14 @@
         }
 
         const payload = await getMePayload();
+        const user = payload.data;
         const session = payload.data?.session;
+
+        document.querySelectorAll('[data-account-email]').forEach(function (node) {
+            node.textContent = user?.email || 'Signed-in account';
+            node.title = user?.email || '';
+        });
+
         if (!session) {
             return;
         }
@@ -1989,23 +2050,6 @@
         chip.title = userAgent;
     }
 
-    async function hydrateProfile() {
-        const card = document.querySelector('[data-profile-card]');
-        if (!card) {
-            return;
-        }
-
-        const payload = await getMePayload();
-        const user = payload.data;
-        if (!user) {
-            return;
-        }
-
-        card.querySelector('.profile-avatar').textContent = String(user.name || user.email || 'U').charAt(0).toUpperCase();
-        card.querySelector('strong').textContent = user.name || user.email;
-        card.querySelector('p').textContent = `${user.email} · ${user.role}`;
-    }
-
     async function connectProvider(button, provider) {
         const originalText = button.textContent;
 
@@ -2024,40 +2068,6 @@
         }
     }
 
-    async function exportReport(button) {
-        const preview = document.querySelector('[data-report-preview]');
-        const originalText = button.textContent;
-
-        try {
-            button.textContent = 'Exporting...';
-            const payload = await apiFetch('/api/user/reports/export');
-            const report = payload.data || payload;
-            const content = JSON.stringify(report, null, 2);
-
-            if (preview) {
-                preview.textContent = content;
-            }
-
-            const blob = new Blob([content], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            const date = new Date().toISOString().slice(0, 10);
-            link.href = url;
-            link.download = `securerepos-report-${date}.json`;
-            document.body.appendChild(link);
-            link.click();
-            link.remove();
-            URL.revokeObjectURL(url);
-        } catch (error) {
-            if (preview) {
-                preview.textContent = getToken() ? error.message : 'Sign in first, then export the report.';
-            }
-            button.title = getToken() ? error.message : 'Sign in first, then export the report.';
-        } finally {
-            button.textContent = originalText;
-        }
-    }
-
     function showFormStatus(form, message, isError) {
         const status = form.querySelector('[data-form-status]');
         if (status) {
@@ -2066,12 +2076,35 @@
         }
     }
 
-    document.addEventListener('click', async function (event) {
-        const logoutButton = event.target.closest('[data-logout]');
-        if (!logoutButton) {
-            return;
-        }
+    function closeLogoutConfirmation() {
+        document.querySelector('[data-logout-modal]')?.remove();
+    }
 
+    function openLogoutConfirmation() {
+        closeLogoutConfirmation();
+        document.querySelector('[data-mobile-header-menu]')?.classList.remove('open');
+        document.querySelector('[data-mobile-header-toggle]')?.setAttribute('aria-expanded', 'false');
+
+        const modal = document.createElement('div');
+        modal.className = 'auth-modal-backdrop';
+        modal.dataset.logoutModal = 'true';
+        modal.innerHTML = `<div class="auth-modal" role="alertdialog" aria-modal="true" aria-labelledby="logout-confirm-title" aria-describedby="logout-confirm-copy">
+            <button class="icon-button auth-modal-close" type="button" data-logout-cancel aria-label="Close">x</button>
+            <span class="badge warning">Account session</span>
+            <h2 id="logout-confirm-title">Log out?</h2>
+            <p class="muted" id="logout-confirm-copy">You will need your password and login code to sign in again.</p>
+            <div class="logout-confirm-actions">
+                <button class="button" type="button" data-logout-cancel>Cancel</button>
+                <button class="button danger" type="button" data-logout-confirm>Log out</button>
+            </div>
+        </div>`;
+        document.body.appendChild(modal);
+        modal.querySelector('[data-logout-confirm]')?.focus();
+    }
+
+    async function performLogout(button) {
+        button.disabled = true;
+        button.textContent = 'Logging out...';
         try {
             await apiFetch('/api/auth/logout', { method: 'POST' });
         } catch (error) {
@@ -2079,6 +2112,33 @@
         }
         localStorage.removeItem('security_platform_token');
         window.location.href = '/sign-in';
+    }
+
+    document.addEventListener('click', async function (event) {
+        const logoutRequest = event.target.closest('[data-logout-request]');
+        const logoutConfirm = event.target.closest('[data-logout-confirm]');
+        const logoutCancel = event.target.closest('[data-logout-cancel]');
+        const logoutModal = event.target.closest('[data-logout-modal]');
+
+        if (logoutRequest) {
+            openLogoutConfirmation();
+            return;
+        }
+
+        if (logoutConfirm) {
+            await performLogout(logoutConfirm);
+            return;
+        }
+
+        if (logoutCancel || (logoutModal && event.target === logoutModal)) {
+            closeLogoutConfirmation();
+        }
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            closeLogoutConfirmation();
+        }
     });
 
     function escapeHtml(value) {

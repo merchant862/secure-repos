@@ -4,7 +4,7 @@
 <%
     const seoData = typeof seo !== 'undefined' && seo ? seo : {};
     const pageTitle = seoData.title || (title ? `${title} | ${appName}` : appName);
-    const pageDescription = seoData.description || 'SecureRepos helps independent developers scan GitHub repositories for secrets, risky configs, GitHub Actions issues, and dependency risk.';
+    const pageDescription = seoData.description || 'SecureRepos helps independent developers run AI-assisted GitHub repository scans for secrets, risky configs, GitHub Actions issues, and dependency risk.';
     const pageCanonical = seoData.canonicalUrl || '';
     const pageRobots = seoData.robots || 'noindex,nofollow';
     const pageImage = seoData.image || '/public/images/og-secure-repos.svg';

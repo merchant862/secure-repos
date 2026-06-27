@@ -10,6 +10,13 @@
     </div>
     <div class="topbar-actions">
         <div class="topbar-action-menu" data-mobile-header-menu>
+            <div class="mobile-account-summary">
+                <img class="account-avatar" src="/public/images/user/securerepos-avatar.svg" alt="SecureRepos account" width="36" height="36">
+                <span>
+                    <small>Signed in as</small>
+                    <strong data-account-email><%= typeof demoMode !== 'undefined' && demoMode ? 'owner@example.com' : 'Loading account...' %></strong>
+                </span>
+            </div>
             <div class="session-chip" data-session-summary hidden>
                 <span class="session-chip-icon" data-session-device-icon aria-hidden="true"></span>
                 <span class="session-chip-icon browser" data-session-browser-icon aria-hidden="true"></span>
@@ -18,23 +25,6 @@
                     <small data-session-meta>Loading login device...</small>
                 </span>
             </div>
-            <% if (typeof showQuickSettings !== 'undefined' && showQuickSettings) { %>
-                <button class="button compact" type="button" data-quick-settings-toggle>Quick settings</button>
-                <div class="quick-settings-panel" data-quick-settings-panel>
-                    <div class="card-header" style="padding:4px 4px 12px">
-                        <h2 class="card-title">Quick Settings</h2>
-                        <span class="badge brand">Owner</span>
-                    </div>
-                    <form class="settings-form" data-api-form="notification-settings" data-compact-settings>
-                        <label><input type="checkbox" name="instantCritical"> Instant critical alerts</label>
-                        <label><input type="checkbox" name="instantHigh"> Instant high alerts</label>
-                        <label><input type="checkbox" name="dailyDigest"> Daily digest</label>
-                        <label><input type="checkbox" name="weeklyReport"> Weekly report</label>
-                        <button class="button primary" type="submit">Save preferences</button>
-                        <p class="muted small" data-form-status style="margin:0"></p>
-                    </form>
-                </div>
-            <% } %>
             <button class="icon-button" type="button" data-theme-toggle aria-label="Toggle theme">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v2M12 19v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M3 12h2M19 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/><circle cx="12" cy="12" r="4"/></svg>
             </button>
@@ -51,13 +41,15 @@
                     <div class="notification-item"><strong>Loading</strong><span>Fetching workspace notifications...</span></div>
                 </div>
             </div>
-            <a class="mobile-profile-link" href="/profile">Open profile</a>
+            <button class="button danger mobile-account-logout" type="button" data-logout-request>Log out</button>
         </div>
-        <a class="profile-badge desktop-profile-badge" href="/profile" aria-label="Profile">
-            <img src="/public/images/user/owner.jpg" alt="" width="36" height="36" style="border-radius:999px;border:1px solid var(--border)">
-        </a>
+        <div class="desktop-account">
+            <img class="account-avatar" src="/public/images/user/securerepos-avatar.svg" alt="SecureRepos account" width="36" height="36">
+            <span data-account-email><%= typeof demoMode !== 'undefined' && demoMode ? 'owner@example.com' : 'Loading account...' %></span>
+            <button class="button compact" type="button" data-logout-request>Log out</button>
+        </div>
         <button class="profile-badge mobile-profile-badge" type="button" data-mobile-header-toggle aria-label="Open account menu" aria-expanded="false">
-            <img src="/public/images/user/owner.jpg" alt="" width="36" height="36" style="border-radius:999px;border:1px solid var(--border)">
+            <img class="account-avatar" src="/public/images/user/securerepos-avatar.svg" alt="SecureRepos account" width="36" height="36">
         </button>
     </div>
 </header>

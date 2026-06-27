@@ -109,7 +109,7 @@ function renderCheckoutLink(payload: EmailTemplatePayload)
         'Use your secure checkout link to activate repository scanning.',
         `<h1 style="margin:0 0 12px;color:#ffffff;font-size:28px;line-height:1.15">Activate your plan</h1>
 <p style="margin:0 0 20px;color:#d0d5dd;line-height:1.65">Hi ${escapeHtml(payload.name || 'there')}, your workspace is ready. Use this checkout link to activate ${escapeHtml(payload.planName || 'your selected plan')} and continue onboarding.</p>
-${button('Continue to checkout', String(payload.checkoutUrl || `${getAppUrl()}/pricing`))}
+${button('Continue to checkout', String(payload.checkoutUrl || `${getAppUrl()}/billing`))}
 <p style="margin:18px 0 0;color:#98a2b3;font-size:13px">If you did not create this workspace, ignore this email.</p>`
     );
 }
@@ -130,13 +130,15 @@ ${rows(findings, ['severity', 'title', 'filePath'])}
 
 function renderWeeklyReport(payload: EmailTemplatePayload)
 {
+    const cadenceLabel = typeof payload.cadenceLabel === 'string' ? payload.cadenceLabel : 'Weekly';
+
     return baseTemplate(
-        'Weekly security report',
-        'Your weekly repository security summary is ready.',
-        `<h1 style="margin:0 0 16px;color:#ffffff;font-size:28px;line-height:1.15">Weekly security report</h1>
+        `${cadenceLabel} security report`,
+        `Your ${cadenceLabel.toLowerCase()} repository security summary is ready.`,
+        `<h1 style="margin:0 0 16px;color:#ffffff;font-size:28px;line-height:1.15">${escapeHtml(cadenceLabel)} security report</h1>
 <table width="100%" cellpadding="0" cellspacing="8"><tr>${stat('Critical', payload.critical ?? 0, '#ff6b6b')}${stat('High', payload.high ?? 0, '#f59e0b')}${stat('Total open', payload.total ?? 0, '#ffffff')}</tr></table>
-<p style="margin:16px 0 20px;color:#d0d5dd;line-height:1.65">Review open work, export reports, and keep ownership moving.</p>
-${button('Open reports', `${getAppUrl()}/reports`)}`
+<p style="margin:16px 0 20px;color:#d0d5dd;line-height:1.65">Review open work and keep ownership moving.</p>
+${button('Open findings', `${getAppUrl()}/findings`)}`
     );
 }
 

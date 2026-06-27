@@ -7,32 +7,29 @@
         <div class="main-area">
             <%- include('../partials/navbar', { title, appName, eyebrow: 'Workspace controls' }) %>
             <main class="content">
-                <section class="grid grid-2">
-                    <article class="card">
-                        <div class="card-header"><h2 class="card-title">Notification Settings</h2><span class="badge brand">/api/user/settings/notifications</span></div>
-                        <form class="card-body settings-form" data-api-form="notification-settings">
-                            <label><input type="checkbox" name="instantCritical" checked> Instant critical alerts</label>
-                            <label><input type="checkbox" name="instantHigh" checked> Instant high alerts</label>
-                            <label><input type="checkbox" name="dailyDigest" checked> Daily digest</label>
-                            <label><input type="checkbox" name="weeklyReport" checked> Weekly report</label>
-                            <div class="form-field"><label>Email recipients</label><textarea class="input textarea" name="emailRecipients" placeholder="security@company.com"></textarea></div>
-                            <button class="button primary" type="submit">Save settings</button>
-                            <p class="muted small" data-form-status style="margin:12px 0 0"></p>
-                        </form>
-                    </article>
-                    <article class="card">
-                        <div class="card-header"><h2 class="card-title">Ignore Rules</h2><span class="badge warning">Noise control</span></div>
-                        <form class="card-body" data-api-form="ignore-rule">
-                            <div class="form-field"><label>Rule ID</label><input class="input" name="ruleId" placeholder="generic-secret"></div>
-                            <div class="form-field"><label>File pattern</label><input class="input" name="filePattern" placeholder="docs/**"></div>
-                            <div class="form-field"><label>Reason</label><textarea class="input textarea" name="reason" placeholder="Documented test fixture"></textarea></div>
-                            <button class="button" type="submit">Create ignore rule</button>
-                            <p class="muted small" data-form-status style="margin:12px 0 0"></p>
-                        </form>
-                    </article>
+                <section class="card">
+                    <div class="card-header"><h2 class="card-title">Change Password</h2><span class="badge brand">Account security</span></div>
+                    <form class="card-body" data-api-form="password-change">
+                        <div class="form-field">
+                            <label>Current password</label>
+                            <div class="password-field"><input class="input" type="password" name="currentPassword" autocomplete="current-password" maxlength="128" required><button class="button compact" type="button" data-password-toggle>Show</button></div>
+                        </div>
+                        <div class="grid grid-2">
+                            <div class="form-field">
+                                <label>New password</label>
+                                <div class="password-field"><input class="input" type="password" name="newPassword" autocomplete="new-password" minlength="12" maxlength="128" required><button class="button compact" type="button" data-password-toggle>Show</button></div>
+                            </div>
+                            <div class="form-field">
+                                <label>Confirm new password</label>
+                                <div class="password-field"><input class="input" type="password" name="confirmPassword" autocomplete="new-password" minlength="12" maxlength="128" required><button class="button compact" type="button" data-password-toggle>Show</button></div>
+                            </div>
+                        </div>
+                        <button class="button primary" type="submit">Update password</button>
+                        <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                    </form>
                 </section>
                 <section class="card" style="margin-top:18px">
-                    <div class="card-header"><h2 class="card-title">Audit Log</h2><span class="badge brand">/api/user/audit-logs</span></div>
+                    <div class="card-header"><h2 class="card-title">Audit Log</h2></div>
                     <div class="table-wrap">
                         <table><thead><tr><th>Action</th><th>Entity</th><th>Time</th></tr></thead><tbody data-api-table="audit-logs"><tr><td colspan="3">Loading audit events...</td></tr></tbody></table>
                     </div>

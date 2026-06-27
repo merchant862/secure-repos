@@ -407,8 +407,41 @@ button { cursor: pointer; }
 }
 
 .mobile-profile-badge,
-.mobile-profile-link {
+.mobile-account-summary,
+.topbar-action-menu > .mobile-account-logout {
     display: none;
+}
+
+.desktop-account {
+    display: grid;
+    grid-template-columns: 36px minmax(120px, 180px) auto;
+    align-items: center;
+    gap: 10px;
+    min-height: 44px;
+    border-left: 1px solid var(--border);
+    padding-left: 12px;
+}
+
+.desktop-account img,
+.mobile-account-summary img,
+.mobile-profile-badge img {
+    border-radius: 999px;
+    object-fit: cover;
+}
+
+.account-avatar {
+    border: 1px solid color-mix(in srgb, var(--brand) 48%, var(--border));
+    background: var(--surface);
+    box-shadow: 0 0 0 3px var(--surface), 0 0 0 5px color-mix(in srgb, var(--brand) 20%, transparent);
+}
+
+.desktop-account > span {
+    overflow: hidden;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 700;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .search-box {
@@ -517,26 +550,6 @@ button { cursor: pointer; }
 }
 
 .notification-panel.open { display: block; }
-
-.quick-settings-panel {
-    position: absolute;
-    right: 132px;
-    top: 64px;
-    display: none;
-    width: min(340px, calc(100vw - 32px));
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    background: var(--surface);
-    box-shadow: 0 18px 40px rgba(16, 24, 40, 0.14);
-    padding: 14px;
-    z-index: 20;
-}
-
-.quick-settings-panel.open { display: block; }
-.quick-settings-panel .settings-form {
-    display: grid;
-    gap: 12px;
-}
 
 .notification-item {
     display: grid;
@@ -2347,24 +2360,6 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
     opacity: 0.72;
 }
 
-.profile-row {
-    display: flex;
-    align-items: center;
-    gap: 14px;
-}
-
-.profile-avatar {
-    display: grid;
-    place-items: center;
-    width: 54px;
-    height: 54px;
-    border-radius: 999px;
-    background: var(--brand);
-    color: #ffffff;
-    font-size: 22px;
-    font-weight: 800;
-}
-
 .empty-state {
     border: 1px dashed var(--border);
     border-radius: 8px;
@@ -2441,6 +2436,70 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
     right: 14px;
 }
 
+.logout-confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 22px;
+}
+
+.plan-list.compact {
+    gap: 8px;
+    font-size: 13px;
+}
+
+.billing-plan-summary {
+    display: grid;
+    gap: 12px;
+    margin: 8px 0 16px;
+}
+
+.billing-plan-summary .metric-value {
+    font-size: 32px;
+}
+
+.plan-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 10px;
+}
+
+.plan-detail-grid span {
+    display: grid;
+    gap: 3px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-muted);
+    padding: 10px;
+}
+
+.plan-detail-grid strong {
+    color: var(--text);
+    font-size: 13px;
+}
+
+.plan-detail-grid small {
+    color: var(--muted);
+    font-size: 11px;
+}
+
+.billing-payment-method {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--surface-muted);
+    padding: 14px;
+}
+
+.billing-payment-method > div {
+    display: grid;
+    gap: 4px;
+    min-width: 0;
+}
+
 .plan-change-modal {
     width: min(100%, 720px);
     max-height: min(88vh, 760px);
@@ -2479,6 +2538,18 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
     display: grid;
     gap: 4px;
     min-width: 0;
+}
+
+.plan-change-option .billing-plan-summary {
+    margin: 2px 0 0;
+}
+
+.plan-change-option .billing-plan-summary .metric-value {
+    font-size: 22px;
+}
+
+.plan-change-option .plan-detail-grid {
+    grid-template-columns: 1fr;
 }
 
 .plan-change-option small,
@@ -2782,7 +2853,10 @@ body.sidebar-open .overlay { display: block; }
     .grid-3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .search-box { display: none; }
     .session-chip {
-        max-width: 190px;
+        display: none;
+    }
+    .desktop-account {
+        grid-template-columns: 36px minmax(80px, 140px) auto;
     }
     .session-chip-copy small {
         display: none;
@@ -2804,6 +2878,7 @@ body.sidebar-open .overlay { display: block; }
 @media (max-width: 860px) {
     .app-shell { display: block; }
     .landing-pricing-grid { grid-template-columns: 1fr; }
+    .plan-detail-grid { grid-template-columns: 1fr; }
     .sidebar {
         position: fixed;
         transform: translateX(-100%);
@@ -2814,7 +2889,7 @@ body.sidebar-open .overlay { display: block; }
     .topbar { padding: 12px 16px; }
     .page-title { font-size: 20px; }
     .topbar-actions { gap: 8px; }
-    .desktop-profile-badge {
+    .desktop-account {
         display: none;
     }
     .mobile-profile-badge {
@@ -2848,7 +2923,39 @@ body.sidebar-open .overlay { display: block; }
         display: grid;
         gap: 12px;
     }
+    .mobile-account-summary {
+        display: grid;
+        grid-template-columns: 36px minmax(0, 1fr);
+        align-items: center;
+        gap: 10px;
+        min-height: 58px;
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        background: var(--surface-muted);
+        padding: 9px 11px;
+    }
+    .mobile-account-summary span {
+        display: grid;
+        min-width: 0;
+        gap: 3px;
+    }
+    .mobile-account-summary small {
+        color: var(--muted);
+        font-size: 11px;
+    }
+    .mobile-account-summary strong {
+        overflow: hidden;
+        font-size: 13px;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+    .topbar-action-menu > .mobile-account-logout {
+        display: inline-flex;
+        width: 100%;
+        justify-content: center;
+    }
     .session-chip {
+        display: inline-flex;
         min-height: 58px;
         width: 100%;
         max-width: none;
@@ -2885,7 +2992,7 @@ body.sidebar-open .overlay { display: block; }
         background: var(--surface-muted);
     }
     .topbar-action-menu > .icon-button:hover,
-    .mobile-profile-link:hover,
+    .mobile-account-logout:hover,
     .topbar-action-menu > .button:hover {
         background: color-mix(in srgb, var(--brand-soft) 72%, var(--surface-muted));
     }
@@ -2902,8 +3009,7 @@ body.sidebar-open .overlay { display: block; }
         order: 3;
         margin: 0 0 0 auto !important;
     }
-    .notification-panel,
-    .quick-settings-panel {
+    .notification-panel {
         position: static;
         width: 100%;
         box-shadow: none;
@@ -2911,32 +3017,8 @@ body.sidebar-open .overlay { display: block; }
         border-radius: 8px;
         background: var(--surface-muted);
     }
-    .quick-settings-panel .card-header,
     .notification-panel .card-header {
         align-items: center;
-    }
-    .quick-settings-panel .settings-form label {
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        min-height: 38px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        background: var(--surface);
-        padding: 0 10px;
-        color: var(--text);
-        font-size: 13px;
-        font-weight: 700;
-    }
-    .mobile-profile-link {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        min-height: 46px;
-        border: 1px solid var(--border);
-        border-radius: 8px;
-        background: var(--surface-muted);
-        font-weight: 800;
     }
     .icon-button { width: 40px; height: 40px; }
     .content { padding: 18px 14px 26px; }
