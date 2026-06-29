@@ -26,7 +26,7 @@ async function githubInstallCallbackController(req: Request, res: Response)
 
     if (!installationId)
     {
-        return res.redirect('/dashboard?github=cancelled');
+        return res.redirect('/onboarding?github=cancelled');
     }
 
     if (state)
@@ -37,15 +37,15 @@ async function githubInstallCallbackController(req: Request, res: Response)
             const providerState = await verifyProviderState(state, 'github');
             const result = await syncGithubInstallationForTenant(providerState.tenantId, installationId);
 
-            return res.redirect(`/dashboard?github=connected&installation_id=${encodeURIComponent(installationId)}&repositories=${result.repositories.length}`);
+            return res.redirect(`/onboarding?github=connected&installation_id=${encodeURIComponent(installationId)}&repositories=${result.repositories.length}`);
         }
         catch (error)
         {
-            return res.redirect(`/dashboard?github=error&message=${encodeURIComponent(error instanceof Error ? error.message : 'Invalid GitHub installation state')}`);
+            return res.redirect(`/onboarding?github=error&message=${encodeURIComponent(error instanceof Error ? error.message : 'Invalid GitHub installation state')}`);
         }
     }
 
-    return res.redirect(`/dashboard?github=installed&installation_id=${encodeURIComponent(installationId)}&app_id=${encodeURIComponent(config.appId)}&setup_action=${encodeURIComponent(setupAction ?? '')}&code=${encodeURIComponent(code ?? '')}`);
+    return res.redirect(`/onboarding?github=installed&installation_id=${encodeURIComponent(installationId)}&app_id=${encodeURIComponent(config.appId)}&setup_action=${encodeURIComponent(setupAction ?? '')}&code=${encodeURIComponent(code ?? '')}`);
 }
 
 export {

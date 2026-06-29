@@ -23,6 +23,7 @@ app.use('/public', express.static(path.join(process.cwd(), 'src', 'public')));
 app.post('/webhooks/github', githubWebhookRawBodyMiddleware, githubWebhookController);
 app.post('/webhooks/paddle', express.raw({ type: 'application/json', limit: '100kb' }), paddleWebhookController);
 
+app.use('/api/cli/v1/scans', express.json({ limit: '1mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100kb' }));
 app.use(express.json(
     {

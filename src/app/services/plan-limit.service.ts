@@ -162,7 +162,7 @@ async function assertManualScanAllowed(tenantId: number, repositoryId: number)
                 where:
                 {
                     repositoryId,
-                    triggerType: 'manual_user',
+                    triggerType: { [Op.in]: ['manual_user', 'cli'] },
                     createdAt:
                     {
                         [Op.gte]: cooldownStart
@@ -190,7 +190,7 @@ async function assertManualScanAllowed(tenantId: number, repositoryId: number)
             where:
             {
                 tenantId,
-                triggerType: 'manual_user',
+                triggerType: { [Op.in]: ['manual_user', 'cli'] },
                 createdAt:
                 {
                     [Op.gte]: dayStart

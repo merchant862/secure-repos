@@ -1,5 +1,8 @@
 import request from 'supertest';
+import { vi } from 'vitest';
+
 import app from '../src/app/app';
+import { UserSession } from '../src/db/models';
 
 describe('Application routes', function ()
 {
@@ -192,6 +195,28 @@ describe('Application routes', function ()
         expect(response.body.message).toBe('Unauthorized');
     });
 
+    it('should require a scoped token for CLI endpoints', async function ()
+    {
+        const response = await request(app).get('/api/cli/v1/me');
+
+        expect(response.status).toBe(401);
+        expect(response.header['cache-control']).toBe('no-store');
+        expect(response.body.message).toContain('CLI access token');
+    });
+
+    it('should not accept CLI tokens on account or billing APIs', async function ()
+    {
+        const sessionLookup = vi.spyOn(UserSession, 'findOne').mockResolvedValue(null);
+        const response = await request(app)
+            .get('/api/user/billing')
+            .set('Authorization', `Bearer srp_cli_${'a'.repeat(43)}`);
+
+        expect(response.status).toBe(401);
+        expect(response.body.message).toBe('Unauthorized');
+        expect(sessionLookup).toHaveBeenCalledOnce();
+        sessionLookup.mockRestore();
+    });
+
     it('should only include internal allowlisted paths in sign in next redirects', async function ()
     {
         const response = await request(app).get('/dashboard').query({ next: 'https://169.254.169.254/latest/meta-data' });
@@ -211,7 +236,7 @@ describe('Application routes', function ()
         expect(resetResponse.text).toContain('New password');
     });
 
-    it('should redirect github install callback with installation_id back to dashboard', async function ()
+    it('should redirect github install callback with installation_id back to onboarding', async function ()
     {
         const response = await request(app)
             .get('/github/install/callback')
@@ -223,17 +248,17 @@ describe('Application routes', function ()
             );
 
         expect(response.status).toBe(302);
-        expect(response.header.location).toContain('/dashboard?github=installed');
+        expect(response.header.location).toContain('/onboarding?github=installed');
         expect(response.header.location).toContain('installation_id=12345');
     });
 
-    it('should redirect github install callback without installation_id back to dashboard', async function ()
+    it('should redirect github install callback without installation_id back to onboarding', async function ()
     {
         const response = await request(app)
             .get('/github/install/callback');
 
         expect(response.status).toBe(302);
-        expect(response.header.location).toBe('/dashboard?github=cancelled');
+        expect(response.header.location).toBe('/onboarding?github=cancelled');
     });
 
     it('should return 401 for github webhook with invalid signature', async function ()

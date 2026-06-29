@@ -2317,7 +2317,7 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
 
 .onboarding-wizard {
     display: grid;
-    grid-template-columns: minmax(0, 1.35fr) minmax(320px, 0.75fr);
+    grid-template-columns: minmax(0, 1fr);
     gap: 18px;
     margin-top: 18px;
 }
@@ -2346,16 +2346,42 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
     gap: 10px;
 }
 
-.onboarding-guide-list article.active {
-    background: color-mix(in srgb, var(--brand) 7%, transparent);
+.cli-token-form {
+    display: grid;
+    grid-template-columns: minmax(220px, 1fr) minmax(150px, 190px) auto;
+    align-items: end;
+    gap: 14px;
 }
 
-.onboarding-guide-list article.completed {
-    background: color-mix(in srgb, var(--success) 7%, transparent);
+.cli-token-form .form-field,
+.cli-token-form [data-cli-token-status] {
+    margin: 0;
 }
 
-.onboarding-guide-list article.locked {
-    opacity: 0.72;
+.cli-token-form [data-cli-token-status] {
+    grid-column: 1 / -1;
+    min-height: 18px;
+}
+
+.table-subcopy {
+    display: block;
+    margin-top: 5px;
+    color: var(--muted);
+    font-size: 12px;
+}
+
+.cli-token-modal {
+    width: min(620px, calc(100vw - 28px));
+}
+
+.cli-token-secret-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 10px;
+}
+
+.cli-token-secret-row .input {
+    font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 }
 
 .empty-state {
@@ -2891,6 +2917,10 @@ body.sidebar-open .overlay { display: block; }
     .row-actions .button { flex: 1; }
     .onboarding-action-row { display: grid; }
     .onboarding-action-row .button { width: 100%; }
+    .cli-token-form,
+    .cli-token-secret-row { grid-template-columns: 1fr; }
+    .cli-token-form .button,
+    .cli-token-secret-row .button { width: 100%; }
     .table-pagination {
         display: grid;
         align-items: stretch;

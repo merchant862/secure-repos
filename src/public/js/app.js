@@ -126,6 +126,9 @@
         const passwordToggle = event.target.closest('[data-password-toggle]');
         const billingChangePlanButton = event.target.closest('[data-billing-change-plan]');
         const billingPaymentMethodButton = event.target.closest('[data-billing-payment-method-update]');
+        const cliTokenRevokeButton = event.target.closest('[data-cli-token-revoke]');
+        const cliTokenCopyButton = event.target.closest('[data-cli-token-copy]');
+        const cliTokenModalClose = event.target.closest('[data-cli-token-modal-close]');
         const scanButton = event.target.closest('[data-repository-scan]');
         const repositoryFilterButton = event.target.closest('[data-repository-filter]');
         const repositoryPageButton = event.target.closest('[data-repository-page]');
@@ -245,6 +248,18 @@
 
         if (billingPaymentMethodButton) {
             updatePaymentMethod(billingPaymentMethodButton);
+        }
+
+        if (cliTokenRevokeButton) {
+            showCliTokenRevokeConfirmation(cliTokenRevokeButton);
+        }
+
+        if (cliTokenCopyButton) {
+            copyCliToken(cliTokenCopyButton);
+        }
+
+        if (cliTokenModalClose) {
+            cliTokenModalClose.closest('[data-cli-token-modal]')?.remove();
         }
     });
 
@@ -599,6 +614,37 @@
         });
     });
 
+    document.querySelector('[data-cli-token-form]')?.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const button = form.querySelector('button[type="submit"]');
+        const status = form.querySelector('[data-cli-token-status]');
+        const originalText = button.textContent;
+
+        button.disabled = true;
+        button.textContent = 'Generating...';
+        if (status) status.textContent = '';
+
+        try {
+            const body = Object.fromEntries(new FormData(form).entries());
+            const payload = await apiFetch('/api/user/cli-tokens', {
+                method: 'POST',
+                body: JSON.stringify(body)
+            });
+            form.reset();
+            showCliTokenSecret(payload.data?.token, payload.data?.accessToken);
+            await hydrateCliTokens();
+        } catch (error) {
+            if (status) {
+                status.textContent = error.message || 'CLI token could not be created.';
+                status.style.color = 'var(--danger)';
+            }
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    });
+
     hydratePageData();
     async function hydratePageData() {
         await Promise.allSettled([
@@ -610,6 +656,7 @@
             hydrateFindings(),
             hydrateNotificationsPage(),
             hydrateAuditLogs(),
+            hydrateCliTokens(),
             hydrateTrend(),
             hydrateSessionSummary(),
             hydrateBilling(),
@@ -670,6 +717,7 @@
 
             try {
                 await apiFetch('/api/user/billing/paddle-sync', { method: 'POST', body: JSON.stringify(event || {}) });
+                window.location.assign(config.successUrl || '/onboarding?checkout=success');
             } catch (error) {
                 hasSyncedCheckout = false;
                 console.warn('Paddle checkout sync failed:', error.message || error);
@@ -1178,7 +1226,7 @@
         }
     }
 
-    function setOnboardingStep(key, state, copy, actionText) {
+    function setOnboardingStep(key, state, copy, actionText, actionHref) {
         const card = document.querySelector(`[data-onboarding-step="${key}"]`);
         if (!card) return;
         const stepNumbers = { account: '1', billing: '2', github: '3', repositories: '4', scan: '5' };
@@ -1196,22 +1244,8 @@
             action.classList.toggle('is-disabled', state === 'locked');
             if (action.tagName === 'A') {
                 action.setAttribute('aria-disabled', String(state === 'locked'));
+                if (actionHref) action.href = actionHref;
             }
-        }
-    }
-
-    function setOnboardingGuideState(key, state) {
-        const item = document.querySelector(`[data-onboarding-guide="${key}"]`);
-        if (!item) return;
-        const badge = item.querySelector('.badge');
-        const labels = { done: 'Done', active: 'Next', locked: 'Locked' };
-        const classes = { done: 'success', active: 'brand', locked: 'warning' };
-        item.classList.toggle('completed', state === 'done');
-        item.classList.toggle('active', state === 'active');
-        item.classList.toggle('locked', state === 'locked');
-        if (badge) {
-            badge.textContent = labels[state] || 'Next';
-            badge.className = `badge ${classes[state] || 'brand'}`;
         }
     }
 
@@ -1261,23 +1295,43 @@
             return;
         }
 
+        const checkoutStatus = new URLSearchParams(window.location.search).get('checkout');
+        const signupStatus = new URLSearchParams(window.location.search).get('signup');
+        const wizard = document.querySelector('[data-onboarding-wizard]');
         const [billingResult, repositoriesResult, dashboardResult] = await Promise.allSettled([
             apiFetch('/api/user/billing'),
             apiFetch('/api/user/repositories?limit=1'),
             apiFetch('/api/user/dashboard-summary')
         ]);
-        const subscription = billingResult.status === 'fulfilled' ? billingResult.value.data?.subscription : null;
+        let billingPayload = billingResult.status === 'fulfilled' ? billingResult.value : {};
+        let subscription = billingPayload.data?.subscription || null;
+        let state = subscriptionState(subscription);
+
+        if (checkoutStatus === 'success' && !state.isActive && wizard && wizard.dataset.checkoutRecoveryAttempted !== 'true') {
+            wizard.dataset.checkoutRecoveryAttempted = 'true';
+            try {
+                await apiFetch('/api/user/billing/paddle-sync', {
+                    method: 'POST',
+                    body: JSON.stringify({ recoverByEmail: true })
+                });
+                billingPayload = await apiFetch('/api/user/billing');
+                subscription = billingPayload.data?.subscription || null;
+                state = subscriptionState(subscription);
+            } catch (error) {
+                // The webhook may still activate the subscription during the bounded polling below.
+            }
+        }
+
         const repoPayload = repositoriesResult.status === 'fulfilled' ? repositoriesResult.value : {};
         const dashboard = dashboardResult.status === 'fulfilled' ? dashboardResult.value.data || {} : {};
-        const state = subscriptionState(subscription);
         const githubConnected = Boolean(repoPayload.meta?.githubConnection || dashboard.githubConnection);
         const repositoryCount = Number(repoPayload.meta?.repositoryCount || dashboard.metrics?.repositories || 0);
         const scanCount = Number(dashboard.metrics?.scans || 0);
-        const checkoutStatus = new URLSearchParams(window.location.search).get('checkout');
-        const signupStatus = new URLSearchParams(window.location.search).get('signup');
+        const checkoutToken = billingPayload.data?.checkoutToken || '';
+        const checkoutHref = checkoutToken ? `/checkout?t=${encodeURIComponent(checkoutToken)}` : '/checkout';
 
         setOnboardingStep('account', 'done', 'Your SecureRepos account and workspace are ready.');
-        setOnboardingStep('billing', state.isActive ? 'done' : 'active', state.isActive ? 'Subscription active. You can connect GitHub now.' : 'Complete Paddle checkout to activate scanning.', state.isActive ? 'Open billing' : 'Choose plan');
+        setOnboardingStep('billing', state.isActive ? 'done' : 'active', state.isActive ? 'Subscription active. You can connect GitHub now.' : 'Complete Paddle checkout to activate scanning.', state.isActive ? 'View subscription' : 'Continue to checkout', state.isActive ? '/billing' : checkoutHref);
         setOnboardingStep('github', state.isActive ? (githubConnected ? 'done' : 'active') : 'locked', githubConnected ? 'GitHub App is connected.' : state.isActive ? 'Install the GitHub App and select repositories.' : 'Activate billing before connecting repositories.', githubConnected ? 'Connected' : 'Install GitHub App');
         setOnboardingStep('repositories', githubConnected ? (repositoryCount > 0 ? 'done' : 'active') : 'locked', repositoryCount > 0 ? `${repositoryCount} repositories synced.` : githubConnected ? 'Waiting for selected repositories to sync.' : 'Repositories appear after GitHub is connected.', 'View repositories');
         setOnboardingStep('scan', repositoryCount > 0 ? (scanCount > 0 ? 'done' : 'active') : 'locked', scanCount > 0 ? `${scanCount} scans recorded. Review findings from the dashboard.` : repositoryCount > 0 ? 'Run your first scan from the repository table.' : 'Connect a repository before running scans.', scanCount > 0 ? 'Open scans' : 'Start scan');
@@ -1285,27 +1339,22 @@
         badge.textContent = state.isActive && githubConnected && repositoryCount > 0 ? 'Ready' : 'Setup';
         badge.className = `badge ${state.isActive && githubConnected ? 'success' : 'brand'}`;
 
-        setOnboardingGuideState('payment', state.isActive ? 'done' : 'active');
-        setOnboardingGuideState('install', state.isActive ? (githubConnected ? 'done' : 'active') : 'locked');
-        setOnboardingGuideState('sync', githubConnected ? (repositoryCount > 0 ? 'done' : 'active') : 'locked');
-        setOnboardingGuideState('scan', repositoryCount > 0 ? (scanCount > 0 ? 'done' : 'active') : 'locked');
-
         if (!state.isActive) {
             updateOnboardingAction({
-                title: signupStatus === 'check-email' ? 'Check your email for checkout' : checkoutStatus === 'success' ? 'Waiting for payment confirmation' : 'Activate your plan',
+                title: signupStatus === 'check-email' ? 'Your checkout is ready' : checkoutStatus === 'success' ? 'Waiting for payment confirmation' : 'Activate your plan',
                 copy: signupStatus === 'check-email'
-                    ? 'Your workspace is ready. We emailed your secure checkout link so payment starts from your inbox and stays tied to this account.'
+                    ? 'Continue directly to Paddle below. We also emailed the same secure checkout link so you can resume later.'
                     : checkoutStatus === 'success'
                     ? 'Paddle checkout finished. SecureRepos is waiting for the webhook confirmation before GitHub setup unlocks.'
                     : 'Choose a package and complete Paddle checkout. Repository scanning starts after payment is confirmed.',
-                badge: signupStatus === 'check-email' ? 'Email sent' : checkoutStatus === 'success' ? 'Syncing' : 'Step 2',
+                badge: signupStatus === 'check-email' ? 'Checkout ready' : checkoutStatus === 'success' ? 'Syncing' : 'Step 2',
                 badgeClass: signupStatus === 'check-email' || checkoutStatus === 'success' ? 'warning' : 'brand',
                 wizardTitle: 'Plan activation',
-                wizardBadge: signupStatus === 'check-email' ? 'Email sent' : checkoutStatus === 'success' ? 'Waiting' : 'Next',
-                primaryText: signupStatus === 'check-email' ? 'Open billing' : checkoutStatus === 'success' ? 'Refresh status' : 'Choose plan',
-                primaryHref: signupStatus === 'check-email' ? '/billing' : checkoutStatus === 'success' ? '/onboarding?checkout=success' : '/billing',
-                secondaryText: 'Open billing',
-                secondaryHref: '/billing'
+                wizardBadge: signupStatus === 'check-email' ? 'Ready' : checkoutStatus === 'success' ? 'Waiting' : 'Next',
+                primaryText: checkoutStatus === 'success' ? 'Refresh status' : 'Continue to checkout',
+                primaryHref: checkoutStatus === 'success' ? '/onboarding?checkout=success' : checkoutHref,
+                secondaryText: '',
+                secondaryHref: ''
             });
         } else if (!githubConnected) {
             updateOnboardingAction({
@@ -1370,8 +1419,18 @@
                     : 'Your subscription is active. Install the GitHub App to sync repositories.'
                 : 'Activate your plan first, then connect GitHub and run your first scan.';
             if (signupStatus === 'check-email' && !state.isActive) {
-                copy.textContent = 'Your workspace is ready. Open the checkout link we emailed you, then return here to connect GitHub.';
+                copy.textContent = 'Your workspace and selected plan are ready. Complete checkout, then connect GitHub.';
             }
+        }
+
+        if (checkoutStatus === 'success' && !state.isActive && wizard) {
+            const pollAttempt = Number(wizard.dataset.checkoutPollAttempt || 0);
+            if (pollAttempt < 8) {
+                wizard.dataset.checkoutPollAttempt = String(pollAttempt + 1);
+                window.setTimeout(hydrateOnboarding, 2500);
+            }
+        } else if (state.isActive && checkoutStatus === 'success') {
+            window.history.replaceState({}, '', '/onboarding');
         }
     }
 
@@ -1987,6 +2046,140 @@
         table.innerHTML = logs.map(function (log) {
             return `<tr><td>${escapeHtml(log.action || '-')}</td><td>${escapeHtml(log.entityType || '-')}</td><td>${formatDate(log.createdAt)}</td></tr>`;
         }).join('') || '<tr><td colspan="3">No audit events yet.</td></tr>';
+    }
+
+    function cliTokenState(token) {
+        if (token.revokedAt) {
+            return { label: 'Revoked', badge: 'danger', active: false };
+        }
+
+        if (!token.expiresAt || new Date(token.expiresAt).getTime() <= Date.now()) {
+            return { label: 'Expired', badge: 'warning', active: false };
+        }
+
+        return { label: 'Active', badge: 'success', active: true };
+    }
+
+    async function hydrateCliTokens() {
+        const table = document.querySelector('[data-api-table="cli-tokens"]');
+        if (!table) {
+            return;
+        }
+
+        try {
+            const payload = await apiFetch('/api/user/cli-tokens');
+            const tokens = payload.data || [];
+
+            table.innerHTML = tokens.map(function (token) {
+                const state = cliTokenState(token);
+                const preview = `${token.tokenPrefix || 'srp_cli_'}...${token.tokenLastFour || ''}`;
+
+                return `<tr>
+                    <td><strong>${escapeHtml(token.name || 'CLI token')}</strong><small class="table-subcopy">Created ${escapeHtml(formatDate(token.createdAt))}</small></td>
+                    <td><code>${escapeHtml(preview)}</code></td>
+                    <td><span class="badge ${state.badge}">${state.label}</span><small class="table-subcopy">Expires ${escapeHtml(formatDate(token.expiresAt))}</small></td>
+                    <td>${token.lastUsedAt ? escapeHtml(formatDateTime(token.lastUsedAt)) : 'Never'}</td>
+                    <td><button class="button compact danger" type="button" data-cli-token-revoke="${escapeHtml(token.id)}" data-cli-token-name="${escapeHtml(token.name || 'CLI token')}" ${state.active ? '' : 'disabled'}>Revoke</button></td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="5">No CLI tokens created yet.</td></tr>';
+        } catch (error) {
+            table.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || 'CLI tokens could not be loaded.')}</td></tr>`;
+        }
+    }
+
+    function showCliTokenSecret(token, accessToken) {
+        if (!token) {
+            return;
+        }
+
+        document.querySelector('[data-cli-token-modal]')?.remove();
+        const modal = document.createElement('div');
+        modal.className = 'auth-modal-backdrop';
+        modal.dataset.cliTokenModal = 'true';
+        modal.innerHTML = `<div class="auth-modal cli-token-modal" role="dialog" aria-modal="true" aria-labelledby="cli-token-secret-title">
+            <button class="icon-button auth-modal-close" type="button" data-cli-token-modal-close aria-label="Close">x</button>
+            <span class="badge success">Token generated</span>
+            <h2 id="cli-token-secret-title">${escapeHtml(accessToken?.name || 'CLI access token')}</h2>
+            <p class="muted">Copy this token now. SecureRepos stores only its hash, so the full value cannot be shown again.</p>
+            <div class="cli-token-secret-row">
+                <input class="input" type="text" readonly value="${escapeHtml(token)}" data-cli-token-secret>
+                <button class="button primary" type="button" data-cli-token-copy>Copy token</button>
+            </div>
+            <p class="muted small">Expires ${escapeHtml(formatDate(accessToken?.expiresAt))}. Revoke it immediately if it is exposed.</p>
+        </div>`;
+        document.body.appendChild(modal);
+        modal.querySelector('[data-cli-token-secret]')?.select();
+        modal.addEventListener('click', function (event) {
+            if (event.target === modal) modal.remove();
+        });
+    }
+
+    async function copyCliToken(button) {
+        const input = button.closest('[data-cli-token-modal]')?.querySelector('[data-cli-token-secret]');
+        if (!input) return;
+
+        try {
+            await navigator.clipboard.writeText(input.value);
+        } catch (error) {
+            input.select();
+            document.execCommand('copy');
+        }
+
+        const originalText = button.textContent;
+        button.textContent = 'Copied';
+        window.setTimeout(function () {
+            button.textContent = originalText;
+        }, 1400);
+    }
+
+    function showCliTokenRevokeConfirmation(button) {
+        const tokenId = Number(button.dataset.cliTokenRevoke);
+        if (!Number.isSafeInteger(tokenId) || tokenId < 1) return;
+
+        document.querySelector('[data-cli-token-modal]')?.remove();
+        const modal = document.createElement('div');
+        modal.className = 'auth-modal-backdrop';
+        modal.dataset.cliTokenModal = 'true';
+        modal.innerHTML = `<div class="auth-modal" role="alertdialog" aria-modal="true" aria-labelledby="cli-token-revoke-title">
+            <button class="icon-button auth-modal-close" type="button" data-cli-token-modal-close aria-label="Close">x</button>
+            <span class="badge danger">Revoke access</span>
+            <h2 id="cli-token-revoke-title">Revoke ${escapeHtml(button.dataset.cliTokenName || 'this token')}?</h2>
+            <p class="muted">Any CLI using this token will lose access immediately. This action cannot be undone.</p>
+            <div class="row-actions">
+                <button class="button" type="button" data-cli-token-modal-close>Keep token</button>
+                <button class="button danger" type="button" data-cli-token-revoke-confirm>Revoke token</button>
+            </div>
+            <p class="muted small" data-cli-token-revoke-status></p>
+        </div>`;
+        document.body.appendChild(modal);
+        modal.querySelector('[data-cli-token-revoke-confirm]')?.focus();
+        modal.addEventListener('click', async function (event) {
+            if (event.target === modal) {
+                modal.remove();
+                return;
+            }
+
+            const confirmButton = event.target.closest('[data-cli-token-revoke-confirm]');
+            if (!confirmButton) return;
+
+            confirmButton.disabled = true;
+            confirmButton.textContent = 'Revoking...';
+
+            try {
+                await apiFetch(`/api/user/cli-tokens/${encodeURIComponent(tokenId)}`, { method: 'DELETE' });
+                modal.remove();
+                await hydrateCliTokens();
+                await hydrateAuditLogs();
+            } catch (error) {
+                const status = modal.querySelector('[data-cli-token-revoke-status]');
+                if (status) {
+                    status.textContent = error.message || 'CLI token could not be revoked.';
+                    status.style.color = 'var(--danger)';
+                }
+                confirmButton.disabled = false;
+                confirmButton.textContent = 'Revoke token';
+            }
+        });
     }
 
     async function hydrateTrend() {

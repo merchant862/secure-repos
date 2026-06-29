@@ -76,6 +76,17 @@ import {
 } from './controllers/api/billing.controller';
 import { submitContactController } from './controllers/api/contact.controller';
 import { rateLimit, sameOriginApiMiddleware } from './middlewares/security.middleware';
+import {
+    createUserCliAccessTokenController,
+    listUserCliAccessTokensController,
+    revokeUserCliAccessTokenController
+} from './controllers/api/cli-access-token.controller';
+import {
+    getCliIdentityController,
+    listCliRepositoriesController,
+    submitCliScanController
+} from './controllers/api/cli.controller';
+import { cliAccessTokenAuthMiddleware } from './middlewares/cli-auth.middleware';
 
 const router = Router();
 const authRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 10, scope: 'auth' });
@@ -83,6 +94,9 @@ const otpRateLimit = rateLimit({ windowMs: 10 * 60 * 1000, limit: 8, scope: 'otp
 const contactRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 5, scope: 'contact' });
 const passwordChangeRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, limit: 5, scope: 'password-change' });
 const paymentMethodUpdateRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 3, scope: 'payment-method-update' });
+const cliTokenCreateRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 10, scope: 'cli-token-create' });
+const cliApiRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 120, scope: 'cli-api' });
+const cliScanRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 10, scope: 'cli-scan' });
 
 router.use('/api', sameOriginApiMiddleware);
 
@@ -125,6 +139,11 @@ router.post('/api/auth/logout', logoutController);
 router.post('/api/contact', contactRateLimit, submitContactController);
 router.get('/api/pricing', listPublicPricingPlansController);
 
+router.use('/api/cli/v1', cliApiRateLimit, cliAccessTokenAuthMiddleware);
+router.get('/api/cli/v1/me', getCliIdentityController);
+router.get('/api/cli/v1/repositories', listCliRepositoriesController);
+router.post('/api/cli/v1/scans', cliScanRateLimit, submitCliScanController);
+
 router.use('/api/user', userAuthMiddleware);
 router.get('/api/user/me', meController);
 router.put('/api/user/auth/password', passwordChangeRateLimit, changePasswordController);
@@ -143,6 +162,9 @@ router.get('/api/user/notifications', listNotificationsController);
 router.get('/api/user/notifications/stream', notificationStreamController);
 router.patch('/api/user/notifications/:notificationId/read', markNotificationReadController);
 router.get('/api/user/audit-logs', requireOwner, listAuditLogsController);
+router.get('/api/user/cli-tokens', requireOwner, listUserCliAccessTokensController);
+router.post('/api/user/cli-tokens', requireOwner, cliTokenCreateRateLimit, createUserCliAccessTokenController);
+router.delete('/api/user/cli-tokens/:tokenId', requireOwner, revokeUserCliAccessTokenController);
 router.get('/api/user/security-trend', getSecurityTrendController);
 router.get('/api/user/billing', getUserBillingController);
 router.get('/api/user/billing/plan-change-options', getUserPlanChangeOptionsController);

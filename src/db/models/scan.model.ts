@@ -25,6 +25,7 @@ class Scan extends Model<InferAttributes<Scan>, InferCreationAttributes<Scan>>
     declare findingsMedium: CreationOptional<number>;
     declare findingsLow: CreationOptional<number>;
     declare errorMessage: CreationOptional<string | null>;
+    declare metadata: CreationOptional<object | null>;
     declare startedAt: CreationOptional<Date | null>;
     declare completedAt: CreationOptional<Date | null>;
     declare createdAt: CreationOptional<Date>;
@@ -99,6 +100,11 @@ function initScanModel(sequelize: Sequelize)
             errorMessage:
             {
                 type: DataTypes.TEXT,
+                allowNull: true
+            },
+            metadata:
+            {
+                type: DataTypes.JSON,
                 allowNull: true
             },
             startedAt:

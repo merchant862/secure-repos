@@ -21,6 +21,7 @@ import { ProviderSetting, initProviderSettingModel } from './provider-setting.mo
 import { ProviderOauthState, initProviderOauthStateModel } from './provider-oauth-state.model';
 import { FindingOccurrence, initFindingOccurrenceModel } from './finding-occurrence.model';
 import { PasswordResetToken, initPasswordResetTokenModel } from './password-reset-token.model';
+import { CliAccessToken, initCliAccessTokenModel } from './cli-access-token.model';
 
 function initModels(sequelize: Sequelize)
 {
@@ -45,6 +46,7 @@ function initModels(sequelize: Sequelize)
     initProviderOauthStateModel(sequelize);
     initFindingOccurrenceModel(sequelize);
     initPasswordResetTokenModel(sequelize);
+    initCliAccessTokenModel(sequelize);
 
     Tenant.hasMany(User, {
         foreignKey: 'tenantId',
@@ -82,6 +84,26 @@ function initModels(sequelize: Sequelize)
     });
 
     PasswordResetToken.belongsTo(User, {
+        foreignKey: 'userId',
+        as: 'user'
+    });
+
+    Tenant.hasMany(CliAccessToken, {
+        foreignKey: 'tenantId',
+        as: 'cliAccessTokens'
+    });
+
+    CliAccessToken.belongsTo(Tenant, {
+        foreignKey: 'tenantId',
+        as: 'tenant'
+    });
+
+    User.hasMany(CliAccessToken, {
+        foreignKey: 'userId',
+        as: 'cliAccessTokens'
+    });
+
+    CliAccessToken.belongsTo(User, {
         foreignKey: 'userId',
         as: 'user'
     });
@@ -280,5 +302,6 @@ export
     ProviderOauthState,
     FindingOccurrence,
     PasswordResetToken,
+    CliAccessToken,
     initModels
 };

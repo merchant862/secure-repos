@@ -1,5 +1,6 @@
 import { Response } from 'express';
 
+import { TenantSubscription } from '../../../db/models';
 import { buildGithubAppInstallUrl } from '../../../modules/github/github.service';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import { createProviderState } from '../../services/provider-state.service';
@@ -32,6 +33,12 @@ async function getProviderConnectUrlController(req: AuthenticatedRequest, res: R
 
     try
     {
+        const subscription = await TenantSubscription.findOne({ where: { tenantId: user.tenantId } });
+        if (!subscription || subscription.status !== 'active')
+        {
+            throw new Error('Complete checkout before connecting GitHub');
+        }
+
         const plan = await getTenantPlan(user.tenantId);
         if (!plan) throw new Error('An active pricing plan is required');
         await assertProviderAvailableForPlan(provider, plan.slug);

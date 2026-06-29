@@ -15,8 +15,8 @@
                     <span class="badge brand" data-onboarding-badge>Setup</span>
                 </section>
                 <section class="onboarding-steps" data-onboarding-steps>
-                    <article class="card card-body step-card active" data-onboarding-step="account"><span class="step-number">1</span><strong>Workspace created</strong><p class="muted small" data-step-copy="account">Your SecureRepos account and workspace are ready.</p><a class="button" href="/dashboard">Open dashboard</a></article>
-                    <article class="card card-body step-card" data-onboarding-step="billing"><span class="step-number">2</span><strong>Payment confirmed</strong><p class="muted small" data-step-copy="billing">Complete Paddle checkout before scanning repositories.</p><a class="button primary" href="/billing" data-step-action="billing">Open billing</a></article>
+                    <article class="card card-body step-card active" data-onboarding-step="account"><span class="step-number">1</span><strong>Workspace created</strong><p class="muted small" data-step-copy="account">Your SecureRepos account and workspace are ready.</p></article>
+                    <article class="card card-body step-card" data-onboarding-step="billing"><span class="step-number">2</span><strong>Payment confirmed</strong><p class="muted small" data-step-copy="billing">Complete Paddle checkout before scanning repositories.</p><a class="button primary" href="/checkout" data-step-action="billing">Continue to checkout</a></article>
                     <article class="card card-body step-card" data-onboarding-step="github"><span class="step-number">3</span><strong>Connect GitHub</strong><p class="muted small" data-step-copy="github">Install the GitHub App with selected repository access.</p><button class="button primary" type="button" data-provider-connect="github" data-step-action="github">Install GitHub App</button></article>
                     <article class="card card-body step-card" data-onboarding-step="repositories"><span class="step-number">4</span><strong>Repository access</strong><p class="muted small" data-step-copy="repositories">Selected repositories appear after GitHub sync.</p><a class="button" href="/repositories" data-step-action="repositories">View repositories</a></article>
                     <article class="card card-body step-card" data-onboarding-step="scan"><span class="step-number">5</span><strong>First scan</strong><p class="muted small" data-step-copy="scan">Start a scan once your repository list is ready.</p><a class="button" href="/repositories" data-step-action="scan">Start scan</a></article>
@@ -36,23 +36,12 @@
                                 <h3 data-onboarding-action-title>Activate your plan</h3>
                                 <p class="muted" data-onboarding-action-copy>Choose a package and complete Paddle checkout. Repository scanning starts only after payment is confirmed.</p>
                                 <div class="onboarding-action-row">
-                                    <a class="button primary" href="/billing" data-onboarding-primary-action>Open billing</a>
-                                    <a class="button" href="/billing" data-onboarding-secondary-action>Open billing</a>
+                                    <a class="button primary" href="/checkout" data-onboarding-primary-action>Continue to checkout</a>
+                                    <a class="button" href="/billing" data-onboarding-secondary-action hidden>Open billing</a>
                                 </div>
                             </div>
                         </div>
                     </div>
-                    <aside class="card onboarding-wizard-panel">
-                        <div class="card-header"><h2 class="card-title">GitHub wizard</h2><span class="badge brand" data-onboarding-flow-badge>Guided</span></div>
-                        <div class="card-body">
-                            <div class="timeline-list onboarding-guide-list">
-                                <article data-onboarding-guide="payment"><span class="badge brand">1</span><div><strong>Payment</strong><p class="muted small">Paddle confirms the subscription before repository access opens.</p></div></article>
-                                <article data-onboarding-guide="install"><span class="badge brand">2</span><div><strong>Install app</strong><p class="muted small">Select only the repositories included in your plan.</p></div></article>
-                                <article data-onboarding-guide="sync"><span class="badge brand">3</span><div><strong>Sync repositories</strong><p class="muted small">SecureRepos imports selected repository metadata and branch access.</p></div></article>
-                                <article data-onboarding-guide="scan"><span class="badge brand">4</span><div><strong>Run scan</strong><p class="muted small">Start the first scan and review findings from the dashboard.</p></div></article>
-                            </div>
-                        </div>
-                    </aside>
                 </section>
                 <%- include('../partials/footer') %>
             </main>

@@ -13,7 +13,7 @@ import {
     createRepositoryCheckRun,
     createInstallationAccessToken
 } from '../../modules/github/github.service';
-import { GithubBranchResponse, GithubCheckRunAnnotation, GithubDependabotAlertResponse, GithubSecretScanningAlertResponse, GithubTreeItem } from '../../modules/github/github.types';
+import { GithubBranchResponse, GithubCheckRunAnnotation, GithubDependabotAlertResponse, GithubSecretScanningAlertResponse } from '../../modules/github/github.types';
 import { queueScanFailedEmail, queueScanSummaryEmail, queueSecurityAlert } from './notification.service';
 import { refreshRepositorySecurityScore } from './security-posture.service';
 import { RepositoryFile, ScannerFinding, scanFiles } from './scan-rules.service';
@@ -21,127 +21,7 @@ import { extractDependencies } from './dependency-inventory.service';
 import { scanDependencyVulnerabilities } from './osv.service';
 import { getTenantPlan } from './plan-limit.service';
 import { sequelize } from '../../db/sequelize';
-
-const maxFileSizeBytes = 300 * 1024;
-const maxDependencyFileSizeBytes = 2 * 1024 * 1024;
-const dependencyFileNames = new Set(
-    [
-        'package.json',
-        'package-lock.json',
-        'npm-shrinkwrap.json',
-        'pnpm-lock.yaml',
-        'pnpm-lock.yml',
-        'yarn.lock',
-        'composer.json',
-        'composer.lock',
-        'pipfile.lock',
-        'poetry.lock',
-        'uv.lock',
-        'cargo.lock',
-        'manifest.toml',
-        'gemfile.lock',
-        'go.sum',
-        'packages.lock.json',
-        'project.assets.json',
-        'pubspec.lock',
-        'pom.xml',
-        'gradle.lockfile',
-        'package.resolved',
-        'mix.lock',
-        'renv.lock',
-        'cabal.project.freeze'
-    ]
-);
-const textFileExtensions = new Set(
-    [
-        '.js',
-        '.mjs',
-        '.cjs',
-        '.ts',
-        '.tsx',
-        '.jsx',
-        '.vue',
-        '.svelte',
-        '.astro',
-        '.html',
-        '.htm',
-        '.css',
-        '.scss',
-        '.sass',
-        '.less',
-        '.json',
-        '.json5',
-        '.env',
-        '.yml',
-        '.yaml',
-        '.toml',
-        '.ini',
-        '.conf',
-        '.config',
-        '.properties',
-        '.gradle',
-        '.tf',
-        '.tfvars',
-        '.hcl',
-        '.xml',
-        '.md',
-        '.mdx',
-        '.txt',
-        '.sh',
-        '.bash',
-        '.zsh',
-        '.fish',
-        '.ps1',
-        '.bat',
-        '.cmd',
-        '.py',
-        '.pyw',
-        '.php',
-        '.rb',
-        '.go',
-        '.java',
-        '.kt',
-        '.kts',
-        '.cs',
-        '.rs',
-        '.c',
-        '.h',
-        '.cc',
-        '.cpp',
-        '.cxx',
-        '.hpp',
-        '.m',
-        '.mm',
-        '.swift',
-        '.scala',
-        '.sc',
-        '.dart',
-        '.lua',
-        '.pl',
-        '.pm',
-        '.ex',
-        '.exs',
-        '.erl',
-        '.hrl',
-        '.clj',
-        '.cljs',
-        '.hs',
-        '.r',
-        '.R',
-        '.jl',
-        '.groovy',
-        '.sql',
-        '.graphql',
-        '.gql',
-        '.proto',
-        '.pem',
-        '.key',
-        '.p12',
-        '.crt',
-        '.cer',
-        '.dockerfile'
-    ]
-);
+import { isDependencyFilePath, isScannableFilePath } from './scanner-file-policy.service';
 
 function sleep(ms: number)
 {
@@ -149,47 +29,6 @@ function sleep(ms: number)
     {
         setTimeout(resolve, ms);
     });
-}
-
-function getExtension(filePath: string): string
-{
-    const lowerPath = filePath.toLowerCase();
-
-    if (lowerPath.endsWith('dockerfile') || lowerPath.includes('/dockerfile'))
-    {
-        return '.dockerfile';
-    }
-
-    const index = lowerPath.lastIndexOf('.');
-    return index >= 0 ? lowerPath.slice(index) : '';
-}
-
-function isDependencyFilePath(filePath: string)
-{
-    const lowerPath = filePath.toLowerCase();
-    const baseName = lowerPath.split('/').pop() ?? lowerPath;
-
-    return dependencyFileNames.has(baseName)
-        || /^(requirements(?:[._-].*)?\.txt|constraints(?:[._-].*)?\.txt)$/.test(baseName)
-        || lowerPath.includes('/dependency-locks/');
-}
-
-function shouldScanTreeItem(item: GithubTreeItem): boolean
-{
-    if (item.type !== 'blob')
-    {
-        return false;
-    }
-
-    const isDependencyFile = isDependencyFilePath(item.path);
-    const sizeLimit = isDependencyFile ? maxDependencyFileSizeBytes : maxFileSizeBytes;
-
-    if (item.size !== undefined && item.size > sizeLimit)
-    {
-        return false;
-    }
-
-    return isDependencyFile || textFileExtensions.has(getExtension(item.path));
 }
 
 function decodeBlobContent(content: string, encoding: string): string
@@ -488,7 +327,7 @@ async function fetchScannableFilesForBranch(repository: Repository, accessToken:
 {
     const tree = await fetchRepositoryTree(accessToken, repository.fullName, branch.commit.sha || branch.name);
     const treeItems = tree.tree
-        .filter(shouldScanTreeItem)
+        .filter((item) => item.type === 'blob' && isScannableFilePath(item.path, item.size))
         .sort((left, right) => Number(isDependencyFilePath(right.path)) - Number(isDependencyFilePath(left.path)))
         .slice(0, Math.min(env.scanMaxFilesPerBranch, remainingFiles));
     const files: RepositoryFile[] = [];
@@ -717,6 +556,186 @@ async function scanRepositoryBranches(repository: Repository): Promise<ScannerFi
     throw new Error('Only GitHub repositories are supported');
 }
 
+async function completeScanWithFindings(
+    scan: Scan,
+    repository: Repository,
+    scannerFindings: ScannerFinding[],
+    options: { publishGithubCheck?: boolean; sendSummaryEmail?: boolean; branchScope?: string | null } = {}
+)
+{
+    const dedupedFindings = Array.from(
+        new Map(scannerFindings.map((finding) => [finding.fingerprint, finding])).values()
+    );
+    const currentFingerprints = dedupedFindings.map((finding) => finding.fingerprint);
+    const findingScope =
+    {
+        repositoryId: repository.id,
+        ...(options.branchScope ? { branch: options.branchScope } : {})
+    };
+    const existingFindings = currentFingerprints.length > 0
+        ? await Finding.findAll(
+            {
+                where:
+                {
+                    ...findingScope,
+                    fingerprint: { [Op.in]: currentFingerprints }
+                }
+            }
+        )
+        : [];
+    const existingByFingerprint = new Map(existingFindings.map((finding) => [finding.fingerprint, finding]));
+    const alertFindings = dedupedFindings.filter(function (finding)
+    {
+        const existing = existingByFingerprint.get(finding.fingerprint);
+        return !existing || existing.status !== 'open';
+    });
+    const counts =
+    {
+        critical: 0,
+        high: 0,
+        medium: 0,
+        low: 0
+    };
+
+    if (currentFingerprints.length > 0)
+    {
+        await Finding.update(
+            {
+                lastSeenAt: new Date(),
+                status: 'open',
+                resolvedAt: null
+            },
+            {
+                where:
+                {
+                    ...findingScope,
+                    fingerprint: { [Op.in]: currentFingerprints }
+                }
+            }
+        );
+
+        await Finding.update(
+            {
+                status: 'resolved',
+                resolvedAt: new Date()
+            },
+            {
+                where:
+                {
+                    ...findingScope,
+                    status: 'open',
+                    fingerprint: { [Op.notIn]: currentFingerprints }
+                }
+            }
+        );
+    }
+    else
+    {
+        await Finding.update(
+            {
+                status: 'resolved',
+                resolvedAt: new Date()
+            },
+            {
+                where:
+                {
+                    ...findingScope,
+                    status: 'open'
+                }
+            }
+        );
+    }
+
+    for (const finding of dedupedFindings)
+    {
+        counts[finding.severity] += 1;
+    }
+
+    await Finding.bulkCreate(
+        dedupedFindings
+            .filter((finding) => !existingByFingerprint.has(finding.fingerprint))
+            .map(function (finding)
+            {
+                return {
+                    scanId: scan.id,
+                    repositoryId: repository.id,
+                    ruleId: finding.ruleId,
+                    severity: finding.severity,
+                    title: finding.title,
+                    description: finding.description,
+                    remediation: finding.remediation,
+                    branch: findingBranch(finding),
+                    filePath: finding.filePath,
+                    lineNumber: finding.lineNumber,
+                    fingerprint: finding.fingerprint,
+                    status: 'open',
+                    firstSeenAt: new Date(),
+                    lastSeenAt: new Date(),
+                    metadata: finding.metadata ?? null
+                };
+            })
+    );
+
+    const currentFindings = currentFingerprints.length > 0
+        ? await Finding.findAll(
+            { where: { ...findingScope, fingerprint: { [Op.in]: currentFingerprints } } }
+        )
+        : [];
+
+    if (currentFindings.length > 0)
+    {
+        await FindingOccurrence.bulkCreate(
+            currentFindings.map(function (finding)
+            {
+                return {
+                    scanId: scan.id,
+                    findingId: finding.id,
+                    repositoryId: repository.id,
+                    branch: finding.branch,
+                    severity: finding.severity,
+                    ruleId: finding.ruleId,
+                    title: finding.title,
+                    description: finding.description,
+                    remediation: finding.remediation,
+                    filePath: finding.filePath,
+                    lineNumber: finding.lineNumber
+                };
+            }),
+            { ignoreDuplicates: true }
+        );
+    }
+
+    await scan.update(
+        {
+            status: 'completed',
+            findingsCritical: counts.critical,
+            findingsHigh: counts.high,
+            findingsMedium: counts.medium,
+            findingsLow: counts.low,
+            completedAt: new Date()
+        }
+    );
+
+    await refreshRepositorySecurityScore(repository.id);
+    await repository.reload();
+
+    if (options.publishGithubCheck !== false)
+    {
+        await publishGithubCheckRun(repository, scan, dedupedFindings, counts);
+    }
+
+    await queueSecurityAlert(scan.tenantId, repository.fullName, alertFindings)
+        .catch((error) => console.warn('Security alert could not be queued:', error));
+
+    if (options.sendSummaryEmail !== false)
+    {
+        await queueScanSummaryEmail(scan, repository)
+            .catch((error) => console.warn('Scan summary could not be queued:', error));
+    }
+
+    return { scan, findings: dedupedFindings, alertFindings, counts };
+}
+
 async function processScan(scan: Scan)
 {
     if (scan.status !== 'running')
@@ -740,164 +759,7 @@ async function processScan(scan: Scan)
         }
 
         const scannerFindings = await scanRepositoryBranches(repository);
-        const dedupedFindings = Array.from(
-            new Map(scannerFindings.map((finding) => [finding.fingerprint, finding])).values()
-        );
-        const currentFingerprints = dedupedFindings.map((finding) => finding.fingerprint);
-        const existingOpenFindings = currentFingerprints.length > 0
-            ? await Finding.findAll(
-                {
-                    where:
-                    {
-                        repositoryId: repository.id,
-                        status: 'open',
-                        fingerprint:
-                        {
-                            [Op.in]: currentFingerprints
-                        }
-                    }
-                }
-            )
-            : [];
-        const existingOpenFingerprints = new Set(existingOpenFindings.map((finding) => finding.fingerprint));
-        const counts =
-        {
-            critical: 0,
-            high: 0,
-            medium: 0,
-            low: 0
-        };
-
-        if (currentFingerprints.length > 0)
-        {
-            await Finding.update(
-                {
-                    lastSeenAt: new Date(),
-                    status: 'open',
-                    resolvedAt: null
-                },
-                {
-                    where:
-                    {
-                        repositoryId: repository.id,
-                        fingerprint:
-                        {
-                            [Op.in]: currentFingerprints
-                        }
-                    }
-                }
-            );
-
-            await Finding.update(
-                {
-                    status: 'resolved',
-                    resolvedAt: new Date()
-                },
-                {
-                    where:
-                    {
-                        repositoryId: repository.id,
-                        status: 'open',
-                        fingerprint:
-                        {
-                            [Op.notIn]: currentFingerprints
-                        }
-                    }
-                }
-            );
-        }
-        else
-        {
-            await Finding.update(
-                {
-                    status: 'resolved',
-                    resolvedAt: new Date()
-                },
-                {
-                    where:
-                    {
-                        repositoryId: repository.id,
-                        status: 'open'
-                    }
-                }
-            );
-        }
-
-        for (const finding of dedupedFindings)
-        {
-            counts[finding.severity] += 1;
-        }
-
-        await Finding.bulkCreate(
-            dedupedFindings
-                .filter((finding) => !existingOpenFingerprints.has(finding.fingerprint))
-                .map(function (finding)
-                {
-                    return {
-                        scanId: scan.id,
-                        repositoryId: repository.id,
-                        ruleId: finding.ruleId,
-                        severity: finding.severity,
-                        title: finding.title,
-                        description: finding.description,
-                        remediation: finding.remediation,
-                        branch: findingBranch(finding),
-                        filePath: finding.filePath,
-                        lineNumber: finding.lineNumber,
-                        fingerprint: finding.fingerprint,
-                        status: 'open',
-                        firstSeenAt: new Date(),
-                        lastSeenAt: new Date(),
-                        metadata: finding.metadata ?? null
-                    };
-                })
-        );
-
-        const currentFindings = currentFingerprints.length > 0
-            ? await Finding.findAll(
-                { where: { repositoryId: repository.id, fingerprint: { [Op.in]: currentFingerprints } } }
-            )
-            : [];
-
-        if (currentFindings.length > 0)
-        {
-            await FindingOccurrence.bulkCreate(
-                currentFindings.map(function (finding)
-                {
-                    return {
-                        scanId: scan.id,
-                        findingId: finding.id,
-                        repositoryId: repository.id,
-                        branch: finding.branch,
-                        severity: finding.severity,
-                        ruleId: finding.ruleId,
-                        title: finding.title,
-                        description: finding.description,
-                        remediation: finding.remediation,
-                        filePath: finding.filePath,
-                        lineNumber: finding.lineNumber
-                    };
-                }),
-                { ignoreDuplicates: true }
-            );
-        }
-
-        await scan.update(
-            {
-                status: 'completed',
-                findingsCritical: counts.critical,
-                findingsHigh: counts.high,
-                findingsMedium: counts.medium,
-                findingsLow: counts.low,
-                completedAt: new Date()
-            }
-        );
-
-        await refreshRepositorySecurityScore(repository.id);
-        await repository.reload();
-        await publishGithubCheckRun(repository, scan, dedupedFindings, counts);
-        await queueSecurityAlert(scan.tenantId, repository.fullName, dedupedFindings);
-        await queueScanSummaryEmail(scan, repository);
+        await completeScanWithFindings(scan, repository, scannerFindings);
 
         return scan;
     }
@@ -974,6 +836,7 @@ export {
     enqueueRepositoryScan,
     enqueueAllActiveRepositories,
     enqueueDueScheduledScans,
+    completeScanWithFindings,
     processScan,
     runScanWorkerOnce,
     runScanWorkerLoop
