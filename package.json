@@ -1,9 +1,18 @@
 {
   "name": "@securerepos/cli",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Local-first GitHub repository security scanning for SecureRepos",
   "license": "ISC",
   "type": "commonjs",
+  "homepage": "https://github.com/merchant862/secure-repos/tree/cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/merchant862/secure-repos.git",
+    "directory": "."
+  },
+  "bugs": {
+    "url": "https://github.com/merchant862/secure-repos/issues"
+  },
   "bin": {
     "securerepos": "dist/src/index.js"
   },
