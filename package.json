@@ -1,0 +1,44 @@
+{
+  "name": "@securerepos/cli",
+  "version": "0.1.0",
+  "description": "Local-first GitHub repository security scanning for SecureRepos",
+  "license": "ISC",
+  "type": "commonjs",
+  "bin": {
+    "securerepos": "dist/src/cli/index.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "os": [
+    "darwin",
+    "linux",
+    "win32"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "prepack": "npm run build"
+  },
+  "dependencies": {
+    "@iarna/toml": "^2.2.5",
+    "fast-xml-parser": "^5.9.3",
+    "yaml": "^2.9.0"
+  },
+  "keywords": [
+    "security",
+    "github",
+    "scanner",
+    "secrets",
+    "dependencies",
+    "cve",
+    "cli"
+  ]
+}

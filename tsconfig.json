@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "outDir": "./dist",
+    "rootDir": "../..",
+    "moduleResolution": "node",
+    "esModuleInterop": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": [
+    "../../src/cli/**/*.ts",
+    "../../src/app/services/scan-rules.service.ts",
+    "../../src/app/services/dependency-inventory.service.ts",
+    "../../src/app/services/scanner-file-policy.service.ts"
+  ],
+  "exclude": [
+    "../../node_modules",
+    "./dist"
+  ]
+}
