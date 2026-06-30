@@ -6,6 +6,10 @@ import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import { createProviderState } from '../../services/provider-state.service';
 import { assertProviderAvailableForPlan } from '../../services/provider-setting.service';
 import { getTenantPlan } from '../../services/plan-limit.service';
+import { env } from '../../../bootstrap/env';
+
+const githubInstallStateCookie = 'securerepos_github_install_state';
+const githubInstallStateMaxAgeMs = 10 * 60 * 1000;
 
 function isGithubProvider(value: string)
 {
@@ -55,6 +59,14 @@ async function getProviderConnectUrlController(req: AuthenticatedRequest, res: R
             provider
         }
     );
+    res.cookie(githubInstallStateCookie, state,
+        {
+            httpOnly: true,
+            sameSite: 'lax',
+            secure: env.nodeEnv === 'production',
+            maxAge: githubInstallStateMaxAgeMs,
+            path: '/github/install'
+        });
 
     return res.json(
         {
