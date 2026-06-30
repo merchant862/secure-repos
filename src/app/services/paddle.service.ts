@@ -631,6 +631,8 @@ async function resolvePricingPlanId(pricingPlanId: number | null | undefined, pl
 
 function mapPaddleStatus(eventType: string, dataStatus: string | null)
 {
+    const normalizedStatus = dataStatus || '';
+
     if (eventType === 'transaction.payment_failed')
     {
         return 'past_due';
@@ -656,19 +658,22 @@ function mapPaddleStatus(eventType: string, dataStatus: string | null)
         return 'cancelled';
     }
 
-    if (['active', 'trialing'].includes(dataStatus || ''))
+    if (['active', 'trialing'].includes(normalizedStatus))
     {
         return 'active';
     }
 
-    if (['past_due', 'paused'].includes(dataStatus || ''))
+    if (['past_due', 'paused'].includes(normalizedStatus))
     {
-        return dataStatus || 'past_due';
+        return normalizedStatus;
     }
 
-    return ['transaction.completed', 'subscription.created', 'subscription.activated', 'subscription.updated'].includes(eventType)
-        ? 'active'
-        : 'pending';
+    if (eventType === 'transaction.completed')
+    {
+        return ['completed', 'paid', 'billed'].includes(normalizedStatus) ? 'active' : 'pending';
+    }
+
+    return 'pending';
 }
 
 async function applyPaddleWebhook(payload: PaddleWebhookPayload)
@@ -822,6 +827,11 @@ async function syncPaddleCheckoutCompletion(tenantId: number, clientPayload: Pad
     if (!subscription || subscription.tenantId !== tenantId)
     {
         throw new Error('Paddle checkout could not be matched to this workspace');
+    }
+
+    if (!['active', 'trialing'].includes(subscription.status))
+    {
+        throw new Error('Paddle checkout has not created an active subscription yet');
     }
 
     return subscription;

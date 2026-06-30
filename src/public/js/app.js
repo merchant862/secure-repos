@@ -706,18 +706,32 @@
             return;
         }
 
+        function isPaddleCompletionEvent(event) {
+            const eventName = String(event?.name || event?.type || event?.eventName || '').toLowerCase().replace(/_/g, '.');
+            return [
+                'checkout.completed',
+                'transaction.completed',
+                'subscription.created',
+                'subscription.activated'
+            ].includes(eventName);
+        }
+
         let hasSyncedCheckout = false;
         const syncPaddleCheckout = async function (event) {
-            const eventName = String(event?.name || event?.type || event?.eventName || '');
-            if (hasSyncedCheckout || !/(checkout|transaction|subscription).*(completed|created|updated)|completed/i.test(eventName)) {
+            if (hasSyncedCheckout || !isPaddleCompletionEvent(event)) {
                 return;
             }
 
             hasSyncedCheckout = true;
 
             try {
-                await apiFetch('/api/user/billing/paddle-sync', { method: 'POST', body: JSON.stringify(event || {}) });
-                window.location.assign(config.successUrl || '/onboarding?checkout=success');
+                const payload = await apiFetch('/api/user/billing/paddle-sync', { method: 'POST', body: JSON.stringify(event || {}) });
+                const status = String(payload.data?.subscription?.status || '').toLowerCase();
+                if (['active', 'trialing'].includes(status)) {
+                    window.location.assign(config.successUrl || '/onboarding?checkout=success');
+                } else {
+                    throw new Error('Paddle checkout has not created an active subscription yet.');
+                }
             } catch (error) {
                 hasSyncedCheckout = false;
                 console.warn('Paddle checkout sync failed:', error.message || error);
