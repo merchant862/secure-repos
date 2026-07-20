@@ -1,6 +1,6 @@
 {
   "name": "@securerepos/cli",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Local-first GitHub repository security scanning for SecureRepos",
   "license": "ISC",
   "type": "commonjs",

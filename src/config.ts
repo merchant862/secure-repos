@@ -4,7 +4,6 @@ import path from 'path';
 
 type CliConfig =
 {
-    apiUrl: string;
     token: string;
 };
 
@@ -23,37 +22,19 @@ function configPath()
     return path.join(configDirectory(), 'config.json');
 }
 
-function normalizeApiUrl(value: string)
-{
-    const url = new URL(value);
-
-    if (!['https:', 'http:'].includes(url.protocol))
-    {
-        throw new Error('API URL must use HTTP or HTTPS');
-    }
-
-    if (url.protocol !== 'https:' && !['localhost', '127.0.0.1'].includes(url.hostname))
-    {
-        throw new Error('HTTPS is required for non-local API URLs');
-    }
-
-    return url.origin;
-}
-
 async function readCliConfig(): Promise<CliConfig | null>
 {
     try
     {
         const value = JSON.parse(await fs.readFile(configPath(), 'utf8')) as Partial<CliConfig>;
 
-        if (!value.token || !value.apiUrl)
+        if (!value.token)
         {
             return null;
         }
 
         return {
-            token: value.token,
-            apiUrl: normalizeApiUrl(value.apiUrl)
+            token: value.token
         };
     }
     catch (error)
@@ -68,7 +49,7 @@ async function writeCliConfig(config: CliConfig)
     await fs.mkdir(directory, { recursive: true, mode: 0o700 });
     await fs.writeFile(
         configPath(),
-        `${JSON.stringify({ ...config, apiUrl: normalizeApiUrl(config.apiUrl) }, null, 2)}\n`,
+        `${JSON.stringify(config, null, 2)}\n`,
         { encoding: 'utf8', mode: 0o600 }
     );
     await fs.chmod(configPath(), 0o600).catch(() => undefined);
@@ -79,13 +60,10 @@ async function deleteCliConfig()
     await fs.rm(configPath(), { force: true });
 }
 
-async function resolveCliConfig(overrides: { token?: string; apiUrl?: string } = {})
+async function resolveCliConfig(overrides: { token?: string } = {})
 {
     const saved = await readCliConfig();
     const token = overrides.token || process.env.SECUREREPOS_TOKEN || saved?.token;
-    const apiUrl = normalizeApiUrl(
-        overrides.apiUrl || process.env.SECUREREPOS_API_URL || saved?.apiUrl || 'https://securerepos.com'
-    );
 
     if (!token)
     {
@@ -97,12 +75,11 @@ async function resolveCliConfig(overrides: { token?: string; apiUrl?: string } =
         throw new Error('The CLI token format is invalid');
     }
 
-    return { token, apiUrl };
+    return { token };
 }
 
 export {
     deleteCliConfig,
-    normalizeApiUrl,
     readCliConfig,
     resolveCliConfig,
     writeCliConfig

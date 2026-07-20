@@ -112,7 +112,7 @@ function printHelp()
     console.log(`SecureRepos CLI ${version}
 
 Usage:
-  securerepos login [--api-url <url>]
+  securerepos login
   securerepos logout
   securerepos repos [--json]
   securerepos scan [--path <directory>] [--repository <owner/name>]
@@ -120,8 +120,7 @@ Usage:
                    [--fail-on critical|high|medium|low|none] [--json]
 
 Environment:
-  SECUREREPOS_TOKEN
-  SECUREREPOS_API_URL`);
+  SECUREREPOS_TOKEN`);
 }
 
 function severityRank(severity: string)
@@ -155,14 +154,13 @@ function printFindings(findings: Array<Record<string, unknown>>, counts: Record<
 async function commandLogin(flags: Record<string, string | boolean>)
 {
     const token = flagString(flags, 'token') || process.env.SECUREREPOS_TOKEN || await promptForToken();
-    const apiUrl = flagString(flags, 'api-url') || process.env.SECUREREPOS_API_URL || 'https://securerepos.com';
 
     if (!token)
     {
         throw new Error('Pass --token or set SECUREREPOS_TOKEN');
     }
 
-    const config = await resolveCliConfig({ token, apiUrl });
+    const config = await resolveCliConfig({ token });
     const payload = await cliApiRequest<{ data: { user: { email: string }; token: { expiresAt: string } } }>(config, '/api/cli/v1/me');
     await writeCliConfig(config);
     console.log(`Authenticated as ${payload.data.user.email}`);
@@ -173,8 +171,7 @@ async function commandRepos(flags: Record<string, string | boolean>)
 {
     const config = await resolveCliConfig(
         {
-            token: flagString(flags, 'token'),
-            apiUrl: flagString(flags, 'api-url')
+            token: flagString(flags, 'token')
         }
     );
     const payload = await cliApiRequest<{ data: CliRepository[] }>(config, '/api/cli/v1/repositories');
@@ -201,8 +198,7 @@ async function commandScan(flags: Record<string, string | boolean>)
 {
     const config = await resolveCliConfig(
         {
-            token: flagString(flags, 'token'),
-            apiUrl: flagString(flags, 'api-url')
+            token: flagString(flags, 'token')
         }
     );
     const directory = path.resolve(flagString(flags, 'path') || process.cwd());

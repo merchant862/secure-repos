@@ -1,8 +1,9 @@
 type ApiConfig =
 {
-    apiUrl: string;
     token: string;
 };
+
+const apiUrl = 'https://securerepos.com';
 
 async function cliApiRequest<T>(
     config: ApiConfig,
@@ -11,7 +12,7 @@ async function cliApiRequest<T>(
 ): Promise<T>
 {
     const response = await fetch(
-        `${config.apiUrl}${pathName}`,
+        `${apiUrl}${pathName}`,
         {
             method: options.method || 'GET',
             headers:
