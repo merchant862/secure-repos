@@ -2,7 +2,7 @@ import * as TOML from '@iarna/toml';
 import { XMLParser } from 'fast-xml-parser';
 import { parse as parseYaml } from 'yaml';
 
-import { RepositoryFile } from './scan-rules.service';
+import { RepositoryFile } from './scan-rules.service.js';
 
 type DependencyPackage =
 {

@@ -4,6 +4,7 @@ type ApiConfig =
 };
 
 const apiUrl = 'https://securerepos.com';
+const userAgent = 'SecureRepos-MCP/0.1.0';
 
 async function cliApiRequest<T>(
     config: ApiConfig,
@@ -20,7 +21,7 @@ async function cliApiRequest<T>(
                 Accept: 'application/json',
                 Authorization: `Bearer ${config.token}`,
                 'Content-Type': 'application/json',
-                'User-Agent': 'SecureRepos-CLI/0.1.0'
+                'User-Agent': userAgent
             },
             ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
             signal: AbortSignal.timeout(options.timeoutMs ?? 30_000)
@@ -37,5 +38,6 @@ async function cliApiRequest<T>(
 }
 
 export {
+    ApiConfig,
     cliApiRequest
 };

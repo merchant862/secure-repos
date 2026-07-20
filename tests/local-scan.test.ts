@@ -4,8 +4,8 @@ import path from 'path';
 
 import { afterEach } from 'vitest';
 
-import { githubFullNameFromRemote } from '../src/git';
-import { scanLocalTrackedFiles } from '../src/local-scan';
+import { githubFullNameFromRemote } from '../src/git.js';
+import { scanLocalTrackedFiles } from '../src/local-scan.js';
 
 const temporaryDirectories: string[] = [];
 

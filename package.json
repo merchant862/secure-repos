@@ -1,10 +1,10 @@
 {
-  "name": "@securerepos/cli",
-  "version": "0.1.2",
-  "description": "Local-first GitHub repository security scanning for SecureRepos",
+  "name": "@securerepos/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for SecureRepos repository security workflows",
   "license": "ISC",
-  "type": "commonjs",
-  "homepage": "https://github.com/merchant862/secure-repos/tree/cli#readme",
+  "type": "module",
+  "homepage": "https://github.com/merchant862/secure-repos/tree/agents-mcp#readme",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/merchant862/secure-repos.git",
@@ -14,7 +14,7 @@
     "url": "https://github.com/merchant862/secure-repos/issues"
   },
   "bin": {
-    "securerepos": "dist/src/index.js"
+    "securerepos-mcp": "dist/src/index.js"
   },
   "files": [
     "dist",
@@ -36,13 +36,15 @@
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "build": "npm run clean && tsc -p tsconfig.json",
     "test": "vitest run",
-    "prepublishOnly": "npm test",
+    "prepublishOnly": "npm test && npm run build",
     "prepack": "npm run build"
   },
   "dependencies": {
     "@iarna/toml": "^2.2.5",
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "fast-xml-parser": "^5.9.3",
-    "yaml": "^2.9.0"
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@types/node": "^25.3.5",
@@ -56,6 +58,8 @@
     "secrets",
     "dependencies",
     "cve",
-    "cli"
+    "mcp",
+    "model-context-protocol",
+    "ai-agents"
   ]
 }

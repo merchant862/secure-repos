@@ -1,6 +1,8 @@
-# SecureRepos CLI
+# SecureRepos MCP
 
-Run SecureRepos security checks against the tracked files in an approved GitHub repository. Source code stays on the local machine; only redacted findings, dependency coordinates, branch metadata, and scan statistics are sent to SecureRepos.
+SecureRepos MCP lets local AI coding agents inspect approved GitHub repositories through SecureRepos. It can list the account's approved repositories and run the same local-first repository scan used by SecureRepos CLI.
+
+Source code stays on the user's machine. The server syncs scan metadata, redacted findings, dependency coordinates, branch metadata, and scan statistics to SecureRepos.
 
 ## Requirements
 
@@ -8,45 +10,71 @@ Run SecureRepos security checks against the tracked files in an approved GitHub 
 - Git
 - An active SecureRepos subscription
 - A connected and approved GitHub repository
-- A CLI token generated from SecureRepos Settings
+- A SecureRepos API token generated from Settings
 
 ## Install
 
 ```bash
-npm install --global @securerepos/cli
+npm install --global @securerepos/mcp
 ```
 
-## Authenticate
+Or run it through `npx` from your MCP client config.
 
-Generate a short-lived token in SecureRepos Settings, then run:
+## MCP Client Config
 
-```bash
-securerepos login
+```json
+{
+  "mcpServers": {
+    "securerepos": {
+      "command": "npx",
+      "args": ["@securerepos/mcp"],
+      "env": {
+        "SECUREREPOS_API_KEY": "srp_cli_your_token_here"
+      }
+    }
+  }
+}
 ```
 
-Paste the token into the hidden prompt. For CI, use `SECUREREPOS_TOKEN` directly instead of saving a local config file.
+For global installs, use:
 
-## Scan
-
-```bash
-cd /path/to/approved-repository
-securerepos scan
+```json
+{
+  "mcpServers": {
+    "securerepos": {
+      "command": "securerepos-mcp",
+      "env": {
+        "SECUREREPOS_API_KEY": "srp_cli_your_token_here"
+      }
+    }
+  }
+}
 ```
 
-Useful options:
+## Tools
 
-```bash
-securerepos scan --low-resource
-securerepos scan --fail-on critical
-securerepos scan --json
+- `get_identity` - shows the SecureRepos account, workspace, token expiry, and token scopes.
+- `list_repositories` - lists GitHub repositories approved in SecureRepos.
+- `scan_current_repository` - scans Git-tracked files in the current local repository and syncs the result to SecureRepos.
+
+`scan_current_repository` accepts:
+
+```json
+{
+  "path": "/path/to/repo",
+  "repository": "owner/name",
+  "lowResource": true,
+  "maxFiles": 750
+}
 ```
 
-The default CI exit threshold is `high`. Use `--fail-on none` when findings should not fail the command.
+`path` and `repository` are optional. If `repository` is provided, it must match the repository's GitHub origin remote.
 
 ## Security
 
 - Tokens expire after no more than 30 days.
-- Only one active CLI token is allowed per account.
+- Only one active API token is allowed per account.
 - Tokens cannot access account, billing, password, or settings APIs.
+- Only approved GitHub repositories can be scanned.
 - Only Git-tracked text and dependency files are scanned.
 - Raw source files and detected secret values are never uploaded.

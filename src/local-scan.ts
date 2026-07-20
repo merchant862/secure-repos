@@ -1,9 +1,9 @@
 import fs from 'fs/promises';
 import path from 'path';
 
-import { extractDependencies } from './core/dependency-inventory.service';
-import { isScannableFilePath, normalizeScannerPath, scannerFileSizeLimit } from './core/scanner-file-policy.service';
-import { RepositoryFile, ScannerFinding, scanFiles } from './core/scan-rules.service';
+import { extractDependencies } from './core/dependency-inventory.service.js';
+import { isScannableFilePath, normalizeScannerPath, scannerFileSizeLimit } from './core/scanner-file-policy.service.js';
+import { RepositoryFile, ScannerFinding, scanFiles } from './core/scan-rules.service.js';
 
 const maxFindings = 500;
 const maxDependencies = 3000;
