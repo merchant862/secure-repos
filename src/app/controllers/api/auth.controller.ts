@@ -1,11 +1,9 @@
 import { Request, Response } from 'express';
 
-import { changeUserPassword, createLoginOtpChallenge, createPasswordResetRequest, loginUser, registerOwner, resetPasswordWithToken, revokeSession, verifyLoginOtpChallenge } from '../../services/auth.service';
+import { changeUserPassword, createEmailVerificationRequest, createLoginOtpChallenge, createPasswordResetRequest, registerOwner, resetPasswordWithToken, revokeSession, verifyEmailWithToken, verifyLoginOtpChallenge } from '../../services/auth.service';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
-import { User } from '../../../db/models';
-import { createCheckoutToken, verifyCheckoutToken } from '../../services/paddle.service';
-import { queueCheckoutLinkEmail } from '../../services/notification.service';
-import { env } from '../../../bootstrap/env';
+import { CodeHostConnection, TenantSubscription, User } from '../../../db/models';
+import { verifyCheckoutToken } from '../../services/paddle.service';
 import { recordAuditLog } from '../../services/audit.service';
 
 const authCookieName = process.env.AUTH_COOKIE_NAME && process.env.AUTH_COOKIE_NAME.trim() !== ''
@@ -93,22 +91,13 @@ async function signupController(req: Request, res: Response)
         }
 
         const user = await registerOwner(name, email, password, planSlug);
-        const session = await loginUser(email, password, req.ip, req.header('user-agent') ?? undefined);
-        const selectedCheckoutToken = createCheckoutToken(planSlug);
-        const checkoutUrl = `${env.appUrl.replace(/\/$/, '')}/checkout?t=${encodeURIComponent(selectedCheckoutToken)}`;
-        const planName = String(planSlug).split('-').map((part) => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
-
-        await queueCheckoutLinkEmail(user, checkoutUrl, planName);
-
-        setAuthCookie(res, session.token);
-
         return res.status(201).json(
             {
-                message: 'Account created. Check your email for the checkout link.',
+                message: 'Account created. Check your email to verify your address.',
                 data:
                 {
                     user: serializeUser(user),
-                    checkoutLinkSent: true
+                    verificationRequired: true
                 }
             }
         );
@@ -146,8 +135,45 @@ async function loginController(req: Request, res: Response)
     }
     catch (error)
     {
-        return res.status(401).json({ message: 'Invalid email or password' });
+        const message = error instanceof Error ? error.message : '';
+        return res.status(message === 'Verify your email before signing in' ? 403 : 401).json(
+            { message: message === 'Verify your email before signing in' ? message : 'Invalid email or password' }
+        );
     }
+}
+
+async function verifyEmailController(req: Request, res: Response)
+{
+    const token = Array.isArray(req.query.token) ? req.query.token[0] : req.query.token;
+
+    if (typeof token !== 'string' || token.trim() === '')
+    {
+        return res.redirect('/sign-in?verification=invalid');
+    }
+
+    try
+    {
+        await verifyEmailWithToken(token);
+        return res.redirect('/sign-in?verification=success');
+    }
+    catch (error)
+    {
+        return res.redirect('/sign-in?verification=invalid');
+    }
+}
+
+async function resendEmailVerificationController(req: Request, res: Response)
+{
+    const email = typeof req.body?.email === 'string' ? req.body.email : '';
+
+    if (!email)
+    {
+        return res.status(400).json({ message: 'email is required' });
+    }
+
+    await createEmailVerificationRequest(email);
+
+    return res.json({ message: 'If the account is awaiting verification, a new link has been sent.' });
 }
 
 async function loginOtpController(req: Request, res: Response)
@@ -162,6 +188,18 @@ async function loginOtpController(req: Request, res: Response)
         }
 
         const session = await verifyLoginOtpChallenge(challengeId, otpCode, req.ip, req.header('user-agent') ?? undefined);
+        const user = await User.findByPk(session.session.userId);
+        const [subscription, githubConnection] = user
+            ? await Promise.all(
+                [
+                    TenantSubscription.findOne({ where: { tenantId: user.tenantId } }),
+                    CodeHostConnection.findOne({ where: { tenantId: user.tenantId, provider: 'github', isActive: true } })
+                ]
+            )
+            : [null, null];
+        const onboardingRequired = !subscription
+            || !['active', 'trialing'].includes(subscription.status)
+            || !githubConnection;
 
         setAuthCookie(res, session.token);
 
@@ -170,7 +208,8 @@ async function loginOtpController(req: Request, res: Response)
                 message: 'Logged in',
                 data:
                 {
-                    expiresAt: session.session.expiresAt
+                    expiresAt: session.session.expiresAt,
+                    redirectTo: onboardingRequired ? '/onboarding' : '/dashboard'
                 }
             }
         );
@@ -299,6 +338,8 @@ async function logoutController(req: Request, res: Response)
 
 export {
     signupController,
+    verifyEmailController,
+    resendEmailVerificationController,
     loginController,
     loginOtpController,
     passwordResetRequestController,

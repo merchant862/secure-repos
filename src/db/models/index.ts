@@ -22,6 +22,7 @@ import { ProviderOauthState, initProviderOauthStateModel } from './provider-oaut
 import { FindingOccurrence, initFindingOccurrenceModel } from './finding-occurrence.model';
 import { PasswordResetToken, initPasswordResetTokenModel } from './password-reset-token.model';
 import { CliAccessToken, initCliAccessTokenModel } from './cli-access-token.model';
+import { EmailVerificationToken, initEmailVerificationTokenModel } from './email-verification-token.model';
 
 function initModels(sequelize: Sequelize)
 {
@@ -47,6 +48,7 @@ function initModels(sequelize: Sequelize)
     initFindingOccurrenceModel(sequelize);
     initPasswordResetTokenModel(sequelize);
     initCliAccessTokenModel(sequelize);
+    initEmailVerificationTokenModel(sequelize);
 
     Tenant.hasMany(User, {
         foreignKey: 'tenantId',
@@ -84,6 +86,16 @@ function initModels(sequelize: Sequelize)
     });
 
     PasswordResetToken.belongsTo(User, {
+        foreignKey: 'userId',
+        as: 'user'
+    });
+
+    User.hasMany(EmailVerificationToken, {
+        foreignKey: 'userId',
+        as: 'emailVerificationTokens'
+    });
+
+    EmailVerificationToken.belongsTo(User, {
         foreignKey: 'userId',
         as: 'user'
     });
@@ -303,5 +315,6 @@ export
     FindingOccurrence,
     PasswordResetToken,
     CliAccessToken,
+    EmailVerificationToken,
     initModels
 };

@@ -102,6 +102,18 @@ ${button('Open workspace', `${getAppUrl()}/dashboard`)}`
     );
 }
 
+function renderEmailVerification(payload: EmailTemplatePayload)
+{
+    return baseTemplate(
+        'Verify your SecureRepos email',
+        'Verify your email address to activate your SecureRepos account.',
+        `<h1 style="margin:0 0 12px;color:#ffffff;font-size:28px;line-height:1.15">Verify your email</h1>
+<p style="margin:0 0 20px;color:#d0d5dd;line-height:1.65">Hi ${escapeHtml(payload.name || 'there')}, confirm this email address before signing in and starting setup.</p>
+${button('Verify email address', String(payload.verificationUrl || `${getAppUrl()}/sign-in`))}
+<p style="margin:18px 0 0;color:#98a2b3;font-size:13px">This single-use link expires in ${escapeHtml(payload.expiresHours || 24)} hours. If you did not create this account, ignore this email.</p>`
+    );
+}
+
 function renderCheckoutLink(payload: EmailTemplatePayload)
 {
     return baseTemplate(
@@ -218,6 +230,7 @@ function renderEmailTemplate(type: string, payload: EmailTemplatePayload)
     const templates: Record<string, (payload: EmailTemplatePayload) => string> =
     {
         login_otp: renderLoginOtp,
+        email_verification: renderEmailVerification,
         welcome_owner: renderWelcomeOwner,
         checkout_link: renderCheckoutLink,
         security_alert: renderSecurityAlert,

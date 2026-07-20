@@ -3,9 +3,9 @@ import { promisify } from 'util';
 
 import { Op } from 'sequelize';
 
-import { LoginOtp, NotificationEvent, PasswordResetToken, PricingPlan, Tenant, TenantSubscription, User, UserSession } from '../../db/models';
+import { EmailVerificationToken, LoginOtp, NotificationEvent, PasswordResetToken, PricingPlan, Tenant, TenantSubscription, User, UserSession } from '../../db/models';
 import { sequelize } from '../../db/sequelize';
-import { queueWelcomeOwnerEmail } from './notification.service';
+import { queueEmailVerificationEmail, queueWelcomeOwnerEmail } from './notification.service';
 import { env } from '../../bootstrap/env';
 
 const scrypt = promisify(crypto.scrypt);
@@ -14,6 +14,8 @@ const loginOtpMinutes = 10;
 const loginOtpMaxAttempts = 5;
 const loginOtpResendCooldownMs = 60 * 1000;
 const passwordResetMinutes = 30;
+const emailVerificationHours = 24;
+const emailVerificationResendCooldownMs = 60 * 1000;
 
 function normalizeEmail(email: string): string
 {
@@ -145,7 +147,88 @@ async function registerOwner(name: string, email: string, password: string, plan
         return createdUser;
     });
 
-    await queueWelcomeOwnerEmail(user);
+    await createEmailVerificationRequest(user);
+
+    return user;
+}
+
+async function createEmailVerificationRequest(userOrEmail: User | string)
+{
+    const user = typeof userOrEmail === 'string'
+        ? await User.findOne({ where: { email: normalizeEmail(userOrEmail), status: 'active' } })
+        : userOrEmail;
+
+    if (!user || user.emailVerifiedAt)
+    {
+        return null;
+    }
+
+    const recentToken = await EmailVerificationToken.findOne(
+        {
+            where: { userId: user.id, usedAt: null },
+            order: [['createdAt', 'DESC']]
+        }
+    );
+
+    if (recentToken && recentToken.createdAt.getTime() > Date.now() - emailVerificationResendCooldownMs)
+    {
+        return { expiresAt: recentToken.expiresAt };
+    }
+
+    await EmailVerificationToken.update({ usedAt: new Date() }, { where: { userId: user.id, usedAt: null } });
+    const token = crypto.randomBytes(32).toString('base64url');
+    const expiresAt = new Date(Date.now() + emailVerificationHours * 60 * 60 * 1000);
+    await EmailVerificationToken.create(
+        {
+            userId: user.id,
+            tokenHash: hashToken(token),
+            expiresAt
+        }
+    );
+
+    const verificationUrl = `${env.appUrl.replace(/\/$/, '')}/verify-email?token=${encodeURIComponent(token)}`;
+    await queueEmailVerificationEmail(user, verificationUrl, emailVerificationHours);
+
+    return { expiresAt };
+}
+
+async function verifyEmailWithToken(token: string)
+{
+    const verificationToken = await EmailVerificationToken.findOne(
+        {
+            where:
+            {
+                tokenHash: hashToken(token),
+                usedAt: null,
+                expiresAt: { [Op.gt]: new Date() }
+            },
+            include: [{ model: User, as: 'user' }]
+        }
+    );
+
+    if (!verificationToken)
+    {
+        throw new Error('Invalid or expired verification link');
+    }
+
+    const user = verificationToken.get('user') as User | undefined ?? await User.findByPk(verificationToken.userId);
+
+    if (!user || user.status !== 'active')
+    {
+        throw new Error('Invalid or expired verification link');
+    }
+
+    const verifiedAt = new Date();
+    await sequelize.transaction(async function (transaction)
+    {
+        await user.update({ emailVerifiedAt: verifiedAt }, { transaction });
+        await EmailVerificationToken.update(
+            { usedAt: verifiedAt },
+            { where: { userId: user.id, usedAt: null }, transaction }
+        );
+    });
+    await queueWelcomeOwnerEmail(user)
+        .catch((error) => console.warn('Welcome email could not be queued:', error));
 
     return user;
 }
@@ -157,6 +240,11 @@ async function validateLoginCredentials(email: string, password: string)
     if (!user || !(await verifyPassword(password, user.password ?? null)))
     {
         throw new Error('Invalid email or password');
+    }
+
+    if (user.emailVerifiedAt === null)
+    {
+        throw new Error('Verify your email before signing in');
     }
 
     return user;
@@ -492,5 +580,7 @@ export {
     verifyLoginOtpChallenge,
     createPasswordResetRequest,
     resetPasswordWithToken,
-    changeUserPassword
+    changeUserPassword,
+    createEmailVerificationRequest,
+    verifyEmailWithToken
 };

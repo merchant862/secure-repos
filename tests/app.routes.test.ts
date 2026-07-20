@@ -236,6 +236,15 @@ describe('Application routes', function ()
         expect(resetResponse.text).toContain('New password');
     });
 
+    it('should render the email verification pending page', async function ()
+    {
+        const response = await request(app).get('/verify-email/pending');
+
+        expect(response.status).toBe(200);
+        expect(response.text).toContain('Verify your email');
+        expect(response.text).toContain('/api/auth/email-verification/resend');
+    });
+
     it('should redirect github install callback with installation_id back to onboarding', async function ()
     {
         const response = await request(app)

@@ -1,21 +1,10 @@
 import { afterEach, vi } from 'vitest';
 
-const planMocks = vi.hoisted(() => (
-    {
-        getTenantPlan: vi.fn()
-    }
-));
 const notificationMocks = vi.hoisted(() => (
     {
         createTenantNotification: vi.fn()
     }
 ));
-
-vi.mock('../src/app/services/plan-limit.service', async function (importOriginal)
-{
-    const actual = await importOriginal<typeof import('../src/app/services/plan-limit.service')>();
-    return { ...actual, getTenantPlan: planMocks.getTenantPlan };
-});
 
 vi.mock('../src/app/services/in-app-notification.service', async function (importOriginal)
 {
@@ -41,24 +30,13 @@ const highFinding =
 afterEach(function ()
 {
     vi.restoreAllMocks();
-    planMocks.getTenantPlan.mockReset();
     notificationMocks.createTenantNotification.mockReset();
 });
 
 describe('CLI-compatible security email policy', function ()
 {
-    it('does not email high findings on the starter plan', async function ()
+    it('queues high finding email alerts for the single package', async function ()
     {
-        planMocks.getTenantPlan.mockResolvedValue({ slug: 'solo-starter' });
-        const emailCreate = vi.spyOn(NotificationEvent, 'create');
-
-        await expect(queueSecurityAlert(3, 'owner/repo', [highFinding])).resolves.toBeNull();
-        expect(emailCreate).not.toHaveBeenCalled();
-    });
-
-    it('queues high finding email alerts on the pro plan', async function ()
-    {
-        planMocks.getTenantPlan.mockResolvedValue({ slug: 'solo-pro' });
         notificationMocks.createTenantNotification.mockResolvedValue({});
         vi.spyOn(User, 'findOne').mockResolvedValue({ email: 'owner@example.com' } as never);
         const emailCreate = vi.spyOn(NotificationEvent, 'create').mockResolvedValue({} as never);

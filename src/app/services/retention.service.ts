@@ -18,7 +18,7 @@ let lastCleanupAt = 0;
 
 function historyDaysForPlan(plan: PricingPlan)
 {
-    return plan.slug === 'solo-pro' ? 90 : 30;
+    return Number(plan.findingHistoryDays ?? 90);
 }
 
 async function runRetentionCleanup(force = false)

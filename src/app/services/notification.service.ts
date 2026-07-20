@@ -1,7 +1,6 @@
 import { Finding, NotificationEvent, Repository, Scan, User } from '../../db/models';
 import { ScannerFinding } from './scan-rules.service';
 import { createTenantNotification } from './in-app-notification.service';
-import { getTenantPlan } from './plan-limit.service';
 
 async function getTenantEmailRecipients(tenantId: number): Promise<string[]>
 {
@@ -50,10 +49,8 @@ async function queueSecurityAlert(
     findings: ScannerFinding[]
 )
 {
-    const plan = await getTenantPlan(tenantId);
-    const allowHigh = plan?.slug === 'solo-pro';
     const severeFindings = findings.filter((finding) =>
-        finding.severity === 'critical' || (finding.severity === 'high' && allowHigh));
+        finding.severity === 'critical' || finding.severity === 'high');
 
     if (severeFindings.length === 0)
     {
@@ -115,6 +112,25 @@ async function queueWelcomeOwnerEmail(user: User)
             {
                 name: user.name,
                 email: user.email
+            }
+        }
+    );
+}
+
+async function queueEmailVerificationEmail(user: User, verificationUrl: string, expiresHours: number)
+{
+    return queueEmailEvent(
+        {
+            tenantId: user.tenantId,
+            type: 'email_verification',
+            subject: 'Verify your SecureRepos email',
+            recipients: [user.email],
+            payload:
+            {
+                name: user.name,
+                email: user.email,
+                verificationUrl,
+                expiresHours
             }
         }
     );
@@ -255,6 +271,7 @@ export {
     queueEmailEvent,
     queueSecurityAlert,
     queueWelcomeOwnerEmail,
+    queueEmailVerificationEmail,
     queueCheckoutLinkEmail,
     queueScanSummaryEmail,
     queueScanFailedEmail,

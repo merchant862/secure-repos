@@ -23,6 +23,7 @@ import {
     sitemapXmlController,
     signInPageController,
     resetPasswordPageController,
+    emailVerificationPendingPageController,
     signUpPageController,
 } from './controllers/web/page.controller';
 import {
@@ -39,7 +40,9 @@ import {
     meController,
     passwordResetConfirmController,
     passwordResetRequestController,
-    signupController
+    resendEmailVerificationController,
+    signupController,
+    verifyEmailController
 } from './controllers/api/auth.controller';
 import {
     enqueueUserRepositoryScanController,
@@ -68,10 +71,8 @@ import {
 } from './middlewares/user-auth.middleware';
 import {
     cancelUserSubscriptionController,
-    changeUserPlanController,
     createUserPaymentMethodUpdateController,
     getUserBillingController,
-    getUserPlanChangeOptionsController,
     syncUserPaddleCheckoutController
 } from './controllers/api/billing.controller';
 import { submitContactController } from './controllers/api/contact.controller';
@@ -128,9 +129,12 @@ router.get('/sign-in', guestPageMiddleware, signInPageController);
 router.get('/sign-up', guestPageMiddleware, signUpPageController);
 router.get('/forgot-password', guestPageMiddleware, forgotPasswordPageController);
 router.get('/reset-password', guestPageMiddleware, resetPasswordPageController);
+router.get('/verify-email/pending', guestPageMiddleware, emailVerificationPendingPageController);
+router.get('/verify-email', guestPageMiddleware, verifyEmailController);
 router.get('/github/install/callback', githubInstallCallbackController);
 router.get('/github/install/return', githubInstallCallbackController);
 router.post('/api/auth/signup', authRateLimit, signupController);
+router.post('/api/auth/email-verification/resend', authRateLimit, resendEmailVerificationController);
 router.post('/api/auth/login', authRateLimit, loginController);
 router.post('/api/auth/login/otp', otpRateLimit, loginOtpController);
 router.post('/api/auth/password-reset/request', authRateLimit, passwordResetRequestController);
@@ -167,8 +171,6 @@ router.post('/api/user/cli-tokens', requireOwner, cliTokenCreateRateLimit, creat
 router.delete('/api/user/cli-tokens/:tokenId', requireOwner, revokeUserCliAccessTokenController);
 router.get('/api/user/security-trend', getSecurityTrendController);
 router.get('/api/user/billing', getUserBillingController);
-router.get('/api/user/billing/plan-change-options', getUserPlanChangeOptionsController);
-router.post('/api/user/billing/change-plan', changeUserPlanController);
 router.post('/api/user/billing/paddle-sync', syncUserPaddleCheckoutController);
 router.post('/api/user/billing/payment-method/update-link', paymentMethodUpdateRateLimit, createUserPaymentMethodUpdateController);
 router.post('/api/user/billing/cancel', cancelUserSubscriptionController);

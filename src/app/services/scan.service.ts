@@ -1,6 +1,6 @@
 import { Op } from 'sequelize';
 
-import { Finding, FindingOccurrence, GithubInstallation, Repository, Scan } from '../../db/models';
+import { Finding, FindingOccurrence, GithubInstallation, Repository, Scan, TenantSubscription } from '../../db/models';
 import crypto from 'crypto';
 import { env } from '../../bootstrap/env';
 
@@ -22,6 +22,7 @@ import { scanDependencyVulnerabilities } from './osv.service';
 import { getTenantPlan } from './plan-limit.service';
 import { sequelize } from '../../db/sequelize';
 import { isDependencyFilePath, isScannableFilePath } from './scanner-file-policy.service';
+import { runDockerScanner } from './docker-scanner.service';
 
 function sleep(ms: number)
 {
@@ -41,7 +42,7 @@ function decodeBlobContent(content: string, encoding: string): string
     return Buffer.from(content.replace(/\n/g, ''), 'base64').toString('utf8');
 }
 
-async function enqueueRepositoryScan(repositoryId: number, triggerType: string)
+async function enqueueRepositoryScan(repositoryId: number, triggerType: string, scanMode?: 'preview' | 'full')
 {
     return sequelize.transaction(async function (transaction)
     {
@@ -61,6 +62,39 @@ async function enqueueRepositoryScan(repositoryId: number, triggerType: string)
     {
         return null;
     }
+
+    const subscription = await TenantSubscription.findOne({ where: { tenantId }, transaction });
+
+    if (!subscription || !['active', 'trialing'].includes(subscription.status))
+    {
+        return null;
+    }
+
+    if (subscription.status === 'trialing' && triggerType !== 'manual_user')
+    {
+        return null;
+    }
+
+    if (subscription.status === 'trialing')
+    {
+        const existingPreviewScanCount = await Scan.count(
+            {
+                where:
+                {
+                    tenantId,
+                    status: { [Op.in]: ['queued', 'running', 'retry', 'completed'] }
+                },
+                transaction
+            }
+        );
+
+        if (existingPreviewScanCount >= 1)
+        {
+            throw new Error('Your Security Preview includes one scan. Full scanning unlocks when the paid subscription starts.');
+        }
+    }
+
+    const effectiveScanMode = scanMode ?? (subscription.status === 'trialing' ? 'preview' : 'full');
 
     if (triggerType === 'push')
     {
@@ -95,7 +129,12 @@ async function enqueueRepositoryScan(repositoryId: number, triggerType: string)
             repositoryId: repository.id,
             status: 'queued',
             triggerType,
-            branch: repository.defaultBranch
+            branch: repository.defaultBranch,
+            metadata:
+            {
+                mode: effectiveScanMode,
+                limited: effectiveScanMode === 'preview'
+            } as object
         },
         { transaction }
     );
@@ -123,6 +162,8 @@ async function enqueueDueScheduledScans(now = new Date())
 
         const plan = await getTenantPlan(installation.tenantId);
         if (!plan) continue;
+        const subscription = await TenantSubscription.findOne({ where: { tenantId: installation.tenantId } });
+        if (subscription?.status !== 'active') continue;
 
         const latestCompleted = await Scan.findOne(
             { where: { repositoryId: repository.id, status: 'completed' }, order: [['completedAt', 'DESC']] }
@@ -166,6 +207,29 @@ async function enqueueAllActiveRepositories(triggerType: string)
         {
             scans.push(scan);
         }
+    }
+
+    return scans;
+}
+
+async function enqueueTenantRepositories(tenantId: number, triggerType: string)
+{
+    const installations = await GithubInstallation.findAll({ where: { tenantId }, attributes: ['id'] });
+    const repositories = await Repository.findAll(
+        {
+            where:
+            {
+                githubInstallationId: installations.map((installation) => installation.id),
+                isActive: true
+            }
+        }
+    );
+    const scans: Scan[] = [];
+
+    for (const repository of repositories)
+    {
+        const scan = await enqueueRepositoryScan(repository.id, triggerType, 'full');
+        if (scan) scans.push(scan);
     }
 
     return scans;
@@ -359,12 +423,7 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
 
     const accessToken = await createInstallationAccessToken(githubInstallation.githubInstallationId);
     const branches = normalizeBranches(repository, await fetchRepositoryBranches(accessToken, repository.fullName));
-    const [dependabotAlerts, secretScanningAlerts] = await Promise.all(
-        [
-            fetchOpenDependabotAlerts(accessToken, repository.fullName),
-            fetchOpenSecretScanningAlerts(accessToken, repository.fullName)
-        ]
-    );
+    const [dependabotAlerts, secretScanningAlerts] = await fetchNativeGithubAlerts(repository, accessToken);
     const findings: ScannerFinding[] = [];
     const dependencyInventories: Array<{
         branch: string;
@@ -420,6 +479,91 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
     findings.push(...secretScanningAlerts.map((alert) => mapSecretScanningAlert(repository, alert)));
 
     return dedupeNativeDependencyAlerts(findings);
+}
+
+async function fetchNativeGithubAlerts(repository: Repository, accessToken: string)
+{
+    return Promise.all(
+        [
+            fetchOpenDependabotAlerts(accessToken, repository.fullName),
+            fetchOpenSecretScanningAlerts(accessToken, repository.fullName)
+        ]
+    );
+}
+
+async function scanGithubRepositoryWithDocker(repository: Repository): Promise<{ findings: ScannerFinding[]; scannerSummary: object }>
+{
+    const githubInstallation = repository.githubInstallationId
+        ? await GithubInstallation.findByPk(repository.githubInstallationId)
+        : null;
+
+    if (!githubInstallation)
+    {
+        throw new Error('GitHub installation not found for repository');
+    }
+
+    const accessToken = await createInstallationAccessToken(githubInstallation.githubInstallationId);
+    const [dependabotAlerts, secretScanningAlerts] = await fetchNativeGithubAlerts(repository, accessToken);
+    const dockerResult = await runDockerScanner(repository);
+
+    return {
+        findings: dedupeNativeDependencyAlerts(
+            [
+                ...dockerResult.findings,
+                ...dependabotAlerts.map((alert) => mapDependabotAlert(repository, alert)),
+                ...secretScanningAlerts.map((alert) => mapSecretScanningAlert(repository, alert))
+            ]
+        ),
+        scannerSummary: dockerResult.summary
+    };
+}
+
+function previewFinding(finding: ScannerFinding): ScannerFinding
+{
+    return {
+        ...finding,
+        description: 'A sample issue was detected during the limited Security Preview.',
+        remediation: 'Detailed evidence and remediation unlock when the paid subscription starts.',
+        filePath: 'Details locked in Security Preview',
+        lineNumber: null,
+        fingerprint: crypto.createHash('sha256').update(`preview:${finding.fingerprint}`).digest('hex'),
+        metadata:
+        {
+            preview: true
+        }
+    };
+}
+
+async function scanGithubRepositoryPreview(repository: Repository): Promise<ScannerFinding[]>
+{
+    const githubInstallation = repository.githubInstallationId
+        ? await GithubInstallation.findByPk(repository.githubInstallationId)
+        : null;
+
+    if (!githubInstallation)
+    {
+        throw new Error('GitHub installation not found for repository');
+    }
+
+    const accessToken = await createInstallationAccessToken(githubInstallation.githubInstallationId);
+    const branch = repository.defaultBranch || 'main';
+    const tree = await fetchRepositoryTree(accessToken, repository.fullName, branch);
+    const eligibleFiles = tree.tree
+        .filter((item) => item.type === 'blob' && isScannableFilePath(item.path, item.size))
+        .sort((left, right) => Number(isDependencyFilePath(right.path)) - Number(isDependencyFilePath(left.path)));
+    const previewFileCount = Math.min(25, Math.max(1, Math.ceil(eligibleFiles.length * 0.1)));
+    const files: RepositoryFile[] = [];
+
+    for (const item of eligibleFiles.slice(0, previewFileCount))
+    {
+        const blob = await fetchRepositoryBlob(accessToken, repository.fullName, item.sha);
+        files.push({ path: item.path, content: decodeBlobContent(blob.content, blob.encoding) });
+    }
+
+    return scanFiles(files)
+        .sort((left, right) => ['critical', 'high', 'medium', 'low'].indexOf(left.severity) - ['critical', 'high', 'medium', 'low'].indexOf(right.severity))
+        .slice(0, 3)
+        .map(previewFinding);
 }
 
 function dedupeNativeDependencyAlerts(findings: ScannerFinding[])
@@ -550,17 +694,40 @@ async function scanRepositoryBranches(repository: Repository): Promise<ScannerFi
 {
     if (repository.provider === 'github')
     {
+        if (env.dockerScannerEnabled)
+        {
+            const result = await scanGithubRepositoryWithDocker(repository);
+            return result.findings;
+        }
+
         return scanGithubRepositoryBranches(repository);
     }
 
     throw new Error('Only GitHub repositories are supported');
 }
 
+async function scanRepositoryFull(repository: Repository): Promise<{ findings: ScannerFinding[]; scannerSummary?: object }>
+{
+    if (repository.provider === 'github' && env.dockerScannerEnabled)
+    {
+        return scanGithubRepositoryWithDocker(repository);
+    }
+
+    return { findings: await scanRepositoryBranches(repository) };
+}
+
 async function completeScanWithFindings(
     scan: Scan,
     repository: Repository,
     scannerFindings: ScannerFinding[],
-    options: { publishGithubCheck?: boolean; sendSummaryEmail?: boolean; branchScope?: string | null } = {}
+    options: {
+        publishGithubCheck?: boolean;
+        sendSummaryEmail?: boolean;
+        sendSecurityAlerts?: boolean;
+        updateSecurityScore?: boolean;
+        resolveMissingFindings?: boolean;
+        branchScope?: string | null;
+    } = {}
 )
 {
     const dedupedFindings = Array.from(
@@ -614,22 +781,25 @@ async function completeScanWithFindings(
             }
         );
 
-        await Finding.update(
-            {
-                status: 'resolved',
-                resolvedAt: new Date()
-            },
-            {
-                where:
+        if (options.resolveMissingFindings !== false)
+        {
+            await Finding.update(
                 {
-                    ...findingScope,
-                    status: 'open',
-                    fingerprint: { [Op.notIn]: currentFingerprints }
+                    status: 'resolved',
+                    resolvedAt: new Date()
+                },
+                {
+                    where:
+                    {
+                        ...findingScope,
+                        status: 'open',
+                        fingerprint: { [Op.notIn]: currentFingerprints }
+                    }
                 }
-            }
-        );
+            );
+        }
     }
-    else
+    else if (options.resolveMissingFindings !== false)
     {
         await Finding.update(
             {
@@ -716,16 +886,22 @@ async function completeScanWithFindings(
         }
     );
 
-    await refreshRepositorySecurityScore(repository.id);
-    await repository.reload();
+    if (options.updateSecurityScore !== false)
+    {
+        await refreshRepositorySecurityScore(repository.id);
+        await repository.reload();
+    }
 
     if (options.publishGithubCheck !== false)
     {
         await publishGithubCheckRun(repository, scan, dedupedFindings, counts);
     }
 
-    await queueSecurityAlert(scan.tenantId, repository.fullName, alertFindings)
-        .catch((error) => console.warn('Security alert could not be queued:', error));
+    if (options.sendSecurityAlerts !== false)
+    {
+        await queueSecurityAlert(scan.tenantId, repository.fullName, alertFindings)
+            .catch((error) => console.warn('Security alert could not be queued:', error));
+    }
 
     if (options.sendSummaryEmail !== false)
     {
@@ -758,8 +934,33 @@ async function processScan(scan: Scan)
             throw new Error('Repository not found for scan');
         }
 
-        const scannerFindings = await scanRepositoryBranches(repository);
-        await completeScanWithFindings(scan, repository, scannerFindings);
+        const scanMetadata = scan.metadata as { mode?: unknown } | null;
+        const isPreview = scanMetadata?.mode === 'preview';
+        const scanResult = isPreview
+            ? { findings: await scanGithubRepositoryPreview(repository) }
+            : await scanRepositoryFull(repository);
+        if (scanResult.scannerSummary)
+        {
+            await scan.update(
+                {
+                    metadata:
+                    {
+                        ...((scan.metadata as object | null) ?? {}),
+                        scannerSummary: scanResult.scannerSummary
+                    } as object
+                }
+            );
+        }
+        await completeScanWithFindings(scan, repository, scanResult.findings,
+            isPreview
+                ? {
+                    publishGithubCheck: false,
+                    sendSummaryEmail: false,
+                    sendSecurityAlerts: false,
+                    updateSecurityScore: false,
+                    resolveMissingFindings: false
+                }
+                : {});
 
         return scan;
     }
@@ -767,6 +968,7 @@ async function processScan(scan: Scan)
     {
         const message = error instanceof Error ? error.message : 'Unknown scan error';
         const repository = await Repository.findByPk(scan.repositoryId);
+        const scanMetadata = scan.metadata as { mode?: unknown } | null;
 
         await scan.update(
             {
@@ -775,7 +977,10 @@ async function processScan(scan: Scan)
                 completedAt: new Date()
             }
         );
-        await queueScanFailedEmail(scan, repository, message);
+        if (scanMetadata?.mode !== 'preview')
+        {
+            await queueScanFailedEmail(scan, repository, message);
+        }
 
         throw error;
     }
@@ -815,7 +1020,7 @@ async function runScanWorkerOnce()
     return processScan(scan);
 }
 
-async function runScanWorkerLoop(pollMs: number)
+async function runScanWorkerLane(pollMs: number, lane: number)
 {
     while (true)
     {
@@ -825,16 +1030,25 @@ async function runScanWorkerLoop(pollMs: number)
         }
         catch (error)
         {
-            console.error('Scan worker error:', error);
+            console.error(`Scan worker lane ${lane} error:`, error);
         }
 
         await sleep(pollMs);
     }
 }
 
+async function runScanWorkerLoop(pollMs: number)
+{
+    const concurrency = Math.max(1, Math.floor(env.scanWorkerConcurrency));
+    await Promise.all(
+        Array.from({ length: concurrency }, (_, index) => runScanWorkerLane(pollMs, index + 1))
+    );
+}
+
 export {
     enqueueRepositoryScan,
     enqueueAllActiveRepositories,
+    enqueueTenantRepositories,
     enqueueDueScheduledScans,
     completeScanWithFindings,
     processScan,

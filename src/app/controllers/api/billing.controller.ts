@@ -2,7 +2,7 @@ import { Response } from 'express';
 
 import { PricingPlan, PricingPlanFeature, TenantSubscription } from '../../../db/models';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
-import { cancelTenantSubscription, changeTenantPlan, createTenantPaymentMethodUpdateLink, getTenantPlanChangeOptions } from '../../services/billing.service';
+import { cancelTenantSubscription, createTenantPaymentMethodUpdateLink } from '../../services/billing.service';
 import { createCheckoutToken, getPaddleCustomerPaymentMethodSummary, syncPaddleCheckoutCompletion, syncPaddleSubscriptionByCustomerEmail } from '../../services/paddle.service';
 
 async function getUserBillingController(req: AuthenticatedRequest, res: Response)
@@ -121,66 +121,6 @@ async function cancelUserSubscriptionController(req: AuthenticatedRequest, res: 
     }
 }
 
-async function getUserPlanChangeOptionsController(req: AuthenticatedRequest, res: Response)
-{
-    const user = req.currentUser;
-
-    if (!user)
-    {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    const options = await getTenantPlanChangeOptions(user.tenantId);
-
-    return res.json(
-        {
-            data: options
-        }
-    );
-}
-
-async function changeUserPlanController(req: AuthenticatedRequest, res: Response)
-{
-    const user = req.currentUser;
-
-    if (!user)
-    {
-        return res.status(401).json({ message: 'Unauthorized' });
-    }
-
-    if (user.role !== 'owner')
-    {
-        return res.status(403).json({ message: 'Only the workspace owner can change the subscription plan' });
-    }
-
-    try
-    {
-        const subscription = await changeTenantPlan(
-            {
-                tenantId: user.tenantId,
-                userId: user.id,
-                pricingPlanId: Number(req.body?.pricingPlanId),
-                repositoryIds: Array.isArray(req.body?.repositoryIds) ? req.body.repositoryIds.map(Number) : [],
-                ipAddress: req.ip
-            }
-        );
-
-        return res.json(
-            {
-                message: 'Plan change submitted',
-                data:
-                {
-                    subscription
-                }
-            }
-        );
-    }
-    catch (error)
-    {
-        return res.status(400).json({ message: error instanceof Error ? error.message : 'Plan change could not be submitted' });
-    }
-}
-
 async function createUserPaymentMethodUpdateController(req: AuthenticatedRequest, res: Response)
 {
     const user = req.currentUser;
@@ -253,7 +193,5 @@ export {
     getUserBillingController,
     cancelUserSubscriptionController,
     createUserPaymentMethodUpdateController,
-    getUserPlanChangeOptionsController,
-    changeUserPlanController,
     syncUserPaddleCheckoutController
 };

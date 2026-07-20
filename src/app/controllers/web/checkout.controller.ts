@@ -1,8 +1,9 @@
 import { Request, Response } from 'express';
 
 import { env } from '../../../bootstrap/env';
+import { PricingPlan } from '../../../db/models';
 import { AuthenticatedRequest, resolveUserFromRequest } from '../../middlewares/user-auth.middleware';
-import { getCheckoutConfig, verifyCheckoutToken } from '../../services/paddle.service';
+import { createCheckoutToken, getCheckoutConfig, verifyCheckoutToken } from '../../services/paddle.service';
 
 function privateSeo()
 {
@@ -20,7 +21,7 @@ async function checkoutPageController(req: AuthenticatedRequest, res: Response)
     await resolveUserFromRequest(req);
 
     const user = req.currentUser;
-    const checkoutToken = getCheckoutToken(req);
+    let checkoutToken = getCheckoutToken(req);
     let planSlug = '';
     let checkoutConfig = null;
     let checkoutError = '';
@@ -34,6 +35,20 @@ async function checkoutPageController(req: AuthenticatedRequest, res: Response)
         catch (error)
         {
             checkoutError = 'Invalid checkout link. Please choose a plan again.';
+        }
+    }
+    else
+    {
+        const plan = await PricingPlan.findOne({ where: { isActive: true }, order: [['sortOrder', 'ASC']] });
+
+        if (plan)
+        {
+            planSlug = plan.slug;
+            checkoutToken = createCheckoutToken(plan.slug);
+        }
+        else
+        {
+            checkoutError = 'The SecureRepos package is not available right now.';
         }
     }
 

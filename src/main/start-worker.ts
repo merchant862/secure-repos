@@ -8,7 +8,7 @@ async function start()
     {
         await connectDatabase();
 
-        console.log(`${env.appName} scan worker listening every ${env.scanWorkerPollMs}ms`);
+        console.log(`${env.appName} scan worker listening every ${env.scanWorkerPollMs}ms with concurrency ${env.scanWorkerConcurrency}`);
         await runScanWorkerLoop(env.scanWorkerPollMs);
     }
     catch (error)

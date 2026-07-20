@@ -18,6 +18,7 @@ type PricingPlanInput =
     manualScanDailyLimit?: number | null;
     manualScanCooldownMinutes?: number;
     scanSchedule?: string;
+    findingHistoryDays?: number;
     isHighlighted?: boolean;
     isActive?: boolean;
     sortOrder?: number;
@@ -108,9 +109,9 @@ async function assertActivePlanLimit(planId?: number)
     const activePlanIds = activePlans.map((plan) => Number(plan.id));
     const isAlreadyActive = planId ? activePlanIds.includes(planId) : false;
 
-    if (!isAlreadyActive && activePlanIds.length >= 2)
+    if (!isAlreadyActive && activePlanIds.length >= 1)
     {
-        throw new Error('Only 2 active pricing packages are allowed.');
+        throw new Error('Only one active pricing package is allowed.');
     }
 }
 
@@ -166,10 +167,11 @@ async function createPricingPlan(input: PricingPlanInput)
             manualScanDailyLimit: input.manualScanDailyLimit ?? null,
             manualScanCooldownMinutes: input.manualScanCooldownMinutes ?? 15,
             scanSchedule: input.scanSchedule ?? 'daily',
+            findingHistoryDays: input.findingHistoryDays ?? 90,
             isHighlighted: false,
             isActive: input.isActive ?? true,
             sortOrder: input.sortOrder ?? 0,
-            ctaLabel: input.ctaLabel ?? 'Choose plan'
+            ctaLabel: input.ctaLabel ?? 'Start Security Preview'
         }
     );
 
@@ -208,6 +210,7 @@ async function updatePricingPlan(planId: number, input: PricingPlanInput)
             manualScanDailyLimit: input.manualScanDailyLimit === undefined ? plan.manualScanDailyLimit : input.manualScanDailyLimit,
             manualScanCooldownMinutes: input.manualScanCooldownMinutes ?? plan.manualScanCooldownMinutes,
             scanSchedule: input.scanSchedule ?? plan.scanSchedule,
+            findingHistoryDays: input.findingHistoryDays ?? plan.findingHistoryDays,
             isActive: input.isActive ?? plan.isActive,
             sortOrder: input.sortOrder ?? plan.sortOrder,
             ctaLabel: input.ctaLabel ?? plan.ctaLabel

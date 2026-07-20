@@ -12,6 +12,7 @@ class PricingPlan extends Model<InferAttributes<PricingPlan>, InferCreationAttri
     declare manualScanDailyLimit: CreationOptional<number | null>;
     declare manualScanCooldownMinutes: CreationOptional<number>;
     declare scanSchedule: CreationOptional<string>;
+    declare findingHistoryDays: CreationOptional<number>;
     declare isHighlighted: CreationOptional<boolean>;
     declare isActive: CreationOptional<boolean>;
     declare sortOrder: CreationOptional<number>;
@@ -79,6 +80,12 @@ function initPricingPlanModel(sequelize: Sequelize)
                 allowNull: false,
                 defaultValue: 'daily'
             },
+            findingHistoryDays:
+            {
+                type: DataTypes.INTEGER.UNSIGNED,
+                allowNull: false,
+                defaultValue: 90
+            },
             isHighlighted:
             {
                 type: DataTypes.BOOLEAN,
@@ -101,7 +108,7 @@ function initPricingPlanModel(sequelize: Sequelize)
             {
                 type: DataTypes.STRING(100),
                 allowNull: false,
-                defaultValue: 'Choose plan'
+                defaultValue: 'Start Security Preview'
             },
             createdAt:
             {

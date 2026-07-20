@@ -102,7 +102,8 @@ async function upsertRepository(githubInstallation: GithubInstallation, reposito
 
 function isRepositoryLimitError(error: unknown)
 {
-    return error instanceof Error && error.message.startsWith('Repository limit reached');
+    return error instanceof Error
+        && (error.message.startsWith('Repository limit reached') || error.message === 'Security Preview is limited to one repository');
 }
 
 async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
@@ -131,6 +132,7 @@ async function syncGithubInstallationFromWebhook(payload: GithubWebhookPayload)
     {
         tenantId: tenant.id,
         githubInstallationId: installationId,
+        githubAccountId: payload.installation.account.id ? String(payload.installation.account.id) : existingInstallation.githubAccountId,
         githubAccountLogin: payload.installation.account.login,
         githubAccountType: payload.installation.account.type
     };
@@ -215,6 +217,7 @@ async function syncGithubInstallationForTenant(tenantId: number, installationId:
 {
     const installation = await fetchGithubInstallation(installationId);
     const tenant = await Tenant.findByPk(tenantId);
+    const githubAccountId = String(installation.account.id);
 
     if (!tenant)
     {
@@ -233,11 +236,30 @@ async function syncGithubInstallationForTenant(tenantId: number, installationId:
     {
         throw new Error('This GitHub installation is already connected to another account');
     }
+
+    const accountBinding = await GithubInstallation.findOne({ where: { githubAccountId } });
+    if (accountBinding && accountBinding.tenantId !== tenant.id)
+    {
+        throw new Error('This GitHub account is permanently connected to another SecureRepos account');
+    }
+
+    const tenantBinding = await GithubInstallation.findOne({ where: { tenantId: tenant.id } });
+    if (tenantBinding?.githubAccountId && tenantBinding.githubAccountId !== githubAccountId)
+    {
+        throw new Error('This SecureRepos account is permanently linked to a different GitHub account');
+    }
+    if (!tenantBinding?.githubAccountId && tenantBinding?.githubAccountLogin
+        && tenantBinding.githubAccountLogin.toLowerCase() !== installation.account.login.toLowerCase())
+    {
+        throw new Error('This SecureRepos account is permanently linked to a different GitHub account');
+    }
+
     const githubInstallation = existingInstallation
         ? await existingInstallation.update(
             {
                 tenantId: tenant.id,
                 githubInstallationId: installationId,
+                githubAccountId,
                 githubAccountLogin: installation.account.login,
                 githubAccountType: installation.account.type
             }
@@ -246,6 +268,7 @@ async function syncGithubInstallationForTenant(tenantId: number, installationId:
             {
                 tenantId: tenant.id,
                 githubInstallationId: installationId,
+                githubAccountId,
                 githubAccountLogin: installation.account.login,
                 githubAccountType: installation.account.type
             }

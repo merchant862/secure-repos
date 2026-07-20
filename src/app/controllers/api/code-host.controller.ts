@@ -38,7 +38,7 @@ async function getProviderConnectUrlController(req: AuthenticatedRequest, res: R
     try
     {
         const subscription = await TenantSubscription.findOne({ where: { tenantId: user.tenantId } });
-        if (!subscription || subscription.status !== 'active')
+        if (!subscription || !['active', 'trialing'].includes(subscription.status))
         {
             throw new Error('Complete checkout before connecting GitHub');
         }

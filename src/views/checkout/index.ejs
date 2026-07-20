@@ -9,13 +9,13 @@
             <a class="brand" href="/" style="padding:0;color:#fff"><%- include('../partials/brand-logo') %></a>
             <div>
                 <span class="badge brand">Secure checkout</span>
-                <h1>Activate your SecureRepos plan.</h1>
-                <p>Payment is processed by Paddle. SecureRepos receives the subscription status after checkout, then unlocks repository scanning for your workspace.</p>
+                <h1>Start your SecureRepos Security Preview.</h1>
+                <p>Confirm your payment method with Paddle. Your 7-day preview starts immediately and paid billing begins automatically when it ends unless you cancel.</p>
             </div>
             <div class="checkout-steps">
                 <article><span>1</span><strong>Account</strong><p>Your workspace is created first.</p></article>
-                <article><span>2</span><strong>Payment</strong><p>Paddle handles card collection and subscription billing.</p></article>
-                <article><span>3</span><strong>GitHub</strong><p>Install the GitHub App and select repositories.</p></article>
+                <article><span>2</span><strong>Payment method</strong><p>Paddle securely handles card collection and future billing.</p></article>
+                <article><span>3</span><strong>GitHub</strong><p>Permanently connect one GitHub account and choose one preview repository.</p></article>
             </div>
         </section>
         <section class="checkout-panel">
@@ -25,15 +25,6 @@
                     <h2>Payment setup needs attention</h2>
                     <p class="muted"><%= checkoutError %></p>
                     <a class="button" href="/checkout">Choose another plan</a>
-                </div>
-            <% } else if (!checkoutToken) { %>
-                <div class="card card-body">
-                    <span class="badge brand">Choose plan</span>
-                    <h2>Select a SecureRepos package</h2>
-                    <p class="muted">Pick the plan that matches the number of GitHub repositories you want to scan. Checkout will continue with a signed plan link.</p>
-                    <div class="grid grid-2 pricing-grid-centered" data-public-pricing data-pricing-target="<%= user ? 'billing' : 'signup' %>">
-                        <div class="empty-state">Loading current plans...</div>
-                    </div>
                 </div>
             <% } else if (!user) { %>
                 <div class="card card-body">
@@ -61,7 +52,7 @@
                                 <div class="empty-state">Loading secure checkout...</div>
                             </div>
                         </div>
-                        <p class="muted small">After Paddle confirms payment, SecureRepos will send you back to setup so you can connect GitHub.</p>
+                        <p class="muted small">The preview includes one repository and one limited scan with up to three sample findings. It is not a complete security assessment. Full access starts after the trial converts to the paid subscription.</p>
                     </div>
                 </div>
             <% } %>

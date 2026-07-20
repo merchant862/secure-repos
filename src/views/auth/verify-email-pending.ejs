@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %>
+</head>
+<body>
+    <main class="auth-shell">
+        <section class="auth-copy">
+            <a class="brand" href="/" style="padding:0;color:#fff"><%- include('../partials/brand-logo') %></a>
+            <div>
+                <span class="badge brand">Account verification</span>
+                <h1 style="font-size:42px;line-height:1.08;margin:18px 0 16px">Check your inbox before continuing.</h1>
+                <p style="color:#d0d5dd;max-width:560px">SecureRepos only activates accounts with a verified email address. The link is single-use and expires after 24 hours.</p>
+            </div>
+            <p style="color:#98a2b3;margin:0">After verification, sign in and complete the guided setup.</p>
+        </section>
+        <section class="auth-card">
+            <div class="auth-card-inner">
+                <span class="badge success">Account created</span>
+                <h1 style="margin:22px 0 8px">Verify your email</h1>
+                <p class="muted" style="margin:0 0 26px">Open the verification link we sent, then return to sign in. Check spam or promotions if it does not arrive.</p>
+                <form method="post" action="/api/auth/email-verification/resend" data-auth-flow="verification-resend">
+                    <div class="form-field">
+                        <label>Email</label>
+                        <input class="input" type="email" name="email" autocomplete="email" required data-verification-email>
+                    </div>
+                    <button class="button" type="submit" style="width:100%">Resend verification link</button>
+                    <p class="muted small" data-form-status style="margin:12px 0 0"></p>
+                </form>
+                <a class="button primary" href="/sign-in" style="width:100%;margin-top:14px">Go to sign in</a>
+            </div>
+        </section>
+    </main>
+    <script src="/public/js/app.js"></script>
+</body>
+</html>

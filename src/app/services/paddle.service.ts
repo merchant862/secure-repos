@@ -2,6 +2,7 @@ import crypto from 'crypto';
 import { Op } from 'sequelize';
 
 import { env } from '../../bootstrap/env';
+import { enqueueTenantRepositories } from './scan.service';
 import { PricingPlan, TenantSubscription, User } from '../../db/models';
 import { queueEmailEvent } from './notification.service';
 
@@ -181,27 +182,6 @@ async function cancelPaddleSubscription(subscriptionId: string, effectiveFrom: '
             body:
             {
                 effective_from: effectiveFrom
-            }
-        }
-    );
-}
-
-async function updatePaddleSubscriptionPlan(subscriptionId: string, priceId: string, billingMode: 'prorated_immediately' | 'prorated_next_billing_period')
-{
-    return paddleApiRequest(
-        `/subscriptions/${encodeURIComponent(subscriptionId)}`,
-        {
-            method: 'PATCH',
-            body:
-            {
-                items:
-                [
-                    {
-                        price_id: priceId,
-                        quantity: 1
-                    }
-                ],
-                proration_billing_mode: billingMode
             }
         }
     );
@@ -658,7 +638,12 @@ function mapPaddleStatus(eventType: string, dataStatus: string | null)
         return 'cancelled';
     }
 
-    if (['active', 'trialing'].includes(normalizedStatus))
+    if (normalizedStatus === 'trialing')
+    {
+        return 'trialing';
+    }
+
+    if (normalizedStatus === 'active')
     {
         return 'active';
     }
@@ -702,9 +687,29 @@ async function applyPaddleWebhook(payload: PaddleWebhookPayload)
         throw new Error('Paddle webhook could not be matched to a pricing plan');
     }
 
-    const status = mapPaddleStatus(eventType, getString(data.status));
     const billingPeriod = getObject(data.current_billing_period ?? data.currentBillingPeriod);
     const subscriptionId = getString(data.subscription_id) ?? getString(data.subscriptionId) ?? (eventType.startsWith('subscription.') ? getString(data.id) : null);
+    let paddleStatus = getString(data.status);
+    let fetchedSubscription: Record<string, unknown> = {};
+
+    if (eventType === 'transaction.completed' && subscriptionId)
+    {
+        try
+        {
+            fetchedSubscription = await fetchPaddleSubscription(subscriptionId);
+            paddleStatus = getString(fetchedSubscription.status) ?? null;
+        }
+        catch (error)
+        {
+            paddleStatus = null;
+        }
+    }
+
+    let status = mapPaddleStatus(eventType, paddleStatus);
+    if (eventType === 'transaction.completed' && !subscriptionId)
+    {
+        status = 'pending';
+    }
     const transactionId = eventType.startsWith('transaction.') ? getString(data.id) : getString(data.transaction_id ?? data.transactionId);
     const customerId = getString(data.customer_id) ?? getString(data.customerId);
     const eventId = getString(payload.event_id ?? payload.eventId ?? payload.id);
@@ -723,19 +728,33 @@ async function applyPaddleWebhook(payload: PaddleWebhookPayload)
         return existing;
     }
 
-    const wasActive = existing?.status === 'active';
+    if (status === 'pending' && existing && ['active', 'trialing'].includes(existing.status))
+    {
+        status = existing.status;
+    }
+
+    const previousStatus = existing?.status ?? 'pending';
+    const wasActive = previousStatus === 'active';
+    const trialEndsAt = status === 'trialing'
+        ? getDate(data.next_billed_at ?? data.nextBilledAt)
+            ?? getDate(fetchedSubscription.next_billed_at ?? fetchedSubscription.nextBilledAt)
+            ?? currentPeriodEndsAt
+            ?? existing?.trialEndsAt
+            ?? null
+        : null;
     const updatePayload =
     {
         pricingPlanId,
         pendingPricingPlanId: existing?.pendingPricingPlanId === pricingPlanId ? null : existing?.pendingPricingPlanId ?? null,
         pendingPlanChangeEffectiveAt: existing?.pendingPricingPlanId === pricingPlanId ? null : existing?.pendingPlanChangeEffectiveAt ?? null,
         status,
+        trialEndsAt,
         provider: 'paddle',
         providerCustomerId: customerId ?? existing?.providerCustomerId ?? null,
         providerSubscriptionId: subscriptionId ?? existing?.providerSubscriptionId ?? null,
         providerTransactionId: transactionId ?? existing?.providerTransactionId ?? null,
         providerPriceId: priceId ?? existing?.providerPriceId ?? null,
-        providerStatus: getString(data.status) ?? status,
+        providerStatus: paddleStatus ?? status,
         providerEventId: eventId ?? existing?.providerEventId ?? null,
         providerEventOccurredAt: eventOccurredAt,
         currentPeriodStartsAt: currentPeriodStartsAt ?? existing?.currentPeriodStartsAt ?? null,
@@ -763,6 +782,12 @@ async function applyPaddleWebhook(payload: PaddleWebhookPayload)
                 }
             }
         );
+    }
+
+    if (status === 'active' && previousStatus === 'trialing')
+    {
+        await enqueueTenantRepositories(target.tenantId, 'trial_converted')
+            .catch((error) => console.warn('Post-trial full scan could not be queued:', error));
     }
 
     if (status === 'past_due')
@@ -892,7 +917,6 @@ export {
     getPaddlePriceId,
     syncPaddleCheckoutCompletion,
     syncPaddleSubscriptionByCustomerEmail,
-    updatePaddleSubscriptionPlan,
     verifyCheckoutToken,
     verifyPaddleWebhookSignature
 };

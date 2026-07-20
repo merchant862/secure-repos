@@ -9,7 +9,7 @@ const defaultProviders =
         connectLabel: 'Connect GitHub',
         setupInstructions: 'Install the SecureRepos GitHub App and select no more repositories than your plan allows. If you grant access to additional repositories, SecureRepos fills the available plan slots in a stable order and keeps that selection locked until your subscription cycle changes.',
         scanDefaults: { triggerFirstScan: true },
-        planAvailability: { 'solo-starter': true, 'solo-pro': true },
+        planAvailability: { 'solo-starter': true },
         metadata: { authMode: 'github_app' }
     }
 ];

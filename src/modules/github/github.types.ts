@@ -25,6 +25,7 @@ type GithubWebhookHeaders =
 
 type GithubAccountPayload =
 {
+    id?: number;
     login: string;
     type: string;
 };
@@ -43,6 +44,7 @@ type GithubInstallationResponse =
     id: number;
     account:
     {
+        id: number;
         login: string;
         type: string;
     };

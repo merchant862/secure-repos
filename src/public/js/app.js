@@ -124,7 +124,6 @@
         const backToTopButton = event.target.closest('[data-back-to-top]');
         const cookieActionButton = event.target.closest('[data-cookie-action]');
         const passwordToggle = event.target.closest('[data-password-toggle]');
-        const billingChangePlanButton = event.target.closest('[data-billing-change-plan]');
         const billingPaymentMethodButton = event.target.closest('[data-billing-payment-method-update]');
         const cliTokenRevokeButton = event.target.closest('[data-cli-token-revoke]');
         const cliTokenCopyButton = event.target.closest('[data-cli-token-copy]');
@@ -240,10 +239,6 @@
                 input.type = isHidden ? 'text' : 'password';
                 passwordToggle.textContent = isHidden ? 'Hide' : 'Show';
             }
-        }
-
-        if (billingChangePlanButton) {
-            openPlanChangeModal(billingChangePlanButton);
         }
 
         if (billingPaymentMethodButton) {
@@ -448,15 +443,63 @@
                     return;
                 }
 
+                if (payload.data?.verificationRequired) {
+                    window.sessionStorage.setItem('securerepos_verification_email', String(body.email || ''));
+                    window.location.href = '/verify-email/pending';
+                    return;
+                }
+
                 setToken(payload.data && payload.data.token);
-                const signupTarget = payload.data?.checkoutLinkSent ? '/onboarding?signup=check-email' : '/onboarding';
-                window.location.href = getSafeNextPath() || (form.getAttribute('action') === '/api/auth/signup' ? signupTarget : '/dashboard');
+                window.location.href = getSafeNextPath() || '/dashboard';
             } catch (error) {
                 showFormStatus(form, error.message, true);
             } finally {
                 if (button) {
                     button.textContent = originalText;
                     button.disabled = false;
+                }
+            }
+        });
+    });
+
+    const authPageStatus = document.querySelector('[data-auth-page-status]');
+    if (authPageStatus) {
+        const verification = new URLSearchParams(window.location.search).get('verification');
+        if (verification === 'success') {
+            authPageStatus.textContent = 'Email verified. Sign in to continue setup.';
+            authPageStatus.style.color = 'var(--success)';
+        } else if (verification === 'invalid') {
+            authPageStatus.textContent = 'That verification link is invalid or expired. Request a new link.';
+            authPageStatus.style.color = 'var(--danger)';
+        }
+    }
+
+    const verificationEmailInput = document.querySelector('[data-verification-email]');
+    if (verificationEmailInput) {
+        verificationEmailInput.value = window.sessionStorage.getItem('securerepos_verification_email') || '';
+    }
+
+    document.querySelectorAll('[data-auth-flow="verification-resend"]').forEach(function (form) {
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+            const button = form.querySelector('button[type="submit"]');
+            const originalText = button?.textContent || '';
+
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Sending...';
+            }
+
+            try {
+                const body = Object.fromEntries(new FormData(form).entries());
+                const payload = await apiFetch(form.getAttribute('action'), { method: 'POST', body: JSON.stringify(body) });
+                showFormStatus(form, payload.message || 'Verification link sent.');
+            } catch (error) {
+                showFormStatus(form, error.message, true);
+            } finally {
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = originalText;
                 }
             }
         });
@@ -527,8 +570,8 @@
 
             try {
                 const body = Object.fromEntries(new FormData(form).entries());
-                await apiFetch('/api/auth/login/otp', { method: 'POST', body: JSON.stringify(body) });
-                window.location.href = getSafeNextPath() || '/dashboard';
+                const payload = await apiFetch('/api/auth/login/otp', { method: 'POST', body: JSON.stringify(body) });
+                window.location.href = getSafeNextPath() || payload.data?.redirectTo || '/dashboard';
             } catch (error) {
                 if (status) {
                     status.textContent = error.message || 'Invalid or expired login code';
@@ -800,7 +843,7 @@
                     <div class="metric-value">${escapeHtml(price)}<span class="plan-period">/mo</span></div>
                     <p class="muted small">${escapeHtml(plan.description || '')}</p>
                     <ul class="plan-list">${features.map((feature) => `<li>${escapeHtml(feature.label)}</li>`).join('')}</ul>
-                    <a class="${buttonClass}" href="${target}">${escapeHtml(plan.ctaLabel || `Choose ${plan.name}`)}</a>
+                    <a class="${buttonClass}" href="${target}">Start Security Preview</a>
                 </article>`;
             }).join('') || '<div class="empty-state">Plans are currently unavailable. Please contact support.</div>';
         } catch (error) {
@@ -933,6 +976,8 @@
         return {
             status,
             isActive: status === 'active',
+            isTrialing: status === 'trialing',
+            hasAccess: status === 'active' || status === 'trialing',
             isCancelled: status === 'cancelled',
             isPastDue: status === 'past_due',
             isPending: status === 'pending'
@@ -972,12 +1017,14 @@
         const paymentMethod = payload.data?.paymentMethod;
         const paymentMethodError = payload.data?.paymentMethodError;
         const state = subscriptionState(subscription);
-        const statusLabel = state.isActive ? 'Active' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Payment issue' : 'Pending';
-        const statusClass = state.isActive ? 'success' : state.isCancelled ? 'danger' : state.isPastDue ? 'warning' : 'brand';
-        const checkoutLabel = state.isActive ? 'Complete' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Needs attention' : plan ? 'Checkout needed' : 'Plan needed';
-        const checkoutClass = state.isActive ? 'success' : state.isCancelled ? 'danger' : state.isPastDue ? 'warning' : 'brand';
+        const statusLabel = state.isActive ? 'Active' : state.isTrialing ? 'Security Preview' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Payment issue' : 'Pending';
+        const statusClass = state.hasAccess ? 'success' : state.isCancelled ? 'danger' : state.isPastDue ? 'warning' : 'brand';
+        const checkoutLabel = state.hasAccess ? 'Complete' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Needs attention' : plan ? 'Checkout needed' : 'Plan needed';
+        const checkoutClass = state.hasAccess ? 'success' : state.isCancelled ? 'danger' : state.isPastDue ? 'warning' : 'brand';
         const planName = plan?.name || (subscription?.pricingPlanId ? `Plan #${subscription.pricingPlanId}` : 'No selected plan');
-        const periodEnd = subscription?.currentPeriodEndsAt ? `Renews/ends ${formatDate(subscription.currentPeriodEndsAt)}.` : '';
+        const periodEnd = state.isTrialing && subscription?.trialEndsAt
+            ? `Preview ends and paid billing starts ${formatDate(subscription.trialEndsAt)}.`
+            : subscription?.currentPeriodEndsAt ? `Renews/ends ${formatDate(subscription.currentPeriodEndsAt)}.` : '';
         const pendingCopy = pendingPlan ? `Scheduled change: ${pendingPlan.name} on ${subscription?.pendingPlanChangeEffectiveAt ? formatDate(subscription.pendingPlanChangeEffectiveAt) : 'the next billing period'}.` : '';
         const provider = subscription?.provider === 'paddle' ? 'Paddle' : 'Checkout provider';
         const setText = (selector, text) => {
@@ -995,12 +1042,14 @@
         badge.className = `badge ${statusClass}`;
         setBadge('[data-billing-checkout-badge]', checkoutLabel, checkoutClass);
         setText('[data-billing-toolbar-copy]', state.isActive
-            ? 'Your subscription is active. GitHub repository scanning is available for this workspace.'
+            ? 'Your subscription is active. Full GitHub repository scanning is available.'
+            : state.isTrialing
+                ? 'Your Security Preview includes one repository and one limited scan. Paid access starts automatically after the trial.'
             : state.isCancelled
-                ? 'This subscription is cancelled. Choose a plan again to reactivate scanning.'
+                ? 'This subscription is cancelled. Reactivate the package to resume scanning.'
                 : plan
                     ? `${plan.name} is selected. Complete checkout to activate repository scanning.`
-                    : 'Choose a plan and complete checkout to activate repository scanning for this workspace.');
+                    : 'The package is temporarily unavailable.');
         setText('[data-billing-plan-name]', planName);
         const planDetails = document.querySelector('[data-billing-plan-details]');
         if (planDetails) {
@@ -1008,20 +1057,20 @@
         }
         setText('[data-billing-provider-copy]', subscription?.providerSubscriptionId
             ? `${provider} subscription ${subscription.providerSubscriptionId} is linked to this workspace.`
-            : state.isActive
+            : state.hasAccess
                 ? 'Subscription is active. Provider details will appear when Paddle sends them.'
                 : plan
                     ? `Checkout is ready for ${plan.name}. Paddle will link payment details after confirmation.`
                     : 'Checkout will link the payment provider subscription to this workspace.');
         setBadge('[data-billing-step-plan-badge]', plan ? 'Done' : 'Next', plan ? 'success' : 'brand');
-        setText('[data-billing-step-plan]', plan ? `${plan.name} is selected for this workspace.` : 'Choose a package before checkout.');
-        setBadge('[data-billing-step-payment-badge]', state.isActive ? 'Done' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Issue' : 'Next', statusClass);
-        setText('[data-billing-step-payment]', state.isActive ? 'Payment is confirmed and access is active.' : state.isCancelled ? 'Future renewal has been cancelled.' : state.isPastDue ? 'Payment needs attention in Paddle.' : plan ? 'Complete Paddle checkout to activate scans.' : 'Choose a plan to unlock checkout.');
+        setText('[data-billing-step-plan]', plan ? `${plan.name} is selected for this workspace.` : 'The package is temporarily unavailable.');
+        setBadge('[data-billing-step-payment-badge]', state.hasAccess ? 'Done' : state.isCancelled ? 'Cancelled' : state.isPastDue ? 'Issue' : 'Next', statusClass);
+        setText('[data-billing-step-payment]', state.isActive ? 'Payment is confirmed and full access is active.' : state.isTrialing ? 'Payment method confirmed. Automatic billing starts when the trial ends.' : state.isCancelled ? 'Future renewal has been cancelled.' : state.isPastDue ? 'Payment needs attention in Paddle.' : plan ? 'Complete Paddle checkout to start the Security Preview.' : 'Choose a plan to unlock checkout.');
 
         const checkoutAction = document.querySelector('[data-billing-checkout-action]');
         if (checkoutAction) {
-            checkoutAction.textContent = state.isActive ? 'Open onboarding' : state.isCancelled ? 'Choose plan again' : plan ? 'Continue checkout' : 'Choose plan';
-            checkoutAction.href = state.isActive
+            checkoutAction.textContent = state.hasAccess ? 'Open onboarding' : state.isCancelled ? 'Reactivate package' : plan ? 'Continue checkout' : 'Package unavailable';
+            checkoutAction.href = state.hasAccess
                 ? '/onboarding'
                 : checkoutToken
                     ? `/checkout?t=${encodeURIComponent(checkoutToken)}`
@@ -1030,13 +1079,13 @@
 
         const cancelButton = document.querySelector('[data-billing-cancel-button]');
         if (cancelButton) {
-            cancelButton.disabled = !state.isActive || !subscription?.providerSubscriptionId;
+            cancelButton.disabled = !state.hasAccess || !subscription?.providerSubscriptionId;
             cancelButton.textContent = state.isCancelled ? 'Subscription cancelled' : 'Cancel subscription';
         }
         const paymentMethodButton = document.querySelector('[data-billing-payment-method-update]');
         const paymentMethodCopy = document.querySelector('[data-billing-payment-method-copy]');
         if (paymentMethodButton) {
-            paymentMethodButton.disabled = !['active', 'past_due'].includes(state.status) || subscription?.provider !== 'paddle' || !subscription?.providerSubscriptionId;
+            paymentMethodButton.disabled = !['active', 'trialing', 'past_due'].includes(state.status) || subscription?.provider !== 'paddle' || !subscription?.providerSubscriptionId;
         }
         if (paymentMethodCopy) {
             if (paymentMethod?.last4) {
@@ -1051,7 +1100,7 @@
                 paymentMethodCopy.textContent = 'Payment method details load after checkout is confirmed.';
             }
         }
-        setText('[data-billing-cancel-copy]', state.isActive
+        setText('[data-billing-cancel-copy]', state.hasAccess
             ? pendingPlan
                 ? 'A plan change is already scheduled. Another plan change is blocked until the next billing cycle.'
                 : 'Cancel future renewals from this page. Access remains subject to the current billing period and Paddle status.'
@@ -1081,162 +1130,6 @@
                 button.disabled = false;
                 button.textContent = originalText;
             }, 2200);
-        }
-    }
-
-    function closePlanChangeModal() {
-        document.querySelector('[data-plan-change-modal]')?.remove();
-    }
-
-    function planById(plans, id) {
-        return plans.find((plan) => Number(plan.id) === Number(id));
-    }
-
-    function activeRepositoryIds(repositories) {
-        return repositories.filter((repository) => repository.isActive).map((repository) => Number(repository.id));
-    }
-
-    function updatePlanChangeSummary(modal, options) {
-        const selectedPlanId = Number(modal.querySelector('input[name="pricingPlanId"]:checked')?.value);
-        const plan = planById(options.plans, selectedPlanId);
-        const selectedRepositoryIds = Array.from(modal.querySelectorAll('input[name="repositoryIds"]:checked')).map((input) => Number(input.value));
-        const limit = plan?.repositoryLimit ?? null;
-        const count = selectedRepositoryIds.length;
-        const summary = modal.querySelector('[data-plan-change-summary]');
-        const submit = modal.querySelector('[data-plan-change-submit]');
-
-        if (!summary || !submit) {
-            return;
-        }
-
-        if (!plan) {
-            summary.textContent = 'Choose a plan to continue.';
-            submit.disabled = true;
-            return;
-        }
-
-        const limitCopy = limit === null || limit === undefined ? 'unlimited repositories' : `${limit} active repositories`;
-        const overLimit = limit !== null && limit !== undefined && count > limit;
-        const noRepos = count === 0 && limit !== 0;
-
-        summary.textContent = overLimit
-            ? `${plan.name} allows ${limitCopy}. Uncheck ${count - Number(limit)} repositories.`
-            : noRepos
-                ? `Select at least one repository for ${plan.name}.`
-                : `${plan.name} will keep ${count} repositories active (${limitCopy}).`;
-        submit.disabled = overLimit || noRepos || Number(options.subscription?.pricingPlanId) === selectedPlanId;
-    }
-
-    async function openPlanChangeModal(button) {
-        const originalText = button.textContent;
-        button.disabled = true;
-        button.textContent = 'Loading...';
-
-        try {
-            const payload = await apiFetch('/api/user/billing/plan-change-options');
-            const options = payload.data || {};
-            const subscription = options.subscription || {};
-            const plans = options.plans || [];
-            const repositories = options.repositories || [];
-            const currentPlanId = Number(subscription.pricingPlanId);
-            const pendingPlan = subscription.pendingPricingPlanId ? planById(plans, subscription.pendingPricingPlanId) : null;
-            const currentActiveIds = activeRepositoryIds(repositories);
-            const currentPlan = planById(plans, currentPlanId);
-
-            closePlanChangeModal();
-
-            const modal = document.createElement('div');
-            modal.className = 'auth-modal-backdrop';
-            modal.dataset.planChangeModal = 'true';
-            modal.innerHTML = `<div class="auth-modal plan-change-modal" role="dialog" aria-modal="true" aria-labelledby="plan-change-title">
-                <button class="icon-button auth-modal-close" type="button" data-plan-change-close aria-label="Close">x</button>
-                <span class="badge brand">Billing cycle control</span>
-                <h2 id="plan-change-title">Change plan</h2>
-                <p class="muted">${pendingPlan ? `A downgrade to ${escapeHtml(pendingPlan.name)} is already scheduled.` : 'Choose one new plan and select the repositories that should stay active.'}</p>
-                <form data-plan-change-form>
-                    <div class="plan-change-grid">
-                        ${plans.map((plan) => {
-                            const isCurrent = Number(plan.id) === currentPlanId;
-                            const isPending = Number(plan.id) === Number(subscription.pendingPricingPlanId);
-                            const checked = !isCurrent && !pendingPlan && !isPending ? '' : '';
-                            return `<label class="plan-change-option ${isCurrent ? 'current' : ''} ${isPending ? 'current' : ''}">
-                                <input type="radio" name="pricingPlanId" value="${escapeHtml(plan.id)}" ${checked} ${isCurrent || pendingPlan ? 'disabled' : ''}>
-                                <span>
-                                    <strong>${escapeHtml(plan.name)}${isCurrent ? ' · current' : ''}${isPending ? ' · scheduled' : ''}</strong>
-                                    ${renderPlanDetailBlock(plan, { statusNote: isCurrent ? 'Current package' : isPending ? 'Scheduled package' : '' })}
-                                </span>
-                            </label>`;
-                        }).join('')}
-                    </div>
-                    <div class="repository-select-list">
-                        ${repositories.length === 0
-                            ? '<p class="muted small">No GitHub repositories are connected yet. Connect GitHub before changing plan limits.</p>'
-                            : repositories.map((repository) => `<label class="repository-select-row">
-                                <input type="checkbox" name="repositoryIds" value="${escapeHtml(repository.id)}" ${currentActiveIds.includes(Number(repository.id)) ? 'checked' : ''} ${pendingPlan ? 'disabled' : ''}>
-                                <span><strong>${escapeHtml(repository.fullName || repository.name)}</strong><small>${repository.isActive ? 'Active for scanning' : 'Inactive'}</small></span>
-                            </label>`).join('')}
-                    </div>
-                    <p class="muted small" data-plan-change-summary>${pendingPlan ? `Scheduled for ${subscription.pendingPlanChangeEffectiveAt ? escapeHtml(formatDate(subscription.pendingPlanChangeEffectiveAt)) : 'next billing period'}.` : currentPlan ? `Current plan: ${escapeHtml(currentPlan.name)}.` : 'Choose a new plan.'}</p>
-                    <button class="button primary" type="submit" data-plan-change-submit ${pendingPlan || repositories.length === 0 ? 'disabled' : ''} style="width:100%">Submit plan change</button>
-                    <p class="muted small" data-form-status style="margin:12px 0 0"></p>
-                </form>
-            </div>`;
-
-            document.body.appendChild(modal);
-
-            const selectablePlan = modal.querySelector('input[name="pricingPlanId"]:not(:disabled)');
-            if (selectablePlan) {
-                selectablePlan.checked = true;
-            }
-            updatePlanChangeSummary(modal, options);
-
-            modal.addEventListener('click', function (event) {
-                if (event.target === modal || event.target.closest('[data-plan-change-close]')) {
-                    closePlanChangeModal();
-                }
-            });
-
-            modal.addEventListener('change', function () {
-                updatePlanChangeSummary(modal, options);
-            });
-
-            modal.querySelector('[data-plan-change-form]')?.addEventListener('submit', async function (event) {
-                event.preventDefault();
-                const form = event.currentTarget;
-                const submit = form.querySelector('[data-plan-change-submit]');
-                const status = form.querySelector('[data-form-status]');
-                const selectedPlanId = Number(form.querySelector('input[name="pricingPlanId"]:checked')?.value);
-                const selectedRepositoryIds = Array.from(form.querySelectorAll('input[name="repositoryIds"]:checked')).map((input) => Number(input.value));
-                const submitText = submit.textContent;
-
-                submit.disabled = true;
-                submit.textContent = 'Submitting...';
-
-                try {
-                    const result = await apiFetch('/api/user/billing/change-plan', {
-                        method: 'POST',
-                        body: JSON.stringify({ pricingPlanId: selectedPlanId, repositoryIds: selectedRepositoryIds })
-                    });
-                    if (status) {
-                        status.textContent = result.message || 'Plan change submitted.';
-                        status.style.color = 'var(--success)';
-                    }
-                    await hydrateBilling();
-                    setTimeout(closePlanChangeModal, 900);
-                } catch (error) {
-                    if (status) {
-                        status.textContent = error.message || 'Plan change could not be submitted.';
-                        status.style.color = 'var(--danger)';
-                    }
-                    submit.disabled = false;
-                    submit.textContent = submitText;
-                }
-            });
-        } catch (error) {
-            alert(error.message || 'Plan change options could not be loaded.');
-        } finally {
-            button.disabled = false;
-            button.textContent = originalText;
         }
     }
 
@@ -1310,7 +1203,6 @@
         }
 
         const checkoutStatus = new URLSearchParams(window.location.search).get('checkout');
-        const signupStatus = new URLSearchParams(window.location.search).get('signup');
         const wizard = document.querySelector('[data-onboarding-wizard]');
         const [billingResult, repositoriesResult, dashboardResult] = await Promise.allSettled([
             apiFetch('/api/user/billing'),
@@ -1321,7 +1213,7 @@
         let subscription = billingPayload.data?.subscription || null;
         let state = subscriptionState(subscription);
 
-        if (checkoutStatus === 'success' && !state.isActive && wizard && wizard.dataset.checkoutRecoveryAttempted !== 'true') {
+        if (checkoutStatus === 'success' && !state.hasAccess && wizard && wizard.dataset.checkoutRecoveryAttempted !== 'true') {
             wizard.dataset.checkoutRecoveryAttempted = 'true';
             try {
                 await apiFetch('/api/user/billing/paddle-sync', {
@@ -1345,26 +1237,24 @@
         const checkoutHref = checkoutToken ? `/checkout?t=${encodeURIComponent(checkoutToken)}` : '/checkout';
 
         setOnboardingStep('account', 'done', 'Your SecureRepos account and workspace are ready.');
-        setOnboardingStep('billing', state.isActive ? 'done' : 'active', state.isActive ? 'Subscription active. You can connect GitHub now.' : 'Complete Paddle checkout to activate scanning.', state.isActive ? 'View subscription' : 'Continue to checkout', state.isActive ? '/billing' : checkoutHref);
-        setOnboardingStep('github', state.isActive ? (githubConnected ? 'done' : 'active') : 'locked', githubConnected ? 'GitHub App is connected.' : state.isActive ? 'Install the GitHub App and select repositories.' : 'Activate billing before connecting repositories.', githubConnected ? 'Connected' : 'Install GitHub App');
+        setOnboardingStep('billing', state.hasAccess ? 'done' : 'active', state.isTrialing ? 'Payment method confirmed. Your 7-day Security Preview is active.' : state.isActive ? 'Paid subscription active. Full scanning is available.' : 'Complete Paddle checkout to start the Security Preview.', state.hasAccess ? 'View subscription' : 'Continue to checkout', state.hasAccess ? '/billing' : checkoutHref);
+        setOnboardingStep('github', state.hasAccess ? (githubConnected ? 'done' : 'active') : 'locked', githubConnected ? 'GitHub App is permanently connected.' : state.hasAccess ? 'Install the GitHub App and select one repository for the preview.' : 'Complete checkout before connecting GitHub.', githubConnected ? 'Connected' : 'Install GitHub App');
         setOnboardingStep('repositories', githubConnected ? (repositoryCount > 0 ? 'done' : 'active') : 'locked', repositoryCount > 0 ? `${repositoryCount} repositories synced.` : githubConnected ? 'Waiting for selected repositories to sync.' : 'Repositories appear after GitHub is connected.', 'View repositories');
-        setOnboardingStep('scan', repositoryCount > 0 ? (scanCount > 0 ? 'done' : 'active') : 'locked', scanCount > 0 ? `${scanCount} scans recorded. Review findings from the dashboard.` : repositoryCount > 0 ? 'Run your first scan from the repository table.' : 'Connect a repository before running scans.', scanCount > 0 ? 'Open scans' : 'Start scan');
+        setOnboardingStep('scan', repositoryCount > 0 ? (scanCount > 0 ? 'done' : 'active') : 'locked', scanCount > 0 ? `${scanCount} scan recorded. Review the available results.` : repositoryCount > 0 ? (state.isTrialing ? 'Run your one limited Security Preview scan.' : 'Run your first full scan from the repository table.') : 'Connect a repository before running scans.', scanCount > 0 ? 'Open scans' : state.isTrialing ? 'Start preview' : 'Start scan');
 
-        badge.textContent = state.isActive && githubConnected && repositoryCount > 0 ? 'Ready' : 'Setup';
-        badge.className = `badge ${state.isActive && githubConnected ? 'success' : 'brand'}`;
+        badge.textContent = state.isTrialing ? 'Security Preview' : state.isActive && githubConnected && repositoryCount > 0 ? 'Ready' : 'Setup';
+        badge.className = `badge ${state.hasAccess && githubConnected ? 'success' : 'brand'}`;
 
-        if (!state.isActive) {
+        if (!state.hasAccess) {
             updateOnboardingAction({
-                title: signupStatus === 'check-email' ? 'Your checkout is ready' : checkoutStatus === 'success' ? 'Waiting for payment confirmation' : 'Activate your plan',
-                copy: signupStatus === 'check-email'
-                    ? 'Continue directly to Paddle below. We also emailed the same secure checkout link so you can resume later.'
-                    : checkoutStatus === 'success'
+                title: checkoutStatus === 'success' ? 'Waiting for payment confirmation' : 'Start your Security Preview',
+                copy: checkoutStatus === 'success'
                     ? 'Paddle checkout finished. SecureRepos is waiting for the webhook confirmation before GitHub setup unlocks.'
-                    : 'Choose a package and complete Paddle checkout. Repository scanning starts after payment is confirmed.',
-                badge: signupStatus === 'check-email' ? 'Checkout ready' : checkoutStatus === 'success' ? 'Syncing' : 'Step 2',
-                badgeClass: signupStatus === 'check-email' || checkoutStatus === 'success' ? 'warning' : 'brand',
+                    : 'Confirm your payment method in Paddle. Billing starts automatically after the 7-day preview unless you cancel.',
+                badge: checkoutStatus === 'success' ? 'Syncing' : 'Step 2',
+                badgeClass: checkoutStatus === 'success' ? 'warning' : 'brand',
                 wizardTitle: 'Plan activation',
-                wizardBadge: signupStatus === 'check-email' ? 'Ready' : checkoutStatus === 'success' ? 'Waiting' : 'Next',
+                wizardBadge: checkoutStatus === 'success' ? 'Waiting' : 'Next',
                 primaryText: checkoutStatus === 'success' ? 'Refresh status' : 'Continue to checkout',
                 primaryHref: checkoutStatus === 'success' ? '/onboarding?checkout=success' : checkoutHref,
                 secondaryText: '',
@@ -1373,7 +1263,7 @@
         } else if (!githubConnected) {
             updateOnboardingAction({
                 title: 'Connect GitHub',
-                copy: 'Install the GitHub App and select the repositories you want SecureRepos to scan.',
+                copy: 'Install the GitHub App and choose one repository. This GitHub account will be permanently linked and cannot be changed.',
                 badge: 'Step 3',
                 badgeClass: 'brand',
                 wizardTitle: 'GitHub access',
@@ -1399,13 +1289,15 @@
             });
         } else if (scanCount === 0) {
             updateOnboardingAction({
-                title: 'Run your first scan',
-                copy: `${repositoryCount} repositories are ready. Start a scan from the repository table to review your first findings.`,
+                title: state.isTrialing ? 'Run your Security Preview' : 'Run your first scan',
+                copy: state.isTrialing
+                    ? 'Start the one limited preview scan. It checks a small default-branch sample and shows up to three findings; it is not a complete security assessment.'
+                    : `${repositoryCount} repositories are ready. Start a full scan from the repository table.`,
                 badge: 'Step 5',
                 badgeClass: 'brand',
                 wizardTitle: 'First scan',
                 wizardBadge: 'Next',
-                primaryText: 'Start first scan',
+                primaryText: state.isTrialing ? 'Start preview scan' : 'Start first scan',
                 primaryHref: '/repositories',
                 secondaryText: 'Open dashboard',
                 secondaryHref: '/dashboard'
@@ -1427,23 +1319,22 @@
 
         const copy = document.querySelector('[data-onboarding-copy]');
         if (copy) {
-            copy.textContent = state.isActive
+            copy.textContent = state.isTrialing
+                ? 'Your limited Security Preview is active. Connect one GitHub repository and run one preview scan.'
+                : state.isActive
                 ? githubConnected
                     ? 'Your subscription and GitHub connection are ready. Review repositories and run scans.'
                     : 'Your subscription is active. Install the GitHub App to sync repositories.'
                 : 'Activate your plan first, then connect GitHub and run your first scan.';
-            if (signupStatus === 'check-email' && !state.isActive) {
-                copy.textContent = 'Your workspace and selected plan are ready. Complete checkout, then connect GitHub.';
-            }
         }
 
-        if (checkoutStatus === 'success' && !state.isActive && wizard) {
+        if (checkoutStatus === 'success' && !state.hasAccess && wizard) {
             const pollAttempt = Number(wizard.dataset.checkoutPollAttempt || 0);
             if (pollAttempt < 8) {
                 wizard.dataset.checkoutPollAttempt = String(pollAttempt + 1);
                 window.setTimeout(hydrateOnboarding, 2500);
             }
-        } else if (state.isActive && checkoutStatus === 'success') {
+        } else if (state.hasAccess && checkoutStatus === 'success') {
             window.history.replaceState({}, '', '/onboarding');
         }
     }
@@ -1467,6 +1358,7 @@
         const notice = document.querySelector('[data-repository-limit-notice]');
         const plan = payload.meta?.plan || {};
         const repositoryLimit = plan.repositoryLimit;
+        const isPreview = payload.meta?.subscriptionStatus === 'trialing';
         repositoryState.nextCursor = payload.pagination?.nextCursor || null;
         repositoryState.total = payload.meta?.repositoryCount ?? rows.length;
         renderRepositoriesGithubConnection(payload.meta?.githubConnection);
@@ -1475,7 +1367,7 @@
         if (notice) {
             const hasLimit = repositoryLimit !== null && repositoryLimit !== undefined;
             notice.hidden = false;
-            notice.innerHTML = `<div class="row-between"><div><strong>Repository selection limit</strong><p class="muted small" style="margin:6px 0 0">${hasLimit ? `Your ${escapeHtml(plan.name || 'current')} plan allows ${escapeHtml(repositoryLimit)} active repositories. When installing the GitHub App, select only the repositories you want scanned for this billing cycle. If you choose all repositories, SecureRepos will keep the first ${escapeHtml(repositoryLimit)} synced repositories active and the remaining repositories can be added after your plan or next cycle allows it.` : 'Your current plan does not limit active repositories.'}</p></div><span class="badge brand">${escapeHtml(payload.meta?.repositoryCount ?? rows.length)}${hasLimit ? ` / ${escapeHtml(repositoryLimit)}` : ''} repos</span></div>`;
+            notice.innerHTML = `<div class="row-between"><div><strong>${isPreview ? 'Security Preview limits' : 'Repository selection limit'}</strong><p class="muted small" style="margin:6px 0 0">${isPreview ? 'The preview permanently links this GitHub account, allows one repository, and includes one limited scan. It checks a small sample and is not a complete security assessment.' : hasLimit ? `Your ${escapeHtml(plan.name || 'current')} plan allows ${escapeHtml(repositoryLimit)} active repositories. When installing the GitHub App, select only the repositories you want scanned for this billing cycle. If you choose all repositories, SecureRepos will keep the first ${escapeHtml(repositoryLimit)} synced repositories active and the remaining repositories can be added after your plan or next cycle allows it.` : 'Your current plan does not limit active repositories.'}</p></div><span class="badge ${isPreview ? 'warning' : 'brand'}">${escapeHtml(payload.meta?.repositoryCount ?? rows.length)}${hasLimit ? ` / ${escapeHtml(repositoryLimit)}` : ''} repos</span></div>`;
         }
 
         if (!rows.length) {
@@ -1483,10 +1375,10 @@
             return;
         }
 
-        table.innerHTML = rows.map(renderRepositoryRow).join('');
+        table.innerHTML = rows.map((repository) => renderRepositoryRow(repository, isPreview)).join('');
     }
 
-    function renderRepositoryRow(repo) {
+    function renderRepositoryRow(repo, isPreview = false) {
         const score = repo.securityScore ?? repo.score ?? 0;
         const status = score >= 85 ? 'Healthy' : score >= 70 ? 'Review' : 'Critical';
         const badge = score >= 85 ? 'success' : score >= 70 ? 'warning' : 'danger';
@@ -1496,7 +1388,7 @@
             ? `<a class="repo-github-link" href="${escapeHtml(githubUrl)}" target="_blank" rel="noopener noreferrer" aria-label="Open ${escapeHtml(repoName)} on GitHub">${githubIcon()}</a>`
             : `<span class="repo-github-link is-disabled" aria-hidden="true">${githubIcon()}</span>`;
 
-        return `<tr><td><div class="repo-name-cell">${githubLink}<a href="/repositories/${escapeHtml(repo.id)}">${escapeHtml(repoName)}</a></div></td><td>${escapeHtml(repo.provider || repo.codeHostProvider || '-')}</td><td>${escapeHtml(repo.defaultBranch || 'main')}</td><td>${score}</td><td><span class="badge ${badge}">${status}</span></td><td><button class="button" type="button" data-repository-scan="${escapeHtml(repo.id)}">Scan</button></td></tr>`;
+        return `<tr><td><div class="repo-name-cell">${githubLink}<a href="/repositories/${escapeHtml(repo.id)}">${escapeHtml(repoName)}</a></div></td><td>${escapeHtml(repo.provider || repo.codeHostProvider || '-')}</td><td>${escapeHtml(repo.defaultBranch || 'main')}</td><td>${score}</td><td><span class="badge ${badge}">${status}</span></td><td><button class="button" type="button" data-repository-scan="${escapeHtml(repo.id)}">${isPreview ? 'Run preview' : 'Scan'}</button></td></tr>`;
     }
 
     function setRepositoryFilter(button) {

@@ -58,9 +58,20 @@ async function assertRepositoryLimitAvailable(tenantId: number, provider: string
         return;
     }
 
-    const plan = await getTenantPlan(tenantId, transaction);
+    const [plan, subscription] = await Promise.all(
+        [
+            getTenantPlan(tenantId, transaction),
+            TenantSubscription.findOne({ where: { tenantId }, transaction })
+        ]
+    );
 
-    if (!plan || plan.repositoryLimit === null)
+    if (!plan)
+    {
+        return;
+    }
+    const repositoryLimit = subscription?.status === 'trialing' ? 1 : plan.repositoryLimit;
+
+    if (repositoryLimit === null)
     {
         return;
     }
@@ -86,9 +97,11 @@ async function assertRepositoryLimitAvailable(tenantId: number, provider: string
         }
     );
 
-    if (activeRepositoryCount >= plan.repositoryLimit)
+    if (activeRepositoryCount >= repositoryLimit)
     {
-        throw new Error(`Repository limit reached for ${plan.name} plan (${plan.repositoryLimit} repositories)`);
+        throw new Error(subscription?.status === 'trialing'
+            ? 'Security Preview is limited to one repository'
+            : `Repository limit reached for ${plan.name} plan (${repositoryLimit} repositories)`);
     }
 }
 
@@ -127,6 +140,13 @@ async function assignTenantPlan(tenantId: number, pricingPlanId: number, status 
 
 async function assertManualScanAllowed(tenantId: number, repositoryId: number)
 {
+    const subscription = await TenantSubscription.findOne({ where: { tenantId } });
+
+    if (!subscription || !['active', 'trialing'].includes(subscription.status))
+    {
+        throw new Error('Complete checkout before starting a scan.');
+    }
+
     const activeScan = await Scan.findOne(
         {
             where:
@@ -145,11 +165,31 @@ async function assertManualScanAllowed(tenantId: number, repositoryId: number)
         throw new Error('A scan is already queued or running for this repository.');
     }
 
+    if (subscription.status === 'trialing')
+    {
+        const previewScanCount = await Scan.count(
+            {
+                where:
+                {
+                    tenantId,
+                    status: { [Op.in]: ['queued', 'running', 'retry', 'completed'] }
+                }
+            }
+        );
+
+        if (previewScanCount >= 1)
+        {
+            throw new Error('Your Security Preview includes one scan. Full scanning unlocks when the paid subscription starts.');
+        }
+
+        return 'preview' as const;
+    }
+
     const plan = await getTenantPlan(tenantId);
 
     if (!plan)
     {
-        return;
+        return 'full' as const;
     }
 
     const cooldownMinutes = Number(plan.manualScanCooldownMinutes ?? 0);
@@ -180,7 +220,7 @@ async function assertManualScanAllowed(tenantId: number, repositoryId: number)
 
     if (plan.manualScanDailyLimit === null || plan.manualScanDailyLimit === undefined)
     {
-        return;
+        return 'full' as const;
     }
 
     const dayStart = new Date();
@@ -203,6 +243,8 @@ async function assertManualScanAllowed(tenantId: number, repositoryId: number)
     {
         throw new Error(`Manual scan limit reached for today (${plan.manualScanDailyLimit} scans on ${plan.name}). Scheduled scans will continue automatically.`);
     }
+
+    return 'full' as const;
 }
 
 export {

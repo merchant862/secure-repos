@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { Op } from 'sequelize';
 
-import { CodeHostConnection, Finding, FindingOccurrence, Repository, Scan } from '../../../db/models';
+import { CodeHostConnection, Finding, FindingOccurrence, Repository, Scan, TenantSubscription } from '../../../db/models';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import {
     getRepositoryChecklist,
@@ -44,7 +44,7 @@ function paginationFromRequest(req: AuthenticatedRequest)
 async function tenantHistoryCutoff(tenantId: number)
 {
     const plan = await getTenantPlan(tenantId);
-    const days = plan?.slug === 'solo-pro' ? 90 : 30;
+    const days = Number(plan?.findingHistoryDays ?? 90);
     return new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 }
 
@@ -109,7 +109,12 @@ async function listUserRepositoriesController(req: AuthenticatedRequest, res: Re
         return res.status(401).json({ message: 'Unauthorized' });
     }
 
-    const plan = await getTenantPlan(user.tenantId);
+    const [plan, subscription] = await Promise.all(
+        [
+            getTenantPlan(user.tenantId),
+            TenantSubscription.findOne({ where: { tenantId: user.tenantId } })
+        ]
+    );
     const githubConnection = await CodeHostConnection.findOne(
         {
             where:
@@ -164,8 +169,9 @@ async function listUserRepositoriesController(req: AuthenticatedRequest, res: Re
                 plan:
                 {
                     name: plan?.name ?? 'Starter',
-                    repositoryLimit: plan?.repositoryLimit ?? null
+                    repositoryLimit: subscription?.status === 'trialing' ? 1 : plan?.repositoryLimit ?? null
                 },
+                subscriptionStatus: subscription?.status ?? 'pending',
                 repositoryCount,
                 githubConnection
             },
@@ -588,7 +594,9 @@ async function updateUserFindingController(req: AuthenticatedRequest, res: Respo
     );
     const repository = await Repository.findByPk(finding.repositoryId);
 
-    if (repository && nextStatus && nextStatus !== previousStatus)
+    const subscription = await TenantSubscription.findOne({ where: { tenantId: user.tenantId } });
+
+    if (repository && subscription?.status === 'active' && nextStatus && nextStatus !== previousStatus)
     {
         await queueFindingStatusEmail(user.tenantId, finding, repository, nextStatus);
     }
@@ -649,41 +657,41 @@ async function enqueueUserRepositoryScanController(req: AuthenticatedRequest, re
 
     try
     {
-        await assertManualScanAllowed(user.tenantId, repositoryId);
+        const scanMode = await assertManualScanAllowed(user.tenantId, repositoryId);
+        const scan = await enqueueRepositoryScan(repositoryId, 'manual_user', scanMode);
+
+        if (!scan)
+        {
+            return res.status(404).json({ message: 'Repository not found or inactive' });
+        }
+
+        await recordAuditLog(
+            {
+                tenantId: user.tenantId,
+                userId: user.id,
+                action: 'scan.queued',
+                entityType: 'repository',
+                entityId: String(repositoryId),
+                metadata:
+                {
+                    scanId: scan.id,
+                    trigger: 'manual_user',
+                    mode: scanMode
+                }
+            }
+        );
+
+        return res.status(201).json(
+            {
+                message: scanMode === 'preview' ? 'Security Preview queued' : 'Scan queued',
+                data: scan
+            }
+        );
     }
     catch (error)
     {
         return res.status(429).json({ message: error instanceof Error ? error.message : 'Manual scan limit reached.' });
     }
-
-    const scan = await enqueueRepositoryScan(repositoryId, 'manual_user');
-
-    if (!scan)
-    {
-        return res.status(404).json({ message: 'Repository not found or inactive' });
-    }
-
-    await recordAuditLog(
-        {
-            tenantId: user.tenantId,
-            userId: user.id,
-            action: 'scan.queued',
-            entityType: 'repository',
-            entityId: String(repositoryId),
-            metadata:
-            {
-                scanId: scan.id,
-                trigger: 'manual_user'
-            }
-        }
-    );
-
-    return res.status(201).json(
-        {
-            message: 'Scan queued',
-            data: scan
-        }
-    );
 }
 
 async function markUserBaselineController(req: AuthenticatedRequest, res: Response)

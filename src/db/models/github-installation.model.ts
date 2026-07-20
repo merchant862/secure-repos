@@ -15,6 +15,7 @@ class GithubInstallation extends Model<InferAttributes<GithubInstallation>, Infe
     declare id: CreationOptional<number>;
     declare tenantId: ForeignKey<Tenant['id']>;
     declare githubInstallationId: string;
+    declare githubAccountId: CreationOptional<string | null>;
     declare githubAccountLogin: string;
     declare githubAccountType: string;
     declare createdAt: CreationOptional<Date>;
@@ -40,6 +41,12 @@ function initGithubInstallationModel(sequelize: Sequelize)
             {
                 type: DataTypes.STRING(100),
                 allowNull: false,
+                unique: true
+            },
+            githubAccountId:
+            {
+                type: DataTypes.STRING(100),
+                allowNull: true,
                 unique: true
             },
             githubAccountLogin:

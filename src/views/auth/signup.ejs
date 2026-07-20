@@ -17,7 +17,7 @@
             <div class="auth-card-inner">
                 <a class="muted small" href="/sign-in">Already have an account?</a>
                 <h1 style="margin:22px 0 8px">Create account</h1>
-                <p class="muted" style="margin:0 0 26px">Create your account first. Plan activation and GitHub setup come next.</p>
+                <p class="muted" style="margin:0 0 26px">Create your account, verify your email, then complete plan activation and GitHub setup.</p>
                 <form method="post" action="/api/auth/signup">
                     <% if (typeof planSlug !== 'undefined' && planSlug) { %>
                         <input type="hidden" name="planSlug" value="<%= planSlug %>">
