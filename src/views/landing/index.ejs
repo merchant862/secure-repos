@@ -2,209 +2,197 @@
 <html lang="en">
 <head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
 <body data-force-theme="dark">
-    <main class="landing-shell product-landing">
-        <nav class="landing-nav">
+    <main class="landing-shell sec-site">
+        <nav class="landing-nav sec-nav">
             <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
             <div class="landing-nav-links">
-                <a href="#platform">Scans</a>
-                <a href="#workflow">How it works</a>
+                <a href="#coverage">Coverage</a>
+                <a href="#packages">Packages</a>
+                <a href="#agents">Agents</a>
+                <a href="#workflow">Workflow</a>
                 <a href="#pricing">Pricing</a>
                 <a href="/demo">Demo</a>
-                <a href="/faqs">FAQ</a>
-                <a href="/contact">Contact</a>
             </div>
             <div class="toolbar-actions landing-nav-actions"><a class="button" href="/sign-in">Sign in</a><a class="button primary" href="/sign-up">Create account</a></div>
             <button class="landing-menu-toggle" type="button" aria-label="Open menu" aria-expanded="false" data-landing-menu-toggle>
                 <span></span><span></span><span></span>
             </button>
             <div class="landing-mobile-menu" data-landing-menu>
-                <a href="#platform">Scans</a>
-                <a href="#workflow">How it works</a>
+                <span class="mobile-menu-label">Navigation</span>
+                <a href="#coverage">Coverage</a>
+                <a href="#packages">Packages</a>
+                <a href="#agents">Agents</a>
+                <a href="#workflow">Workflow</a>
                 <a href="#pricing">Pricing</a>
                 <a href="/demo">Demo</a>
-                <a href="/faqs">FAQ</a>
-                <a href="/contact">Contact</a>
                 <div class="landing-mobile-actions">
                     <a class="button" href="/sign-in">Sign in</a>
                     <a class="button primary" href="/sign-up">Create account</a>
                 </div>
             </div>
         </nav>
-        <section class="product-hero rafter-hero">
-            <div class="product-hero-copy">
-                <span class="product-status-pill">Repository checks ready</span>
-                <h1>Simple repository security for people who ship code.</h1>
-                <p>Connect GitHub, choose the repositories that matter, and get practical findings for secrets, vulnerable packages, unsafe workflows, Docker, IaC, and package inventory risk.</p>
-                <div class="product-actions">
+
+        <section class="sec-hero">
+            <div class="sec-hero-copy">
+                <p class="sec-kicker">GitHub repository security scanner</p>
+                <h1>Catch repo risk before it reaches production.</h1>
+                <p class="sec-lede">SecureRepos monitors selected GitHub repositories and turns secrets, vulnerable packages, CI/CD, Docker, and IaC signals into clear findings for your dashboard, terminal, and coding agent.</p>
+                <div class="sec-actions">
                     <a class="button primary" href="/sign-up">Start security preview</a>
-                    <a class="button" href="/demo">View demo</a>
+                    <a class="button" href="/demo">Open demo</a>
                 </div>
             </div>
-            <div class="rafter-product-surface" aria-label="SecureRepos scan summary">
-                <div class="surface-window">
-                    <div class="surface-title">
-                        <span>SecureRepos live preview</span>
-                        <strong>merchant/checkout-api</strong>
+            <div class="sec-hero-visual" aria-label="SecureRepos scan preview">
+                <div class="sec-dashboard-preview">
+                    <div class="sec-preview-top">
+                        <span></span><span></span><span></span>
+                        <strong>SecureRepos scan</strong>
                     </div>
-                    <div class="surface-score">
-                        <span>3</span>
-                        <p>findings need review</p>
+                    <div class="sec-preview-repo">
+                        <div>
+                            <small>Repository</small>
+                            <strong>merchant/checkout-api</strong>
+                        </div>
+                        <span>scan complete</span>
                     </div>
-                    <div class="surface-checks">
-                        <article><b>Secrets</b><span>1 critical</span></article>
-                        <article><b>CI/CD</b><span>2 high risk</span></article>
-                        <article><b>Dependencies</b><span>8 advisories</span></article>
+                    <div class="sec-preview-body">
+                        <div class="sec-preview-score">
+                            <span>3</span>
+                            <p>findings need review</p>
+                        </div>
+                        <div class="sec-preview-findings">
+                            <article><b>Critical</b><span>credential-like value in production config</span></article>
+                            <article><b>High</b><span>workflow permission is broader than needed</span></article>
+                            <article><b>Package</b><span>lockfile contains vulnerable dependency version</span></article>
+                        </div>
                     </div>
-                    <div class="surface-evidence">
-                        <p><b>finding</b><span>payment token pattern in config/prod.env</span></p>
-                        <p><b>evidence</b><span>branch: main · source: secret scan · status: open</span></p>
+                    <div class="sec-preview-footer">
+                        <span><b></b> queued</span>
+                        <span><b></b> scanning</span>
+                        <span><b></b> parsed</span>
+                        <span><b></b> notified</span>
                     </div>
-                </div>
-                <div class="surface-command">
-                    <code>scan queued -> scanners running -> findings parsed</code>
                 </div>
             </div>
         </section>
 
-        <section class="product-strip rafter-proof-row" aria-label="SecureRepos operating model">
-            <span>Selected repository access</span>
-            <span>Queued repository checks</span>
-            <span>Findings in one dashboard</span>
-        </section>
-
-        <section class="cli-section" id="cli">
-            <div class="cli-copy">
-                <span class="product-kicker">CLI package</span>
-                <h2>Scan approved repositories from your terminal too.</h2>
-                <p>Install the SecureRepos npm package, add a short-lived access token from Settings, and run scans from Windows, macOS, or Linux. CLI tokens only work for repositories already approved in your dashboard.</p>
-            </div>
-            <div class="cli-code-card" aria-label="SecureRepos CLI install commands">
-                <div class="cli-code-top">
-                    <span></span><span></span><span></span>
-                    <strong>terminal</strong>
-                </div>
-                <pre><code><span class="prompt">$</span> npm install -g securerepos
-<span class="prompt">$</span> securerepos auth --token srp_cli_xxxxx
-<span class="prompt">$</span> securerepos scan --repo merchant/checkout-api</code></pre>
+        <section class="sec-logo-marquee" aria-label="Supported languages and ecosystems">
+            <p>First-class dependency extraction where lockfiles exist. Broad source and config checks across common text files.</p>
+            <div class="sec-marquee-track">
+                <% const languageLogos = [
+                    ['javascript', 'JavaScript'], ['typescript', 'TypeScript'], ['nodedotjs', 'Node.js'], ['php', 'PHP'],
+                    ['python', 'Python'], ['rust', 'Rust'], ['ruby', 'Ruby'], ['go', 'Go'], ['dotnet', '.NET'],
+                    ['openjdk', 'Java'], ['kotlin', 'Kotlin'], ['dart', 'Dart'], ['swift', 'Swift'], ['elixir', 'Elixir'],
+                    ['r', 'R'], ['julia', 'Julia']
+                ]; %>
+                <% [...languageLogos, ...languageLogos].forEach(([slug, label]) => { %>
+                    <span><img src="https://cdn.simpleicons.org/<%= slug %>" alt="" width="22" height="22" loading="lazy"><%= label %></span>
+                <% }) %>
             </div>
         </section>
 
-        <section class="product-section" id="platform">
-            <div class="product-section-heading">
-                <span class="product-kicker">Coverage</span>
-                <h2>Enough coverage to catch common repository risk, without pretending to replace a full audit.</h2>
-                <p>SecureRepos combines repository context, dependency intelligence, configuration checks, and secret detection into practical findings for independent developers.</p>
+        <section class="sec-split" id="coverage">
+            <div class="sec-section-copy">
+                <p class="sec-kicker">Coverage</p>
+                <h2>Focused checks, written for small teams and solo builders.</h2>
+                <p>SecureRepos does not try to become a full enterprise security program. It watches the repository risks that usually break production trust first.</p>
             </div>
-            <div class="scanner-table">
-                <article><strong>Secrets</strong><span>Credential exposure</span><p>Detect committed tokens, keys, passwords, database URLs, and credential-like strings.</p></article>
-                <article><strong>Dependencies</strong><span>Known vulnerabilities</span><p>Review package manifests and lockfiles for vulnerable package versions.</p></article>
-                <article><strong>CI/CD</strong><span>Workflow risk</span><p>Flag broad permissions, risky shell patterns, and unsafe automation defaults.</p></article>
-                <article><strong>Containers</strong><span>Image and file risk</span><p>Surface risky Dockerfile patterns, exposed files, and package-level concerns.</p></article>
-                <article><strong>Infrastructure</strong><span>IaC configuration</span><p>Check common Terraform, Kubernetes, and deployment configuration mistakes.</p></article>
-                <article><strong>Package Inventory</strong><span>Review context</span><p>Keep dependency and package context attached to scan history and findings.</p></article>
+            <div class="sec-coverage-list">
+                <article><span>01</span><strong>Secrets and credentials</strong><p>Tokens, keys, database URLs, private keys, and credential-like strings.</p></article>
+                <article><span>02</span><strong>Dependency risk</strong><p>Package manifests and lockfiles checked for known vulnerable versions.</p></article>
+                <article><span>03</span><strong>CI/CD and deployment config</strong><p>Workflow permissions, unsafe automation patterns, Docker, IaC, and deployment mistakes.</p></article>
+                <article><span>04</span><strong>Evidence you can act on</strong><p>Repository, branch, severity, path, evidence, status, and email alerts when it matters.</p></article>
             </div>
         </section>
 
-        <section class="product-section comparison-section" id="comparison">
-            <div class="product-section-heading">
-                <span class="product-kicker">Comparison</span>
-                <h2>Choose the tool that matches how much security process you want to run.</h2>
-                <p>SecureRepos is intentionally focused: GitHub repository monitoring, readable findings, CLI access, and a simple owner workflow for developers who do not want to operate a full AppSec program.</p>
+        <section class="sec-dev-lane" id="packages">
+            <div class="sec-section-copy">
+                <p class="sec-kicker">npm packages</p>
+                <h2>Dashboard visibility, terminal speed.</h2>
+                <p>API tokens are short-lived and scoped to approved repositories. They cannot access billing, password, or account settings.</p>
             </div>
-            <div class="comparison-grid">
-                <article class="comparison-card featured">
-                    <span>SecureRepos</span>
-                    <h3>Focused repository security for solo operators</h3>
-                    <ul>
-                        <li>Selected GitHub repositories only</li>
-                        <li>Dashboard plus npm CLI workflow</li>
-                        <li>One package, one preview, fewer decisions</li>
-                        <li>Built around practical findings and cleanup</li>
-                    </ul>
+            <div class="sec-terminal-grid">
+                <article>
+                    <div><span>CLI</span><strong>@securerepos/cli</strong></div>
+                    <pre><code><span>$ npm install -g @securerepos/cli</span><span>$ securerepos login</span><span>$ securerepos repos</span><span>$ securerepos scan --low-resource</span></code></pre>
                 </article>
-                <article class="comparison-card">
-                    <span>Snyk-style platforms</span>
-                    <h3>Broader AppSec programs and larger teams</h3>
-                    <ul>
-                        <li>Wide SDLC coverage across code, dependencies, containers, and IaC</li>
-                        <li>More governance, policy, integrations, and team process</li>
-                        <li>Useful when security ownership is shared across an organization</li>
-                        <li>Can be more platform than a solo developer needs</li>
-                    </ul>
-                </article>
-                <article class="comparison-card">
-                    <span>Rafter-style tools</span>
-                    <h3>Fast scan loops for builders and coding agents</h3>
-                    <ul>
-                        <li>Strong fit for agent-assisted development workflows</li>
-                        <li>Prompt, CLI, dashboard, and API oriented scanning</li>
-                        <li>Good when you want security feedback inside the build loop</li>
-                        <li>Different focus than account-bound repository monitoring</li>
-                    </ul>
+                <article>
+                    <div><span>MCP</span><strong>@securerepos/mcp</strong></div>
+                    <pre><code><span>{</span><span>  "mcpServers": {</span><span>    "securerepos": {</span><span>      "command": "npx",</span><span>      "args": ["@securerepos/mcp"],</span><span>      "env": { "SECUREREPOS_API_KEY": "srp_cli_xxxxx" }</span><span>    }</span><span>  }</span><span>}</span></code></pre>
                 </article>
             </div>
         </section>
 
-        <section class="product-section open-source-comparison">
-            <div class="product-section-heading">
-                <span class="product-kicker">Open-source scanners</span>
-                <h2>Running tools yourself gives control. SecureRepos gives a managed workflow.</h2>
+        <section class="sec-agents" id="agents">
+            <div class="sec-section-copy">
+                <p class="sec-kicker">Coding agents</p>
+                <h2>Let your agent ask SecureRepos before it changes sensitive code.</h2>
             </div>
-            <div class="compare-table">
-                <div><strong>Setup</strong><span>Manual installs, updates, config, and output formats</span><span>Connect GitHub, select repos, run scans from the dashboard or CLI</span></div>
-                <div><strong>Results</strong><span>Separate terminal output and report files to merge yourself</span><span>Findings grouped by repo, branch, severity, evidence, and status</span></div>
-                <div><strong>Operations</strong><span>You handle queues, cleanup, retention, and repeat scans</span><span>Scan queue, history, cleanup workflow, and email alerts are built in</span></div>
-                <div><strong>Best fit</strong><span>Security engineers who want full scanner control</span><span>Founders and developers who want useful signal without maintaining tooling</span></div>
-            </div>
-        </section>
-
-        <section class="product-section product-section-muted" id="workflow">
-            <div class="product-section-heading">
-                <span class="product-kicker">Workflow</span>
-                <h2>From signup to findings without making the user think too much.</h2>
-            </div>
-            <div class="workflow-list">
-                <article><span>1</span><div><strong>Verify email and activate preview</strong><p>Account activation starts only after email verification and hosted checkout setup.</p></div></article>
-                <article><span>2</span><div><strong>Install GitHub App</strong><p>Select the repositories you want monitored. The first GitHub account is bound to the workspace.</p></div></article>
-                <article><span>3</span><div><strong>Run queued scans</strong><p>Scan requests are queued so the server does not run every scanner at once.</p></div></article>
-                <article><span>4</span><div><strong>Fix and track</strong><p>Findings keep severity, source, branch, path, evidence, and status in the dashboard.</p></div></article>
+            <div class="sec-agent-stack">
+                <div class="sec-agent-strip" aria-label="Compatible coding agents">
+                    <span><img src="https://cdn.simpleicons.org/claudecode" alt="" width="24" height="24" loading="lazy">Claude Code</span>
+                    <span><img src="/public/images/agent-logos/codex.svg" alt="" width="24" height="24" loading="lazy">Codex</span>
+                    <span><img src="https://cdn.simpleicons.org/cursor" alt="" width="24" height="24" loading="lazy">Cursor</span>
+                    <span><img src="https://cdn.simpleicons.org/windsurf" alt="" width="24" height="24" loading="lazy">Windsurf</span>
+                    <span><img src="https://cdn.simpleicons.org/cline" alt="" width="24" height="24" loading="lazy">Cline</span>
+                    <span><img src="https://cdn.simpleicons.org/zedindustries" alt="" width="24" height="24" loading="lazy">Zed</span>
+                    <span><img src="https://cdn.simpleicons.org/githubcopilot" alt="" width="24" height="24" loading="lazy">Copilot</span>
+                </div>
+                <div class="sec-prompt-card">
+                    <p>Suggested agent instruction</p>
+                    <pre><code><span>Use SecureRepos before security-sensitive changes.</span><span>Scan the current Git repository.</span><span>Summarize critical and high findings first.</span><span>Do not change code until I confirm the fix.</span></code></pre>
+                </div>
             </div>
         </section>
 
-        <section class="product-section product-pricing-section" id="pricing">
-            <div class="product-section-heading">
-                <span class="product-kicker">Pricing</span>
+        <section class="sec-workflow" id="workflow">
+            <div class="sec-section-copy">
+                <p class="sec-kicker">Workflow</p>
+                <h2>One clean path from signup to reviewed findings.</h2>
+            </div>
+            <ol>
+                <li><span>01</span><strong>Verify email</strong><p>Create the account and confirm the registered email before access.</p></li>
+                <li><span>02</span><strong>Activate checkout</strong><p>Use hosted checkout so payment data stays outside SecureRepos forms.</p></li>
+                <li><span>03</span><strong>Connect GitHub</strong><p>Install the GitHub App and approve only the repositories you want scanned.</p></li>
+                <li><span>04</span><strong>Review and fix</strong><p>Track severity, branch, file path, evidence, and current status.</p></li>
+            </ol>
+        </section>
+
+        <section class="sec-pricing" id="pricing">
+            <div class="sec-section-copy">
+                <p class="sec-kicker">Pricing</p>
                 <h2>One package. One preview. No plan maze.</h2>
-                <p>The Security Preview gives one repository and one limited scan with a payment method required. Full scanner output, scheduled scans, alerts, and retained findings unlock with the paid package.</p>
+                <p>The preview gives one repository and one limited scan with payment method setup. Full scanner output, scheduled scans, alerts, and retained findings unlock with the paid package.</p>
             </div>
             <div class="product-pricing-grid" data-public-pricing>
                 <article class="card card-body plan-card"><p class="muted">Loading current package...</p></article>
             </div>
         </section>
 
-        <section class="product-cta">
+        <section class="sec-final">
             <div>
-                <span class="product-kicker">Before connecting GitHub</span>
-                <h2>Open the demo before granting repository access.</h2>
-                <p>The demo shows the dashboard, billing controls, scan queue, and finding flow without asking for repository access.</p>
+                <p class="sec-kicker">Ready</p>
+                <h2>Start with one approved repository.</h2>
+                <p>Open the demo, review the flow, then connect GitHub when you are ready.</p>
             </div>
-            <div class="product-actions">
+            <div class="sec-actions">
                 <a class="button primary" href="/sign-up">Start security preview</a>
                 <a class="button" href="/demo">Open demo</a>
             </div>
         </section>
+
         <footer class="landing-footer">
             <div class="landing-footer-brand">
                 <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
-                <p class="muted small">GitHub repository security scanning, branch-level findings, and practical remediation for independent developers.</p>
+                <p class="muted small">GitHub repository security scanning, CLI access, MCP workflows, and practical remediation for independent developers.</p>
             </div>
             <div class="landing-footer-grid">
                 <div>
                     <h3>Product</h3>
                     <a href="/demo">Demo</a>
-                    <a href="#platform">Scans</a>
-                    <a href="#workflow">Workflow</a>
-                    <a href="#pricing">Pricing</a>
+                    <a href="#coverage">Coverage</a>
+                    <a href="#packages">Packages</a>
+                    <a href="#agents">Agents</a>
                     <a href="/faqs">FAQ</a>
                 </div>
                 <div>

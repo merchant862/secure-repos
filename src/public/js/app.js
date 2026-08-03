@@ -276,12 +276,15 @@
     });
 
     const backToTop = document.querySelector('[data-back-to-top]');
+    const landingNav = document.querySelector('.sec-nav');
     function syncBackToTop() {
-        if (!backToTop) {
-            return;
+        if (backToTop) {
+            backToTop.classList.toggle('visible', window.scrollY > 520);
         }
 
-        backToTop.classList.toggle('visible', window.scrollY > 520);
+        if (landingNav) {
+            landingNav.classList.toggle('is-scrolled', window.scrollY > 20);
+        }
     }
 
     syncBackToTop();

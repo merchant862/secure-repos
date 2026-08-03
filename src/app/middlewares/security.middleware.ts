@@ -14,7 +14,7 @@ function securityHeadersMiddleware(req: Request, res: Response, next: NextFuncti
         "base-uri 'self'",
         "form-action 'self'",
         "frame-ancestors 'none'",
-        "img-src 'self' data: https://github.com https://avatars.githubusercontent.com https://cdn.jsdelivr.net",
+        "img-src 'self' data: https://github.com https://avatars.githubusercontent.com https://cdn.jsdelivr.net https://cdn.simpleicons.org",
         `script-src 'self' 'nonce-${cspNonce}' https://cdn.paddle.com https://sandbox-cdn.paddle.com`,
         "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdn.paddle.com https://sandbox-cdn.paddle.com",
         "connect-src 'self' https://checkout-api.paddle.com https://sandbox-checkout-api.paddle.com https://buy.paddle.com https://sandbox-buy.paddle.com",
