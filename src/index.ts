@@ -7,7 +7,7 @@ import { deleteCliConfig, resolveCliConfig, writeCliConfig } from './config';
 import { getGitRepositoryContext } from './git';
 import { scanLocalTrackedFiles } from './local-scan';
 
-const version = '0.1.0';
+const version = '0.1.2';
 
 type CliRepository =
 {

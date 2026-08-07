@@ -6,7 +6,7 @@ Run SecureRepos security checks against the tracked files in an approved GitHub 
 
 - Node.js 20 or newer
 - Git
-- An active SecureRepos subscription
+- An active SecureRepos Starter or Pro subscription
 - A connected and approved GitHub repository
 - A CLI token generated from SecureRepos Settings
 
@@ -43,10 +43,13 @@ securerepos scan --json
 
 The default CI exit threshold is `high`. Use `--fail-on none` when findings should not fail the command.
 
+Starter and Pro accounts can use the CLI. Pro-only features such as external alert channels, MCP/coding-agent workflows, CI runtime guard events, and safe remediation PRs are controlled by the SecureRepos dashboard plan.
+
 ## Security
 
 - Tokens expire after no more than 30 days.
 - Only one active CLI token is allowed per account.
 - Tokens cannot access account, billing, password, or settings APIs.
+- Tokens can only list approved repositories and submit scan results.
 - Only Git-tracked text and dependency files are scanned.
 - Raw source files and detected secret values are never uploaded.
