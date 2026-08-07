@@ -1,6 +1,7 @@
 import { Finding, NotificationEvent, Repository, Scan, User } from '../../db/models';
 import { ScannerFinding } from './scan-rules.service';
 import { createTenantNotification } from './in-app-notification.service';
+import { activeAlertChannels } from './alert-channel.service';
 
 async function getTenantEmailRecipients(tenantId: number): Promise<string[]>
 {
@@ -43,6 +44,35 @@ async function queueEmailEvent(input: {
     );
 }
 
+async function queueWebhookAlertEvents(input: {
+    tenantId: number;
+    type: string;
+    subject: string;
+    payload: Record<string, unknown>;
+})
+{
+    const channels = await activeAlertChannels(input.tenantId);
+
+    return Promise.all(
+        channels.map((channel) =>
+            NotificationEvent.create(
+                {
+                    tenantId: input.tenantId,
+                    type: input.type,
+                    channel: channel.provider,
+                    status: 'queued',
+                    subject: input.subject,
+                    payload:
+                    {
+                        ...input.payload,
+                        alertChannelId: channel.id,
+                        alertChannelName: channel.name
+                    }
+                }
+            ))
+    );
+}
+
 async function queueSecurityAlert(
     tenantId: number,
     repositoryFullName: string,
@@ -76,6 +106,28 @@ async function queueSecurityAlert(
             }
         }
     );
+
+    await queueWebhookAlertEvents(
+        {
+            tenantId,
+            type: 'security_alert',
+            subject: `${severeFindings.length} high-risk security findings in ${repositoryFullName}`,
+            payload:
+            {
+                repositoryFullName,
+                findings: severeFindings.slice(0, 10).map(function (finding)
+                {
+                    return {
+                        ruleId: finding.ruleId,
+                        severity: finding.severity,
+                        title: finding.title,
+                        filePath: finding.filePath,
+                        lineNumber: finding.lineNumber
+                    };
+                })
+            }
+        }
+    ).catch((error) => console.warn('Webhook alert channels could not be queued:', error instanceof Error ? error.message : error));
 
     return queueEmailEvent(
         {
@@ -269,6 +321,7 @@ async function queueProviderStatusEmail(tenantId: number, provider: string, acco
 export {
     getTenantEmailRecipients,
     queueEmailEvent,
+    queueWebhookAlertEvents,
     queueSecurityAlert,
     queueWelcomeOwnerEmail,
     queueEmailVerificationEmail,

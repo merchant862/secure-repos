@@ -73,6 +73,33 @@ function fingerprint(scanner: string, ruleId: string, filePath: string, lineNumb
         .digest('hex');
 }
 
+function publicCategory(scanner: string, ruleId: string)
+{
+    if (scanner === 'gitleaks' || scanner === 'trufflehog' || ruleId.includes('secret')) return 'Secrets';
+    if (scanner === 'osv-scanner' || scanner === 'grype' || ruleId.includes('vulnerability')) return 'Dependencies';
+    if (scanner === 'checkov' || ruleId.includes('misconfig')) return 'Infrastructure configuration';
+    if (scanner === 'trivy' && ruleId.includes('secret')) return 'Secrets';
+    if (scanner === 'trivy') return 'Container and dependency risk';
+    if (scanner === 'semgrep') return 'Code risk pattern';
+
+    return 'Security review';
+}
+
+function scannerConfidence(scanner: string, severity: ScannerFinding['severity'])
+{
+    if (scanner === 'gitleaks' || scanner === 'trufflehog' || scanner === 'osv-scanner' || scanner === 'grype')
+    {
+        return 'high';
+    }
+
+    if (severity === 'critical' || severity === 'high')
+    {
+        return 'medium';
+    }
+
+    return 'low';
+}
+
 function scannerFinding(input: {
     scanner: string;
     ruleId: string;
@@ -87,19 +114,32 @@ function scannerFinding(input: {
 {
     const filePath = input.filePath && input.filePath.trim() !== '' ? input.filePath : 'repository';
     const lineNumber = input.lineNumber ?? null;
+    const severity = normalizeSeverity(input.severity);
+    const confidence = scannerConfidence(input.scanner, severity);
+    const description = input.description || input.title;
+    const remediation = input.remediation || 'Review the scanner finding, update the affected code or dependency, then run a new SecureRepos scan.';
 
     return {
         ruleId: input.ruleId.slice(0, 100),
-        severity: normalizeSeverity(input.severity),
+        severity,
         title: input.title.slice(0, 255),
-        description: input.description || input.title,
-        remediation: input.remediation || 'Review the scanner finding, update the affected code or dependency, then run a new SecureRepos scan.',
+        description,
+        remediation,
         filePath: filePath.replace(/^\/workspace\/repo\/?/, '') || 'repository',
         lineNumber,
         fingerprint: fingerprint(input.scanner, input.ruleId, filePath, lineNumber, input.title),
         metadata:
         {
             scanner: input.scanner,
+            category: publicCategory(input.scanner, input.ruleId),
+            confidence,
+            falsePositiveRisk: confidence === 'high' ? 'low' : confidence === 'medium' ? 'medium' : 'high',
+            detection: description,
+            impact: severity === 'critical' || severity === 'high'
+                ? 'This finding can expose sensitive data, vulnerable packages, or risky configuration if shipped without review.'
+                : 'This finding should be reviewed to decide whether it is intentional for this repository.',
+            recommendedAction: remediation,
+            fixVerification: 'Apply the fix, run a new scan, and verify the finding no longer appears.',
             ...(input.metadata ?? {})
         }
     };

@@ -363,6 +363,15 @@ function mapFinding(
         metadata:
         {
             source: 'osv',
+            category: 'Dependencies',
+            confidence: 'high',
+            falsePositiveRisk: 'low',
+            detection: `${dependency.name} ${dependency.version} matches a known vulnerability advisory.`,
+            impact: 'A vulnerable dependency can expose the application to known attacks if the affected package path is reachable.',
+            recommendedAction: patchedVersion
+                ? `Upgrade ${dependency.name} to ${patchedVersion} or later and regenerate the lockfile.`
+                : `Review ${advisoryId}, upgrade or replace ${dependency.name}, and regenerate the lockfile.`,
+            fixVerification: 'Run a new scan after updating dependencies. The finding closes when this advisory no longer matches the installed version.',
             branch,
             advisoryId,
             osvId: vulnerability.id,

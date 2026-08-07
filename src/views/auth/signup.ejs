@@ -7,17 +7,25 @@
     <main class="auth-shell">
         <section class="auth-copy">
             <a class="brand" href="/" style="padding:0;color:#fff"><%- include('../partials/brand-logo') %></a>
-            <div>
-                <h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Start checking your GitHub repositories in minutes.</h1>
-                <p style="color:#d0d5dd;max-width:560px">Choose a plan, install the GitHub App, and review branch-level findings without setting up a heavy security platform.</p>
+            <div class="auth-copy-main">
+                <span class="auth-eyebrow">Create workspace</span>
+                <h1>Start checking selected GitHub repositories in minutes.</h1>
+                <p>Verify your email, activate checkout, connect GitHub, then run the first repository scan from onboarding.</p>
+                <ul class="auth-proof-list">
+                    <li>One GitHub account is linked to the workspace to reduce abuse.</li>
+                    <li>Preview access is intentionally limited before full subscription activation.</li>
+                    <li>Plan limits are clear before you connect repositories.</li>
+                </ul>
             </div>
-            <p style="color:#98a2b3;margin:0">Clear repository limits. Clear scan limits. No unlimited plan claims.</p>
+            <p class="auth-copy-foot">No unlimited claims. No shared account model. No card details handled by SecureRepos.</p>
         </section>
         <section class="auth-card">
             <div class="auth-card-inner">
-                <a class="muted small" href="/sign-in">Already have an account?</a>
-                <h1 style="margin:22px 0 8px">Create account</h1>
-                <p class="muted" style="margin:0 0 26px">Create your account, verify your email, then complete plan activation and GitHub setup.</p>
+                <div class="auth-card-top"><a class="muted small" href="/sign-in">Already have an account?</a><span class="badge success">Email required</span></div>
+                <h1>Create account</h1>
+                <p class="auth-card-subcopy">Create your account, verify your email, then complete plan activation and GitHub setup.</p>
+                <a class="button primary" href="/api/auth/github" style="width:100%;margin-bottom:14px">Continue with GitHub</a>
+                <div class="auth-divider"><span>or email</span></div>
                 <form method="post" action="/api/auth/signup">
                     <% if (typeof planSlug !== 'undefined' && planSlug) { %>
                         <input type="hidden" name="planSlug" value="<%= planSlug %>">

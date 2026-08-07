@@ -14,9 +14,19 @@
                     <article class="card card-body"><span class="badge brand">Branch</span><div class="metric-value" data-repository-metric="branch" style="font-size:24px">--</div><div class="metric-label">default branch</div></article>
                     <article class="card card-body"><span class="badge warning">Provider</span><div class="metric-value" data-repository-metric="provider" style="font-size:24px">GitHub</div><div class="metric-label">connected</div></article>
                 </section>
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header"><h2 class="card-title">Risk Summary</h2><span class="badge brand">Prioritized</span></div>
+                    <div class="card-body" data-repository-risk-summary>
+                        <div class="empty-state">Risk summary loads after scan data is available.</div>
+                    </div>
+                </section>
                 <section class="grid grid-2" style="margin-top:18px">
                     <article class="card"><div class="card-header"><h2 class="card-title">Checklist</h2><span class="badge brand">Security posture</span></div><div class="card-body" data-repository-checklist><div class="empty-state">Checklist loads after this repository has scan data.</div></div></article>
                     <article class="card"><div class="card-header"><h2 class="card-title">Scan History</h2></div><div class="table-wrap"><table><thead><tr><th>Scan</th><th>Status</th><th>Findings</th></tr></thead><tbody data-repository-scans><tr><td colspan="3">No scan history yet.</td></tr></tbody></table></div></article>
+                </section>
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header"><h2 class="card-title">CI Runtime Activity</h2><span class="badge brand">Guarded jobs</span></div>
+                    <div class="table-wrap"><table><thead><tr><th>Signal</th><th>Severity</th><th>Workflow</th><th>Observed</th></tr></thead><tbody data-repository-runtime-events><tr><td colspan="4">No CI runtime events yet.</td></tr></tbody></table></div>
                 </section>
                 <%- include('../partials/footer') %>
             </main>

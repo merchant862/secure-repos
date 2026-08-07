@@ -2,6 +2,43 @@ import { Op, Transaction } from 'sequelize';
 
 import { PricingPlan, Repository, Scan, TenantSubscription } from '../../db/models';
 
+type PlanEntitlements =
+{
+    alertChannelLimit: number;
+    allowedAlertProviders: string[];
+    safeRemediationPr: boolean;
+    ciRuntimeGuard: boolean;
+    mcpAgentAccess: boolean;
+};
+
+function isProPlan(plan?: PricingPlan | null)
+{
+    const slug = String(plan?.slug ?? '').toLowerCase();
+    return slug.includes('pro');
+}
+
+function entitlementsForPlan(plan?: PricingPlan | null): PlanEntitlements
+{
+    if (isProPlan(plan))
+    {
+        return {
+            alertChannelLimit: 6,
+            allowedAlertProviders: ['slack', 'discord', 'teams', 'telegram', 'github_issues'],
+            safeRemediationPr: true,
+            ciRuntimeGuard: true,
+            mcpAgentAccess: true
+        };
+    }
+
+    return {
+        alertChannelLimit: 0,
+        allowedAlertProviders: [],
+        safeRemediationPr: false,
+        ciRuntimeGuard: false,
+        mcpAgentAccess: false
+    };
+}
+
 async function getTenantPlan(tenantId: number, transaction?: Transaction)
 {
     const subscription = await TenantSubscription.findOne(
@@ -249,6 +286,7 @@ async function assertManualScanAllowed(tenantId: number, repositoryId: number)
 
 export {
     getTenantPlan,
+    entitlementsForPlan,
     assertRepositoryLimitAvailable,
     assertManualScanAllowed,
     assignTenantPlan

@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 
-import { changeUserPassword, createEmailVerificationRequest, createLoginOtpChallenge, createPasswordResetRequest, registerOwner, resetPasswordWithToken, revokeSession, verifyEmailWithToken, verifyLoginOtpChallenge } from '../../services/auth.service';
+import { buildGithubOauthLoginUrl, changeUserPassword, createEmailVerificationRequest, createLoginOtpChallenge, createPasswordResetRequest, loginWithGithubOAuth, registerOwner, resetPasswordWithToken, revokeSession, verifyEmailWithToken, verifyLoginOtpChallenge } from '../../services/auth.service';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import { CodeHostConnection, TenantSubscription, User } from '../../../db/models';
 import { verifyCheckoutToken } from '../../services/paddle.service';
@@ -234,6 +234,46 @@ async function passwordResetRequestController(req: Request, res: Response)
     return res.json({ message: 'If that email exists, a password reset link has been sent.' });
 }
 
+function githubLoginStartController(_req: Request, res: Response)
+{
+    return res.redirect(buildGithubOauthLoginUrl());
+}
+
+async function githubLoginCallbackController(req: Request, res: Response)
+{
+    const code = typeof req.query.code === 'string' ? req.query.code : '';
+    const state = typeof req.query.state === 'string' ? req.query.state : '';
+
+    try
+    {
+        if (!code || !state)
+        {
+            throw new Error('GitHub login was cancelled or incomplete');
+        }
+
+        const session = await loginWithGithubOAuth(code, state, req.ip, req.header('user-agent') ?? undefined);
+        const user = await User.findByPk(session.session.userId);
+        const [subscription, githubConnection] = user
+            ? await Promise.all(
+                [
+                    TenantSubscription.findOne({ where: { tenantId: user.tenantId } }),
+                    CodeHostConnection.findOne({ where: { tenantId: user.tenantId, provider: 'github', isActive: true } })
+                ]
+            )
+            : [null, null];
+        const onboardingRequired = !subscription
+            || !['active', 'trialing'].includes(subscription.status)
+            || !githubConnection;
+
+        setAuthCookie(res, session.token);
+        return res.redirect(onboardingRequired ? '/onboarding' : '/dashboard');
+    }
+    catch (error)
+    {
+        return res.redirect(`/sign-in?github=${encodeURIComponent(error instanceof Error ? error.message : 'GitHub login failed')}`);
+    }
+}
+
 async function passwordResetConfirmController(req: Request, res: Response)
 {
     try
@@ -342,6 +382,8 @@ export {
     resendEmailVerificationController,
     loginController,
     loginOtpController,
+    githubLoginStartController,
+    githubLoginCallbackController,
     passwordResetRequestController,
     passwordResetConfirmController,
     changePasswordController,

@@ -31,6 +31,7 @@ module.exports =
     apps:
     [
         app('securerepos-web', 'dist/src/main/start-web.js'),
+        app('securerepos-notification-ws', 'dist/src/main/start-notification-ws.js'),
         app('securerepos-scanner-lifecycle', 'scripts/scanner-lifecycle.js', {}, { autorestart: false }),
         app('securerepos-scan-worker', 'dist/src/main/start-worker.js'),
         app('securerepos-scheduler', 'dist/src/main/start-scheduler.js'),

@@ -7,6 +7,7 @@ import { EmailVerificationToken, LoginOtp, NotificationEvent, PasswordResetToken
 import { sequelize } from '../../db/sequelize';
 import { queueEmailVerificationEmail, queueWelcomeOwnerEmail } from './notification.service';
 import { env } from '../../bootstrap/env';
+import { exchangeGithubOAuthCode, fetchGithubOAuthEmails, fetchGithubOAuthUser } from '../../modules/github/github.service';
 
 const scrypt = promisify(crypto.scrypt);
 const sessionDays = 14;
@@ -16,6 +17,7 @@ const loginOtpResendCooldownMs = 60 * 1000;
 const passwordResetMinutes = 30;
 const emailVerificationHours = 24;
 const emailVerificationResendCooldownMs = 60 * 1000;
+const githubOauthStateMinutes = 10;
 
 function normalizeEmail(email: string): string
 {
@@ -150,6 +152,116 @@ async function registerOwner(name: string, email: string, password: string, plan
     await createEmailVerificationRequest(user);
 
     return user;
+}
+
+function githubOauthState()
+{
+    const nonce = crypto.randomBytes(18).toString('base64url');
+    const expiresAt = Date.now() + githubOauthStateMinutes * 60 * 1000;
+    const payload = `${nonce}.${expiresAt}`;
+    const signature = crypto.createHmac('sha256', env.tokenEncryptionKey || env.githubClientSecret).update(payload).digest('base64url');
+
+    return `${payload}.${signature}`;
+}
+
+function verifyGithubOauthState(state: string)
+{
+    const [nonce, expiresAtValue, signature] = state.split('.');
+    if (!nonce || !expiresAtValue || !signature) return false;
+
+    const payload = `${nonce}.${expiresAtValue}`;
+    const expected = crypto.createHmac('sha256', env.tokenEncryptionKey || env.githubClientSecret).update(payload).digest('base64url');
+    const provided = Buffer.from(signature);
+    const expectedBuffer = Buffer.from(expected);
+
+    return provided.length === expectedBuffer.length
+        && crypto.timingSafeEqual(provided, expectedBuffer)
+        && Number(expiresAtValue) > Date.now();
+}
+
+function buildGithubOauthLoginUrl()
+{
+    const params = new URLSearchParams(
+        {
+            client_id: env.githubClientId,
+            redirect_uri: `${env.appUrl.replace(/\/$/, '')}/api/auth/github/callback`,
+            scope: 'read:user user:email',
+            state: githubOauthState()
+        }
+    );
+
+    return `https://github.com/login/oauth/authorize?${params.toString()}`;
+}
+
+async function loginWithGithubOAuth(code: string, state: string, ipAddress?: string, userAgent?: string)
+{
+    if (!verifyGithubOauthState(state))
+    {
+        throw new Error('Invalid or expired GitHub login state');
+    }
+
+    const token = await exchangeGithubOAuthCode(code);
+    if (!token.access_token)
+    {
+        throw new Error(token.error_description || token.error || 'GitHub login failed');
+    }
+
+    const [githubUser, emails] = await Promise.all(
+        [
+            fetchGithubOAuthUser(token.access_token),
+            fetchGithubOAuthEmails(token.access_token)
+        ]
+    );
+    const primaryEmail = emails.find((email) => email.primary && email.verified) ?? emails.find((email) => email.verified);
+    if (!primaryEmail)
+    {
+        throw new Error('GitHub account must have a verified public or primary email.');
+    }
+
+    const normalizedEmail = normalizeEmail(primaryEmail.email);
+    let user = await User.findOne({ where: { email: normalizedEmail, status: 'active' } });
+
+    if (!user)
+    {
+        const pricingPlan = await PricingPlan.findOne({ where: { slug: 'solo-starter', isActive: true } })
+            ?? await PricingPlan.findOne({ where: { isActive: true }, order: [['sortOrder', 'ASC']] });
+        if (!pricingPlan) throw new Error('No active pricing plan is available');
+
+        user = await sequelize.transaction(async function (transaction)
+        {
+            const tenant = await Tenant.create(
+                {
+                    name: githubUser.name || githubUser.login,
+                    slug: `${githubUser.login.replace(/[^a-z0-9]+/gi, '-').toLowerCase()}-${crypto.randomBytes(3).toString('hex')}`
+                },
+                { transaction }
+            );
+            const createdUser = await User.create(
+                {
+                    tenantId: tenant.id,
+                    name: githubUser.name || githubUser.login,
+                    email: normalizedEmail,
+                    password: null,
+                    role: 'owner',
+                    status: 'active',
+                    emailVerifiedAt: new Date()
+                },
+                { transaction }
+            );
+            await TenantSubscription.create(
+                { tenantId: tenant.id, pricingPlanId: pricingPlan.id, status: 'pending' },
+                { transaction }
+            );
+            return createdUser;
+        });
+        await queueWelcomeOwnerEmail(user).catch((error) => console.warn('Welcome email could not be queued:', error));
+    }
+    else if (!user.emailVerifiedAt)
+    {
+        await user.update({ emailVerifiedAt: new Date() });
+    }
+
+    return createSession(user, ipAddress, userAgent);
 }
 
 async function createEmailVerificationRequest(userOrEmail: User | string)
@@ -578,6 +690,8 @@ export {
     revokeSession,
     createLoginOtpChallenge,
     verifyLoginOtpChallenge,
+    buildGithubOauthLoginUrl,
+    loginWithGithubOAuth,
     createPasswordResetRequest,
     resetPasswordWithToken,
     changeUserPassword,

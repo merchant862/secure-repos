@@ -1,7 +1,7 @@
 import { Response } from 'express';
 import { Op } from 'sequelize';
 
-import { CodeHostConnection, Finding, FindingOccurrence, Repository, Scan, TenantSubscription } from '../../../db/models';
+import { CiRuntimeEvent, CodeHostConnection, Finding, FindingOccurrence, Repository, Scan, TenantSubscription } from '../../../db/models';
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import {
     getRepositoryChecklist,
@@ -9,9 +9,10 @@ import {
     updateFindingWorkflow
 } from '../../services/security-posture.service';
 import { enqueueRepositoryScan } from '../../services/scan.service';
-import { assertManualScanAllowed, getTenantPlan } from '../../services/plan-limit.service';
+import { assertManualScanAllowed, entitlementsForPlan, getTenantPlan } from '../../services/plan-limit.service';
 import { recordAuditLog } from '../../services/audit.service';
 import { queueFindingStatusEmail } from '../../services/notification.service';
+import { createSafeRemediationPr, isSafePrFinding } from '../../services/remediation-pr.service';
 
 async function getTenantRepositoryIds(tenantId: number)
 {
@@ -82,6 +83,94 @@ function buildBranchSummary(findings: Array<{ branch: string | null; severity: s
     }
 
     return Array.from(summary.values()).sort((left, right) => left.branch.localeCompare(right.branch));
+}
+
+function findingMetadata(finding: Finding)
+{
+    return (finding.metadata ?? {}) as Record<string, unknown>;
+}
+
+function confidenceOf(finding: Finding)
+{
+    const confidence = findingMetadata(finding).confidence;
+    return typeof confidence === 'string' ? confidence : 'medium';
+}
+
+function categoryOf(finding: Finding)
+{
+    const category = findingMetadata(finding).category;
+    return typeof category === 'string' ? category : 'Security review';
+}
+
+function estimateRemainingSeconds(scan: Scan | null)
+{
+    if (!scan || !['queued', 'running', 'retry'].includes(scan.status)) return null;
+
+    const metadata = (scan.metadata ?? {}) as Record<string, unknown>;
+    const estimatedCompletedAt = typeof metadata.estimatedCompletedAt === 'string'
+        ? new Date(metadata.estimatedCompletedAt)
+        : null;
+    if (!estimatedCompletedAt || Number.isNaN(estimatedCompletedAt.getTime())) return null;
+
+    return Math.max(0, Math.ceil((estimatedCompletedAt.getTime() - Date.now()) / 1000));
+}
+
+async function buildRepositoryRiskSummary(repositoryId: number)
+{
+    const [openFindings, latestScan, previousScan] = await Promise.all(
+        [
+            Finding.findAll({ where: { repositoryId, status: 'open' }, order: [['severity', 'ASC'], ['lastSeenAt', 'DESC']] }),
+            Scan.findOne({ where: { repositoryId }, order: [['createdAt', 'DESC']] }),
+            Scan.findOne({ where: { repositoryId }, order: [['createdAt', 'DESC']], offset: 1 })
+        ]
+    );
+    const counts = { critical: 0, high: 0, medium: 0, low: 0 };
+    const categories = new Map<string, number>();
+
+    for (const finding of openFindings)
+    {
+        if (finding.severity === 'critical' || finding.severity === 'high' || finding.severity === 'medium' || finding.severity === 'low')
+        {
+            counts[finding.severity] += 1;
+        }
+        categories.set(categoryOf(finding), (categories.get(categoryOf(finding)) ?? 0) + 1);
+    }
+
+    const currentHighRisk = Number(latestScan?.findingsCritical ?? 0) + Number(latestScan?.findingsHigh ?? 0);
+    const previousHighRisk = Number(previousScan?.findingsCritical ?? 0) + Number(previousScan?.findingsHigh ?? 0);
+    const partial = Boolean((latestScan?.metadata as Record<string, unknown> | null)?.partial);
+    const topActions = openFindings
+        .filter((finding) => finding.severity === 'critical' || finding.severity === 'high')
+        .slice(0, 3)
+        .map((finding) => ({
+            id: finding.id,
+            title: finding.title,
+            severity: finding.severity,
+            category: categoryOf(finding),
+            confidence: confidenceOf(finding),
+            filePath: finding.filePath,
+            remediation: finding.remediation
+        }));
+
+    return {
+        posture: counts.critical > 0 ? 'Critical attention needed' : counts.high > 0 ? 'High-risk fixes pending' : openFindings.length > 0 ? 'Review recommended' : 'No open repository findings',
+        counts,
+        highRiskDelta: latestScan && previousScan ? currentHighRisk - previousHighRisk : null,
+        topCategories: Array.from(categories.entries())
+            .sort((left, right) => right[1] - left[1])
+            .slice(0, 4)
+            .map(([category, total]) => ({ category, total })),
+        topActions,
+        coverage:
+        {
+            partial,
+            scannedFiles: (latestScan?.metadata as Record<string, unknown> | null)?.scannedFiles ?? null,
+            scannedBranches: (latestScan?.metadata as Record<string, unknown> | null)?.scannedBranches ?? null,
+            skippedBranches: (latestScan?.metadata as Record<string, unknown> | null)?.skippedBranches ?? null,
+            limitReason: (latestScan?.metadata as Record<string, unknown> | null)?.limitReason ?? null,
+            estimatedRemainingSeconds: estimateRemainingSeconds(latestScan)
+        }
+    };
 }
 
 async function getTenantRepositories(tenantId: number)
@@ -440,13 +529,14 @@ async function getUserRepositoryController(req: AuthenticatedRequest, res: Respo
         return res.status(404).json({ message: 'Repository not found' });
     }
 
-    const [repository, latestScan, openFindingsCount, recentScans, checklist] = await Promise.all(
+    const [repository, latestScan, openFindingsCount, recentScans, checklist, riskSummary] = await Promise.all(
         [
             Repository.findByPk(repositoryId),
             Scan.findOne({ where: { repositoryId }, order: [['createdAt', 'DESC']] }),
             Finding.count({ where: { repositoryId, status: 'open' } }),
             Scan.findAll({ where: { repositoryId }, order: [['createdAt', 'DESC']], limit: 10 }),
-            getRepositoryChecklist(repositoryId)
+            getRepositoryChecklist(repositoryId),
+            buildRepositoryRiskSummary(repositoryId)
         ]
     );
 
@@ -458,7 +548,66 @@ async function getUserRepositoryController(req: AuthenticatedRequest, res: Respo
                 latestScan,
                 openFindingsCount,
                 recentScans,
-                checklist
+                checklist,
+                riskSummary
+            }
+        }
+    );
+}
+
+async function listUserRepositoryRuntimeEventsController(req: AuthenticatedRequest, res: Response)
+{
+    const user = req.currentUser;
+    const repositoryId = Number(req.params.repositoryId);
+
+    if (!user)
+    {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!Number.isFinite(repositoryId))
+    {
+        return res.status(400).json({ message: 'Invalid repository id' });
+    }
+
+    const repositoryIds = await getTenantRepositoryIds(user.tenantId);
+
+    if (!repositoryIds.includes(repositoryId))
+    {
+        return res.status(404).json({ message: 'Repository not found' });
+    }
+
+    const repository = await Repository.findByPk(repositoryId);
+    if (!repository)
+    {
+        return res.status(404).json({ message: 'Repository not found' });
+    }
+
+    const limit = Math.min(50, Math.max(1, Number(req.query.limit ?? 10)));
+    const events = await CiRuntimeEvent.findAll(
+        {
+            where:
+            {
+                tenantId: user.tenantId,
+                repositoryFullName: repository.fullName
+            },
+            order: [['observedAt', 'DESC']],
+            limit
+        }
+    );
+
+    return res.json(
+        {
+            data:
+            {
+                events,
+                summary:
+                {
+                    critical: events.filter((event) => event.severity === 'critical').length,
+                    high: events.filter((event) => event.severity === 'high').length,
+                    medium: events.filter((event) => event.severity === 'medium').length,
+                    low: events.filter((event) => event.severity === 'low').length
+                }
             }
         }
     );
@@ -523,6 +672,68 @@ async function listUserFindingsController(req: AuthenticatedRequest, res: Respon
                     high: highCount,
                     snoozed: snoozedCount,
                     resolvedThisMonth
+                }
+            }
+        }
+    );
+}
+
+async function getUserFindingController(req: AuthenticatedRequest, res: Response)
+{
+    const user = req.currentUser;
+    const findingId = Number(req.params.findingId);
+
+    if (!user)
+    {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!Number.isFinite(findingId))
+    {
+        return res.status(400).json({ message: 'Invalid finding id' });
+    }
+
+    const repositoryIds = await getTenantRepositoryIds(user.tenantId);
+    const finding = await Finding.findByPk(
+        findingId,
+        {
+            include:
+            [
+                {
+                    model: Repository,
+                    as: 'repository'
+                }
+            ]
+        }
+    );
+
+    if (!finding || !repositoryIds.includes(finding.repositoryId))
+    {
+        return res.status(404).json({ message: 'Finding not found' });
+    }
+
+    const occurrences = await FindingOccurrence.findAll(
+        {
+            where: { findingId: finding.id },
+            order: [['createdAt', 'DESC']],
+            limit: 10
+        }
+    );
+
+    const plan = await getTenantPlan(user.tenantId);
+    const entitlements = entitlementsForPlan(plan);
+
+    return res.json(
+        {
+            data:
+            {
+                finding,
+                occurrences,
+                remediation:
+                {
+                    prSupported: isSafePrFinding(finding),
+                    prIncluded: entitlements.safeRemediationPr,
+                    requiredPlan: entitlements.safeRemediationPr ? null : 'Pro'
                 }
             }
         }
@@ -596,7 +807,13 @@ async function updateUserFindingController(req: AuthenticatedRequest, res: Respo
 
     const subscription = await TenantSubscription.findOne({ where: { tenantId: user.tenantId } });
 
-    if (repository && subscription?.status === 'active' && nextStatus && nextStatus !== previousStatus)
+    if (
+        repository
+        && subscription?.status === 'active'
+        && nextStatus
+        && nextStatus !== previousStatus
+        && (finding.severity === 'critical' || finding.severity === 'high')
+    )
     {
         await queueFindingStatusEmail(user.tenantId, finding, repository, nextStatus);
     }
@@ -607,6 +824,121 @@ async function updateUserFindingController(req: AuthenticatedRequest, res: Respo
             data: finding
         }
     );
+}
+
+async function verifyUserFindingController(req: AuthenticatedRequest, res: Response)
+{
+    const user = req.currentUser;
+    const findingId = Number(req.params.findingId);
+
+    if (!user)
+    {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!Number.isFinite(findingId))
+    {
+        return res.status(400).json({ message: 'Invalid finding id' });
+    }
+
+    const repositoryIds = await getTenantRepositoryIds(user.tenantId);
+    const finding = await Finding.findByPk(findingId);
+
+    if (!finding || !repositoryIds.includes(finding.repositoryId))
+    {
+        return res.status(404).json({ message: 'Finding not found' });
+    }
+
+    const scanMode = await assertManualScanAllowed(user.tenantId, finding.repositoryId);
+    const scan = await enqueueRepositoryScan(finding.repositoryId, 'manual_user', scanMode);
+
+    await finding.update(
+        {
+            metadata:
+            {
+                ...((finding.metadata as object | null) ?? {}),
+                verificationRequestedAt: new Date().toISOString(),
+                verificationScanId: scan?.id ?? null
+            } as object
+        }
+    );
+
+    await recordAuditLog(
+        {
+            tenantId: user.tenantId,
+            userId: user.id,
+            action: 'finding.verify_requested',
+            entityType: 'finding',
+            entityId: String(finding.id),
+            metadata:
+            {
+                scanId: scan?.id ?? null
+            }
+        }
+    );
+
+    return res.status(202).json(
+        {
+            message: scan ? 'Verification scan queued' : 'A scan is already queued or running for this repository',
+            data:
+            {
+                finding,
+                scan
+            }
+        }
+    );
+}
+
+async function createFindingRemediationPrController(req: AuthenticatedRequest, res: Response)
+{
+    const user = req.currentUser;
+    const findingId = Number(req.params.findingId);
+
+    if (!user)
+    {
+        return res.status(401).json({ message: 'Unauthorized' });
+    }
+
+    if (!Number.isFinite(findingId))
+    {
+        return res.status(400).json({ message: 'Invalid finding id' });
+    }
+
+    const repositoryIds = await getTenantRepositoryIds(user.tenantId);
+    const finding = await Finding.findByPk(findingId);
+
+    if (!finding || !repositoryIds.includes(finding.repositoryId))
+    {
+        return res.status(404).json({ message: 'Finding not found' });
+    }
+
+    const plan = await getTenantPlan(user.tenantId);
+    const entitlements = entitlementsForPlan(plan);
+
+    if (!entitlements.safeRemediationPr)
+    {
+        return res.status(403).json({ message: 'Safe remediation PRs require the Pro plan.' });
+    }
+
+    try
+    {
+        const pr = await createSafeRemediationPr(finding);
+        await recordAuditLog(
+            {
+                tenantId: user.tenantId,
+                userId: user.id,
+                action: 'finding.remediation_pr_created',
+                entityType: 'finding',
+                entityId: String(finding.id),
+                metadata: { prUrl: pr.html_url, prNumber: pr.number }
+            }
+        );
+        return res.status(201).json({ message: 'Remediation PR created', data: pr });
+    }
+    catch (error)
+    {
+        return res.status(400).json({ message: error instanceof Error ? error.message : 'Remediation PR could not be created' });
+    }
 }
 
 async function getUserRepositoryChecklistController(req: AuthenticatedRequest, res: Response)
@@ -735,10 +1067,14 @@ export {
     listUserRepositoriesController,
     getUserDashboardSummaryController,
     getUserRepositoryController,
+    listUserRepositoryRuntimeEventsController,
     listUserScansController,
     getUserScanController,
+    getUserFindingController,
     listUserFindingsController,
     updateUserFindingController,
+    verifyUserFindingController,
+    createFindingRemediationPrController,
     getUserRepositoryChecklistController,
     enqueueUserRepositoryScanController,
     markUserBaselineController,

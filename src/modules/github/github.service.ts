@@ -191,6 +191,149 @@ function githubRequest<T>(pathName: string, options: { method?: string; token?: 
     });
 }
 
+function githubOAuthRequest<T>(hostname: string, pathName: string, options: { method?: string; body?: object; token?: string } = {}): Promise<T>
+{
+    return new Promise(function (resolve, reject)
+    {
+        const body = options.body ? JSON.stringify(options.body) : undefined;
+        const headers: Record<string, string | number> =
+        {
+            Accept: 'application/json',
+            'User-Agent': 'micro-saas-security-platform'
+        };
+
+        if (options.token)
+        {
+            headers.Authorization = `Bearer ${options.token}`;
+        }
+
+        if (body)
+        {
+            headers['Content-Type'] = 'application/json';
+            headers['Content-Length'] = Buffer.byteLength(body);
+        }
+
+        const request = https.request(
+            {
+                hostname,
+                path: pathName,
+                method: options.method ?? 'GET',
+                headers
+            },
+            function (response)
+            {
+                const chunks: Buffer[] = [];
+                response.on('data', (chunk) => chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk)));
+                response.on('end', function ()
+                {
+                    const raw = Buffer.concat(chunks).toString('utf8');
+                    const statusCode = response.statusCode ?? 500;
+                    if (statusCode < 200 || statusCode >= 300)
+                    {
+                        reject(new GithubApiError(statusCode, raw));
+                        return;
+                    }
+                    resolve(raw ? JSON.parse(raw) as T : {} as T);
+                });
+            }
+        );
+
+        request.on('error', reject);
+        request.setTimeout(env.githubRequestTimeoutMs, () => request.destroy(new Error(`GitHub OAuth request timed out after ${env.githubRequestTimeoutMs}ms`)));
+        if (body) request.write(body);
+        request.end();
+    });
+}
+
+async function exchangeGithubOAuthCode(code: string)
+{
+    return githubOAuthRequest<{ access_token?: string; error?: string; error_description?: string }>(
+        'github.com',
+        '/login/oauth/access_token',
+        {
+            method: 'POST',
+            body:
+            {
+                client_id: env.githubClientId,
+                client_secret: env.githubClientSecret,
+                code
+            }
+        }
+    );
+}
+
+async function fetchGithubOAuthUser(accessToken: string)
+{
+    return githubOAuthRequest<{ id: number; login: string; name?: string | null; email?: string | null }>(
+        'api.github.com',
+        '/user',
+        { token: accessToken }
+    );
+}
+
+async function fetchGithubOAuthEmails(accessToken: string)
+{
+    return githubOAuthRequest<Array<{ email: string; primary: boolean; verified: boolean; visibility?: string | null }>>(
+        'api.github.com',
+        '/user/emails',
+        { token: accessToken }
+    );
+}
+
+async function fetchRepositoryFile(accessToken: string, fullName: string, filePath: string, branch: string)
+{
+    return githubRequest<{ content?: string; sha?: string; encoding?: string }>(
+        `/repos/${fullName}/contents/${encodeURIComponent(filePath)}?ref=${encodeURIComponent(branch)}`,
+        { token: accessToken }
+    );
+}
+
+async function createBranchRef(accessToken: string, fullName: string, branchName: string, sha: string)
+{
+    return githubRequest(
+        `/repos/${fullName}/git/refs`,
+        {
+            method: 'POST',
+            token: accessToken,
+            body: { ref: `refs/heads/${branchName}`, sha }
+        }
+    );
+}
+
+async function updateRepositoryFile(accessToken: string, fullName: string, input: { path: string; branch: string; message: string; content: string; sha?: string })
+{
+    return githubRequest(
+        `/repos/${fullName}/contents/${encodeURIComponent(input.path)}`,
+        {
+            method: 'PUT',
+            token: accessToken,
+            body:
+            {
+                message: input.message,
+                content: Buffer.from(input.content).toString('base64'),
+                branch: input.branch,
+                ...(input.sha ? { sha: input.sha } : {})
+            }
+        }
+    );
+}
+
+async function createPullRequest(accessToken: string, fullName: string, input: { title: string; body: string; head: string; base: string })
+{
+    return githubRequest<{ html_url?: string; number?: number }>(
+        `/repos/${fullName}/pulls`,
+        { method: 'POST', token: accessToken, body: input }
+    );
+}
+
+async function createIssue(accessToken: string, fullName: string, input: { title: string; body: string; labels?: string[] })
+{
+    return githubRequest<{ html_url?: string; number?: number }>(
+        `/repos/${fullName}/issues`,
+        { method: 'POST', token: accessToken, body: input }
+    );
+}
+
 async function createInstallationAccessToken(installationId: string): Promise<string>
 {
     const appJwt = await createGithubAppJwt();
@@ -412,5 +555,13 @@ export {
     fetchOpenDependabotAlerts,
     fetchOpenSecretScanningAlerts,
     createRepositoryCheckRun,
+    createBranchRef,
+    createPullRequest,
+    createIssue,
+    exchangeGithubOAuthCode,
+    fetchGithubOAuthEmails,
+    fetchGithubOAuthUser,
+    fetchRepositoryFile,
+    updateRepositoryFile,
     verifyGithubWebhookSignature
 };

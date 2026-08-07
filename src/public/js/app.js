@@ -128,6 +128,8 @@
         const cliTokenRevokeButton = event.target.closest('[data-cli-token-revoke]');
         const cliTokenCopyButton = event.target.closest('[data-cli-token-copy]');
         const cliTokenModalClose = event.target.closest('[data-cli-token-modal-close]');
+        const alertChannelDeleteButton = event.target.closest('[data-alert-channel-delete]');
+        const alertChannelTestButton = event.target.closest('[data-alert-channel-test]');
         const scanButton = event.target.closest('[data-repository-scan]');
         const repositoryFilterButton = event.target.closest('[data-repository-filter]');
         const repositoryPageButton = event.target.closest('[data-repository-page]');
@@ -138,6 +140,9 @@
         const mitigationCloseButton = event.target.closest('[data-mitigation-close]');
         const mitigationResolveButton = event.target.closest('[data-mitigation-resolve]');
         const findingResolveButton = event.target.closest('[data-finding-resolve]');
+        const findingVerifyButton = event.target.closest('[data-finding-verify]');
+        const findingCreatePrButton = event.target.closest('[data-finding-create-pr]');
+        const findingDetailSaveButton = event.target.closest('[data-finding-detail-save]');
         const panel = document.querySelector('[data-notification-panel]');
         const mobileHeaderMenuPanel = document.querySelector('[data-mobile-header-menu]');
 
@@ -213,6 +218,18 @@
             resolveFindingInline(findingResolveButton);
         }
 
+        if (findingVerifyButton) {
+            verifyFindingFix(findingVerifyButton);
+        }
+
+        if (findingCreatePrButton) {
+            createFindingRemediationPr(findingCreatePrButton);
+        }
+
+        if (findingDetailSaveButton) {
+            saveFindingDetailStatus(findingDetailSaveButton);
+        }
+
         if (landingMenuButton) {
             const isOpen = document.body.classList.toggle('landing-menu-open');
             landingMenuButton.setAttribute('aria-expanded', String(isOpen));
@@ -255,6 +272,14 @@
 
         if (cliTokenModalClose) {
             cliTokenModalClose.closest('[data-cli-token-modal]')?.remove();
+        }
+
+        if (alertChannelDeleteButton) {
+            deleteAlertChannel(alertChannelDeleteButton);
+        }
+
+        if (alertChannelTestButton) {
+            testAlertChannel(alertChannelTestButton);
         }
     });
 
@@ -399,7 +424,11 @@
         }
     }
 
-    if (getToken() && window.EventSource) {
+    function startNotificationSseFallback() {
+        if (!getToken() || !window.EventSource) {
+            return;
+        }
+
         try {
             const events = new EventSource('/api/user/notifications/stream');
             events.addEventListener('notifications.snapshot', function (event) {
@@ -421,6 +450,59 @@
             // Regular polling still loads notifications if SSE is unavailable.
         }
     }
+
+    function startNotificationWebSocket() {
+        if (!getToken() || !window.WebSocket) {
+            startNotificationSseFallback();
+            return;
+        }
+
+        try {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = window.__SECUREREPOS_WS_URL || `${protocol}//${window.location.host}/ws/notifications`;
+            const socket = new WebSocket(wsUrl);
+            let opened = false;
+
+            socket.addEventListener('open', function () {
+                opened = true;
+            });
+            socket.addEventListener('message', function (event) {
+                const message = JSON.parse(event.data || '{}');
+                const data = message.data || {};
+
+                if (message.event === 'notifications.snapshot') {
+                    if (unreadCount) {
+                        unreadCount.textContent = String(data.unreadCount || 0);
+                    }
+                    if (data.latest) {
+                        renderNotifications(data.latest);
+                    }
+                }
+
+                if (message.event === 'notifications.created' && data.notification) {
+                    renderNotifications([data.notification], true);
+                }
+
+                if (message.event === 'notifications.count' && unreadCount) {
+                    unreadCount.textContent = String(data.unreadCount || 0);
+                }
+            });
+            socket.addEventListener('close', function () {
+                if (!opened) {
+                    startNotificationSseFallback();
+                    return;
+                }
+                setTimeout(startNotificationWebSocket, 5000);
+            });
+            socket.addEventListener('error', function () {
+                if (!opened) socket.close();
+            });
+        } catch (error) {
+            startNotificationSseFallback();
+        }
+    }
+
+    startNotificationWebSocket();
 
     document.querySelectorAll('form[action="/api/auth/login"], form[action="/api/auth/signup"]').forEach(function (form) {
         form.addEventListener('submit', async function (event) {
@@ -686,9 +768,46 @@
                 status.style.color = 'var(--danger)';
             }
         } finally {
+            if (button.dataset.alertChannelLocked !== 'true') {
+                button.disabled = false;
+                button.textContent = originalText;
+            }
+        }
+    });
+
+    document.querySelector('[data-alert-channel-form]')?.addEventListener('submit', async function (event) {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const button = form.querySelector('button[type="submit"]');
+        const status = form.querySelector('[data-alert-channel-status]');
+        const originalText = button.textContent;
+
+        button.disabled = true;
+        button.textContent = 'Connecting...';
+        if (status) status.textContent = '';
+
+        try {
+            const body = Object.fromEntries(new FormData(form).entries());
+            await apiFetch('/api/user/alert-channels', { method: 'POST', body: JSON.stringify(body) });
+            form.reset();
+            if (status) {
+                status.textContent = 'Alert channel connected. Critical and high-risk alerts will be sent there.';
+                status.style.color = 'var(--success)';
+            }
+            await hydrateAlertChannels();
+        } catch (error) {
+            if (status) {
+                status.textContent = error.message || 'Alert channel could not be connected.';
+                status.style.color = 'var(--danger)';
+            }
+        } finally {
             button.disabled = false;
             button.textContent = originalText;
         }
+    });
+
+    document.querySelector('[data-alert-channel-form] select[name="provider"]')?.addEventListener('change', function () {
+        updateAlertChannelFields();
     });
 
     hydratePageData();
@@ -700,9 +819,12 @@
             hydrateScanDetail(),
             hydrateRepositoryDetail(),
             hydrateFindings(),
+            hydrateFindingDetail(),
             hydrateNotificationsPage(),
             hydrateAuditLogs(),
             hydrateCliTokens(),
+            hydrateAlertChannels(),
+            hydrateAlertChannelRepositories(),
             hydrateTrend(),
             hydrateSessionSummary(),
             hydrateBilling(),
@@ -823,17 +945,19 @@
             const plans = payload.data || [];
 
             container.innerHTML = plans.map(function (plan) {
-                const price = new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: plan.currency || 'USD',
-                    minimumFractionDigits: 2
-                }).format(Number(plan.priceMonthlyCents || 0) / 100);
-                const features = (plan.features || []).filter((feature) => feature.isIncluded !== false);
+                const price = formatMoney(plan.priceMonthlyCents, plan.currency);
+                const includedFeatures = (plan.features || []).filter((feature) => feature.isIncluded !== false);
+                const lockedFeatures = (plan.features || []).filter((feature) => feature.isIncluded === false);
                 const cardClass = plan.isHighlighted ? 'card card-body plan-card plan-featured' : 'card card-body plan-card';
                 const badgeClass = plan.isHighlighted ? 'badge success' : 'badge brand';
                 const badgeText = plan.isHighlighted ? 'Recommended' : plan.name;
                 const buttonClass = plan.isHighlighted ? 'button primary' : 'button';
                 const checkoutToken = plan.checkoutToken || '';
+                const facts = [
+                    planRepositoryLimitCopy(plan),
+                    planScheduleCopy(plan),
+                    `${plan.findingHistoryDays ?? 30} days history`
+                ];
                 const target = checkoutToken
                     ? (container.dataset.pricingTarget === 'billing'
                         ? `/checkout?t=${encodeURIComponent(checkoutToken)}`
@@ -845,8 +969,9 @@
                     <h3>${escapeHtml(plan.name)}</h3>
                     <div class="metric-value">${escapeHtml(price)}<span class="plan-period">/mo</span></div>
                     <p class="muted small">${escapeHtml(plan.description || '')}</p>
-                    <ul class="plan-list">${features.map((feature) => `<li>${escapeHtml(feature.label)}</li>`).join('')}</ul>
-                    <a class="${buttonClass}" href="${target}">Start Security Preview</a>
+                    <div class="plan-card-facts">${facts.map((fact) => `<span>${escapeHtml(fact)}</span>`).join('')}</div>
+                    <ul class="plan-list">${includedFeatures.map((feature) => `<li>${escapeHtml(feature.label)}</li>`).join('')}${lockedFeatures.map((feature) => `<li class="locked">${escapeHtml(feature.label)}</li>`).join('')}</ul>
+                    <a class="${buttonClass}" href="${target}">${escapeHtml(plan.ctaLabel || 'Start Security Preview')}</a>
                 </article>`;
             }).join('') || '<div class="empty-state">Plans are currently unavailable. Please contact support.</div>';
         } catch (error) {
@@ -917,16 +1042,26 @@
     }
 
     function formatMoney(cents, currency) {
+        const amount = Number(cents || 0) / 100;
+        const isWholeAmount = Number.isInteger(Number(cents || 0) / 100);
+
         return new Intl.NumberFormat('en-US', {
             style: 'currency',
             currency: currency || 'USD',
-            minimumFractionDigits: 2
-        }).format(Number(cents || 0) / 100);
+            minimumFractionDigits: isWholeAmount ? 0 : 2,
+            maximumFractionDigits: 2
+        }).format(amount);
     }
 
     function includedPlanFeatures(plan) {
         return (plan?.features || [])
             .filter((feature) => feature && feature.isIncluded !== false)
+            .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
+    }
+
+    function lockedPlanFeatures(plan) {
+        return (plan?.features || [])
+            .filter((feature) => feature && feature.isIncluded === false)
             .sort((a, b) => Number(a.sortOrder || 0) - Number(b.sortOrder || 0));
     }
 
@@ -952,11 +1087,12 @@
 
         const price = `${formatMoney(plan.priceMonthlyCents, plan.currency)}<span class="plan-period">/mo</span>`;
         const features = includedPlanFeatures(plan);
+        const lockedFeatures = lockedPlanFeatures(plan);
         const periodEnd = options?.periodEnd ? `<p class="muted small">${escapeHtml(options.periodEnd)}</p>` : '';
         const pendingCopy = options?.pendingCopy ? `<p class="muted small">${escapeHtml(options.pendingCopy)}</p>` : '';
         const statusNote = options?.statusNote ? `<p class="muted small">${escapeHtml(options.statusNote)}</p>` : '';
         const featureList = features.length
-            ? `<ul class="plan-list compact">${features.map((feature) => `<li>${escapeHtml(feature.label)}</li>`).join('')}</ul>`
+            ? `<ul class="plan-list compact">${features.map((feature) => `<li>${escapeHtml(feature.label)}</li>`).join('')}${lockedFeatures.map((feature) => `<li class="locked">${escapeHtml(feature.label)}</li>`).join('')}</ul>`
             : '<p class="muted small">Package features will appear here when configured.</p>';
 
         return `<div class="billing-plan-summary">
@@ -1540,16 +1676,52 @@
         const status = String(scan.status || '-');
         const badge = status === 'completed' ? 'success' : status === 'failed' ? 'danger' : status === 'running' ? 'warning' : 'brand';
         const repo = scan.repository?.fullName || scan.repository?.name || '-';
+        const meta = scan.metadata || {};
+        const timing = renderScanTiming(scan);
+        const partial = meta.partial ? '<span class="badge warning">Partial</span>' : '';
 
-        return `<tr><td>#${escapeHtml(scan.id)}</td><td>${escapeHtml(repo)}</td><td><span class="badge ${badge}">${escapeHtml(status)}</span></td><td>${escapeHtml(scan.triggerType || '-')}</td><td>${escapeHtml(total)}</td><td>${formatDate(scan.completedAt || scan.updatedAt || scan.createdAt)}</td><td><a class="button" href="/scans/${escapeHtml(scan.id)}">View details</a></td></tr>`;
+        return `<tr><td>#${escapeHtml(scan.id)}</td><td>${escapeHtml(repo)}<div class="muted small">${partial} ${timing}</div></td><td><span class="badge ${badge}">${escapeHtml(status)}</span></td><td>${escapeHtml(scan.triggerType || '-')}</td><td>${escapeHtml(total)}</td><td>${formatDate(scan.completedAt || scan.updatedAt || scan.createdAt)}</td><td><a class="button" href="/scans/${escapeHtml(scan.id)}">View details</a></td></tr>`;
+    }
+
+    function findingMeta(finding) {
+        return finding.metadata || {};
+    }
+
+    function renderConfidenceBadge(finding) {
+        const confidence = String(findingMeta(finding).confidence || 'medium');
+        const badge = confidence === 'high' ? 'success' : confidence === 'low' ? 'warning' : 'brand';
+
+        return `<span class="badge ${badge}">${escapeHtml(confidence)} confidence</span>`;
+    }
+
+    function renderScanTiming(scan) {
+        const meta = scan.metadata || {};
+        if (!['queued', 'running', 'retry'].includes(String(scan.status || ''))) {
+            return meta.limitReason ? escapeHtml(String(meta.limitReason)) : '';
+        }
+
+        const target = meta.estimatedCompletedAt ? new Date(meta.estimatedCompletedAt).getTime() : 0;
+        if (!target || Number.isNaN(target)) {
+            return 'Time estimate pending';
+        }
+
+        const seconds = Math.max(0, Math.ceil((target - Date.now()) / 1000));
+        if (seconds === 0) {
+            return 'Taking longer than usual';
+        }
+
+        const minutes = Math.max(1, Math.ceil(seconds / 60));
+        return `About ${minutes} min left`;
     }
 
     function renderFindingRow(finding) {
         const severity = String(finding.severity || 'medium');
         const badge = severity === 'critical' ? 'danger' : severity === 'high' ? 'warning' : 'brand';
         const remediation = finding.remediation || finding.description || 'Review the affected file, apply the recommended secure configuration, then run the scan again.';
+        const meta = findingMeta(finding);
+        const category = meta.category || 'Security review';
 
-        return `<tr><td><a href="/findings/${finding.id}">${escapeHtml(finding.title || finding.ruleId || 'Finding')}</a><div class="muted small">${escapeHtml(finding.repository?.name || finding.repositoryName || 'Repository')} / ${escapeHtml(finding.filePath || '-')}</div></td><td><span class="badge ${badge}">${escapeHtml(severity)}</span></td><td><button class="button" type="button" data-mitigation-open data-finding-id="${escapeHtml(finding.id)}" data-finding-title="${escapeHtml(finding.title || finding.ruleId || 'Finding')}" data-finding-severity="${escapeHtml(severity)}" data-finding-file="${escapeHtml(finding.filePath || '-')}" data-finding-remediation="${escapeHtml(remediation)}">Mitigate</button></td></tr>`;
+        return `<tr><td><a href="/findings/${finding.id}">${escapeHtml(finding.title || finding.ruleId || 'Finding')}</a><div class="muted small">${escapeHtml(finding.repository?.name || finding.repositoryName || 'Repository')} / ${escapeHtml(finding.filePath || '-')}</div><div class="muted small">${escapeHtml(category)} · ${renderConfidenceBadge(finding)}</div></td><td><span class="badge ${badge}">${escapeHtml(severity)}</span></td><td><button class="button" type="button" data-mitigation-open data-finding-id="${escapeHtml(finding.id)}" data-finding-title="${escapeHtml(finding.title || finding.ruleId || 'Finding')}" data-finding-severity="${escapeHtml(severity)}" data-finding-file="${escapeHtml(finding.filePath || '-')}" data-finding-remediation="${escapeHtml(remediation)}">Mitigate</button></td></tr>`;
     }
 
     function ensureMitigationPanel() {
@@ -1714,10 +1886,13 @@
         const findings = data.findings || [];
         const branchSummary = data.branchSummary || [];
         const total = Number(scan.findingsCritical || 0) + Number(scan.findingsHigh || 0) + Number(scan.findingsMedium || 0) + Number(scan.findingsLow || 0);
+        const scanMeta = scan.metadata || {};
 
         document.querySelector('[data-scan-detail-title]').textContent = `Scan #${scan.id || scanId}`;
-        document.querySelector('[data-scan-detail-subtitle]').textContent = repository.fullName || repository.name || 'Repository scan';
-        document.querySelector('[data-scan-detail-metric="status"]').textContent = scan.status || '--';
+        document.querySelector('[data-scan-detail-subtitle]').textContent = scanMeta.partial
+            ? `${repository.fullName || repository.name || 'Repository scan'} · partial results saved`
+            : repository.fullName || repository.name || 'Repository scan';
+        document.querySelector('[data-scan-detail-metric="status"]').textContent = scanMeta.partial ? 'partial' : scan.status || '--';
         document.querySelector('[data-scan-detail-metric="critical"]').textContent = scan.findingsCritical ?? 0;
         document.querySelector('[data-scan-detail-metric="high"]').textContent = scan.findingsHigh ?? 0;
         document.querySelector('[data-scan-detail-metric="total"]').textContent = total;
@@ -1728,6 +1903,9 @@
                 ['Trigger', scan.triggerType || '-'],
                 ['Branch', scan.branch || '-'],
                 ['Commit', scan.commitSha || '-'],
+                ['Stage', scanMeta.progressStage || '-'],
+                ['Estimate', renderScanTiming(scan) || '-'],
+                ['Coverage', scanMeta.scannedFiles ? `${escapeHtml(scanMeta.scannedFiles)} files · ${escapeHtml(scanMeta.scannedBranches || 0)} branches` : '-'],
                 ['Started', formatDateTime(scan.startedAt)],
                 ['Completed', formatDateTime(scan.completedAt)],
                 ['Created', formatDateTime(scan.createdAt)]
@@ -1746,9 +1924,11 @@
         }
 
         const errorBox = document.querySelector('[data-scan-detail-error]');
-        if (errorBox && scan.errorMessage) {
+        if (errorBox && (scan.errorMessage || scanMeta.limitReason)) {
             errorBox.hidden = false;
-            errorBox.innerHTML = `<span class="badge danger">Error</span><p class="muted small" style="margin:8px 0 0">${escapeHtml(scan.errorMessage)}</p>`;
+            errorBox.innerHTML = scan.errorMessage
+                ? `<span class="badge danger">Error</span><p class="muted small" style="margin:8px 0 0">${escapeHtml(scan.errorMessage)}</p>`
+                : `<span class="badge warning">Partial scan</span><p class="muted small" style="margin:8px 0 0">${escapeHtml(scanMeta.limitReason || 'The scan saved partial results after reaching a safety limit.')}</p>`;
         }
 
         const findingCount = document.querySelector('[data-scan-detail-finding-count]');
@@ -1768,7 +1948,14 @@
 
         const findingsTable = document.querySelector('[data-scan-detail-findings]');
         if (findingsTable) {
-            findingsTable.innerHTML = findings.map(renderScanFindingRow).join('') || '<tr><td colspan="5">No findings were recorded for this scan.</td></tr>';
+            const coverage = scanMeta.scannedFiles
+                ? ` ${escapeHtml(scanMeta.scannedFiles)} files${scanMeta.scannedBranches ? ` across ${escapeHtml(scanMeta.scannedBranches)} branches` : ''} were checked.`
+                : '';
+            findingsTable.innerHTML = findings.map(renderScanFindingRow).join('') || `<tr><td colspan="5">No findings were recorded for this scan.${coverage} This is still useful: no critical or high-risk signals were detected in the checked repository surface.</td></tr>`;
+        }
+
+        if (['queued', 'running', 'retry'].includes(String(scan.status || ''))) {
+            setTimeout(hydrateScanDetail, 30000);
         }
     }
 
@@ -1781,8 +1968,9 @@
     function renderScanFindingRow(finding) {
         const severity = String(finding.severity || 'medium');
         const badge = severity === 'critical' ? 'danger' : severity === 'high' ? 'warning' : severity === 'low' ? 'success' : 'brand';
+        const meta = findingMeta(finding);
 
-        return `<tr><td><a href="/findings/${escapeHtml(finding.id)}">${escapeHtml(finding.title || finding.ruleId || 'Finding')}</a><div class="muted small">${escapeHtml(finding.ruleId || '')}</div></td><td>${escapeHtml(finding.branch || '-')}</td><td><span class="badge ${badge}">${escapeHtml(severity)}</span></td><td>${escapeHtml(finding.filePath || '-')}${finding.lineNumber ? `:${escapeHtml(finding.lineNumber)}` : ''}</td><td>${escapeHtml(finding.status || 'open')}</td></tr>`;
+        return `<tr><td><a href="/findings/${escapeHtml(finding.id)}">${escapeHtml(finding.title || finding.ruleId || 'Finding')}</a><div class="muted small">${escapeHtml(meta.category || finding.ruleId || '')} · ${renderConfidenceBadge(finding)}</div></td><td>${escapeHtml(finding.branch || '-')}</td><td><span class="badge ${badge}">${escapeHtml(severity)}</span></td><td>${escapeHtml(finding.filePath || '-')}${finding.lineNumber ? `:${escapeHtml(finding.lineNumber)}` : ''}</td><td>${escapeHtml(finding.status || 'open')}</td></tr>`;
     }
 
     function renderScanBranchRow(branch) {
@@ -1808,6 +1996,11 @@
         document.querySelector('[data-repository-metric="branch"]').textContent = repository.defaultBranch || '--';
         document.querySelector('[data-repository-metric="provider"]').textContent = repository.provider || 'github';
 
+        const riskSummary = document.querySelector('[data-repository-risk-summary]');
+        if (riskSummary) {
+            riskSummary.innerHTML = renderRepositoryRiskSummary(data.riskSummary || {});
+        }
+
         const checklist = document.querySelector('[data-repository-checklist]');
         if (checklist) {
             const items = data.checklist || [];
@@ -1824,9 +2017,59 @@
             }).join('') || '<tr><td colspan="3">No scan history yet.</td></tr>';
         }
 
+        const runtimeEvents = document.querySelector('[data-repository-runtime-events]');
+        if (runtimeEvents) {
+            const runtimePayload = await apiFetch(`/api/user/repositories/${encodeURIComponent(repositoryId)}/runtime-events?limit=10`);
+            const events = (runtimePayload.data && runtimePayload.data.events) || [];
+            runtimeEvents.innerHTML = events.map(function (event) {
+                const severity = String(event.severity || 'medium');
+                const badge = severity === 'critical' ? 'danger' : severity === 'high' ? 'warning' : severity === 'low' ? 'success' : 'brand';
+                const workflow = [event.workflowName, event.jobName].filter(Boolean).join(' / ') || '-';
+                return `<tr><td>${escapeHtml(event.summary || event.eventType || 'Runtime event')}</td><td><span class="badge ${badge}">${escapeHtml(severity)}</span></td><td>${escapeHtml(workflow)}</td><td>${formatDate(event.observedAt || event.createdAt)}</td></tr>`;
+            }).join('') || '<tr><td colspan="4">No CI runtime events yet.</td></tr>';
+        }
+
         if (latestScan.errorMessage) {
             root.insertAdjacentHTML('afterend', `<div class="card card-body" style="margin-bottom:18px"><span class="badge danger">Latest scan failed</span><p class="muted small" style="margin:8px 0 0">${escapeHtml(latestScan.errorMessage)}</p></div>`);
         }
+    }
+
+    function renderRepositoryRiskSummary(summary) {
+        const counts = summary.counts || {};
+        const coverage = summary.coverage || {};
+        const topActions = summary.topActions || [];
+        const categories = summary.topCategories || [];
+        const delta = typeof summary.highRiskDelta === 'number'
+            ? summary.highRiskDelta > 0 ? `+${summary.highRiskDelta} high-risk since last scan` : summary.highRiskDelta < 0 ? `${Math.abs(summary.highRiskDelta)} high-risk fixed since last scan` : 'No high-risk change since last scan'
+            : 'Baseline scan not established yet';
+        const coverageText = coverage.partial
+            ? coverage.limitReason || 'Partial scan results were saved after a safety limit was reached.'
+            : coverage.scannedFiles
+                ? `${coverage.scannedFiles} files and ${coverage.scannedBranches || 0} branches checked.`
+                : 'Coverage details will appear after the next scan.';
+
+        return `<div class="grid grid-2">
+            <div>
+                <span class="badge ${counts.critical ? 'danger' : counts.high ? 'warning' : 'success'}">${escapeHtml(summary.posture || 'No open repository findings')}</span>
+                <div class="plan-detail-grid" style="margin-top:12px">
+                    <span><strong>${escapeHtml(counts.critical || 0)}</strong><small>Critical</small></span>
+                    <span><strong>${escapeHtml(counts.high || 0)}</strong><small>High</small></span>
+                    <span><strong>${escapeHtml(counts.medium || 0)}</strong><small>Medium</small></span>
+                    <span><strong>${escapeHtml(counts.low || 0)}</strong><small>Low</small></span>
+                </div>
+                <p class="muted small" style="margin:12px 0 0">${escapeHtml(delta)}</p>
+                <p class="muted small" style="margin:6px 0 0">${escapeHtml(coverageText)}</p>
+            </div>
+            <div>
+                <strong>Top actions</strong>
+                <div class="finding-list" style="margin-top:8px">
+                    ${topActions.map(function (item) {
+                        return `<article class="finding-item"><span class="badge ${item.severity === 'critical' ? 'danger' : 'warning'}">${escapeHtml(item.severity || 'high')}</span><div><strong><a href="/findings/${escapeHtml(item.id)}">${escapeHtml(item.title || 'Finding')}</a></strong><p class="muted small">${escapeHtml(item.category || 'Security review')} · ${escapeHtml(item.confidence || 'medium')} confidence</p></div></article>`;
+                    }).join('') || '<div class="empty-state">No critical or high findings are open.</div>'}
+                </div>
+                <p class="muted small" style="margin:10px 0 0">${categories.map((item) => `${item.category}: ${item.total}`).join(' · ') || 'No category breakdown yet.'}</p>
+            </div>
+        </div>`;
     }
 
     async function hydrateFindings() {
@@ -1884,6 +2127,149 @@
             button.disabled = false;
             button.textContent = originalText;
             alert(error.message || 'Finding could not be resolved.');
+        }
+    }
+
+    async function hydrateFindingDetail() {
+        const root = document.querySelector('[data-finding-detail]');
+        if (!root) {
+            return;
+        }
+
+        const findingId = root.dataset.findingDetail;
+        const payload = await apiFetch(`/api/user/findings/${encodeURIComponent(findingId)}`);
+        const data = payload.data || {};
+        const finding = data.finding || {};
+        const meta = findingMeta(finding);
+        const repository = finding.repository || {};
+        const remediationSupport = data.remediation || {};
+
+        document.querySelector('[data-finding-detail-title]').textContent = finding.title || finding.ruleId || 'Finding detail';
+        document.querySelector('[data-finding-detail-subtitle]').textContent = `${repository.fullName || repository.name || 'Repository'} / ${finding.filePath || '-'}`;
+        document.querySelector('[data-finding-detail-category]').textContent = meta.category || 'Security review';
+        document.querySelector('[data-finding-detail-confidence]').textContent = `${meta.confidence || 'medium'} confidence`;
+
+        const statusSelect = document.querySelector('[data-finding-detail-status]');
+        if (statusSelect) {
+            statusSelect.value = finding.status || 'open';
+        }
+
+        const createPr = document.querySelector('[data-finding-create-pr]');
+        if (createPr) {
+            createPr.hidden = !remediationSupport.prSupported;
+            createPr.disabled = Boolean(meta.remediationPrUrl) || remediationSupport.prIncluded === false;
+            createPr.textContent = meta.remediationPrUrl ? 'PR created' : remediationSupport.prIncluded === false ? 'Pro feature' : 'Create PR';
+            createPr.title = meta.remediationPrUrl || '';
+        }
+
+        const context = document.querySelector('[data-finding-detail-context]');
+        if (context) {
+            context.innerHTML = [
+                ['Severity', `<span class="badge ${finding.severity === 'critical' ? 'danger' : finding.severity === 'high' ? 'warning' : 'brand'}">${escapeHtml(finding.severity || 'medium')}</span>`],
+                ['Confidence', escapeHtml(meta.confidence || 'medium')],
+                ['False-positive risk', escapeHtml(meta.falsePositiveRisk || 'medium')],
+                ['Branch', escapeHtml(finding.branch || '-')],
+                ['File', `${escapeHtml(finding.filePath || '-')}${finding.lineNumber ? `:${escapeHtml(finding.lineNumber)}` : ''}`],
+                ['Detected', escapeHtml(meta.detection || finding.description || '-')],
+                ['Impact', escapeHtml(meta.impact || 'Review this finding in repository context.')],
+                ['Evidence', escapeHtml(meta.evidencePreview || 'Evidence is limited to safe metadata and masked snippets.')]
+            ].map(renderDetailItem).join('');
+        }
+
+        const remediation = document.querySelector('[data-finding-detail-remediation]');
+        if (remediation) {
+            const prCopy = remediationSupport.prSupported && remediationSupport.prIncluded === false
+                ? '<p class="muted small"><strong>Safe remediation PRs are included in Pro.</strong> Starter users can still apply the fix manually and run verification.</p>'
+                : '';
+            remediation.innerHTML = `<p>${escapeHtml(meta.recommendedAction || finding.remediation || 'Review the affected code or configuration and rerun the scan.')}</p><p class="muted small">${escapeHtml(meta.fixVerification || 'Run a new scan after the fix. The finding closes when the same issue is no longer detected.')}</p>${prCopy}`;
+        }
+
+        const history = document.querySelector('[data-finding-detail-history]');
+        if (history) {
+            history.innerHTML = (data.occurrences || []).map(function (occurrence) {
+                return `<tr><td><a href="/scans/${escapeHtml(occurrence.scanId)}">#${escapeHtml(occurrence.scanId)}</a></td><td>${escapeHtml(occurrence.branch || '-')}</td><td>${escapeHtml(occurrence.severity || finding.severity || '-')}</td><td>${formatDateTime(occurrence.createdAt)}</td></tr>`;
+            }).join('') || '<tr><td colspan="4">No previous scan history for this finding.</td></tr>';
+        }
+    }
+
+    async function verifyFindingFix(button) {
+        const root = document.querySelector('[data-finding-detail]');
+        const status = document.querySelector('[data-finding-detail-action-status]');
+        if (!root) return;
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Queueing scan...';
+
+        try {
+            const payload = await apiFetch(`/api/user/findings/${encodeURIComponent(root.dataset.findingDetail)}/verify`, { method: 'POST' });
+            if (status) {
+                status.textContent = payload.message || 'Verification scan queued.';
+                status.style.color = 'var(--success)';
+            }
+        } catch (error) {
+            if (status) {
+                status.textContent = error.message || 'Verification scan could not be queued.';
+                status.style.color = 'var(--danger)';
+            }
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+
+    async function saveFindingDetailStatus(button) {
+        const root = document.querySelector('[data-finding-detail]');
+        const statusSelect = document.querySelector('[data-finding-detail-status]');
+        const status = document.querySelector('[data-finding-detail-action-status]');
+        if (!root || !statusSelect) return;
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Saving...';
+
+        try {
+            await apiFetch(`/api/user/findings/${encodeURIComponent(root.dataset.findingDetail)}`, { method: 'PATCH', body: JSON.stringify({ status: statusSelect.value }) });
+            if (status) {
+                status.textContent = 'Finding status saved.';
+                status.style.color = 'var(--success)';
+            }
+            await hydrateFindingDetail();
+        } catch (error) {
+            if (status) {
+                status.textContent = error.message || 'Status could not be saved.';
+                status.style.color = 'var(--danger)';
+            }
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    }
+
+    async function createFindingRemediationPr(button) {
+        const root = document.querySelector('[data-finding-detail]');
+        const status = document.querySelector('[data-finding-detail-action-status]');
+        if (!root) return;
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Creating PR...';
+
+        try {
+            const payload = await apiFetch(`/api/user/findings/${encodeURIComponent(root.dataset.findingDetail)}/remediation-pr`, { method: 'POST' });
+            const url = payload.data?.html_url;
+            if (status) {
+                status.innerHTML = url ? `Remediation PR created: <a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${escapeHtml(url)}</a>` : 'Remediation PR created.';
+                status.style.color = 'var(--success)';
+            }
+            await hydrateFindingDetail();
+        } catch (error) {
+            if (status) {
+                status.textContent = error.message || 'Remediation PR could not be created.';
+                status.style.color = 'var(--danger)';
+            }
+            button.disabled = false;
+            button.textContent = originalText;
         }
     }
 
@@ -1993,6 +2379,172 @@
             }).join('') || '<tr><td colspan="5">No CLI tokens created yet.</td></tr>';
         } catch (error) {
             table.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || 'CLI tokens could not be loaded.')}</td></tr>`;
+        }
+    }
+
+    async function hydrateAlertChannels() {
+        const table = document.querySelector('[data-api-table="alert-channels"]');
+        if (!table) {
+            return;
+        }
+
+        try {
+            const payload = await apiFetch('/api/user/alert-channels');
+            const channels = payload.data || [];
+            const entitlements = payload.meta?.alertChannels || {};
+            applyAlertChannelEntitlements(entitlements, channels.length);
+
+            table.innerHTML = channels.map(function (channel) {
+                const badge = channel.isActive ? 'success' : 'warning';
+                const provider = String(channel.provider || 'channel');
+
+                return `<tr>
+                    <td><span class="badge brand">${escapeHtml(provider)}</span><small class="table-subcopy">${escapeHtml(channel.webhookUrl || '')}</small></td>
+                    <td><strong>${escapeHtml(channel.name || 'Security alerts')}</strong>${channel.lastError ? `<small class="table-subcopy">${escapeHtml(channel.lastError)}</small>` : ''}</td>
+                    <td><span class="badge ${badge}">${channel.isActive ? 'Connected' : 'Disabled'}</span></td>
+                    <td>${channel.lastDeliveredAt ? escapeHtml(formatDateTime(channel.lastDeliveredAt)) : 'Not yet'}</td>
+                    <td><div class="row-actions"><button class="button compact" type="button" data-alert-channel-test="${escapeHtml(channel.id)}">Test</button><button class="button compact danger" type="button" data-alert-channel-delete="${escapeHtml(channel.id)}">Remove</button></div></td>
+                </tr>`;
+            }).join('') || '<tr><td colspan="5">No alert channels connected yet. Email alerts still go to the registered account email.</td></tr>';
+        } catch (error) {
+            table.innerHTML = `<tr><td colspan="5">${escapeHtml(error.message || 'Alert channels could not be loaded.')}</td></tr>`;
+        }
+    }
+
+    function applyAlertChannelEntitlements(entitlements, activeCount) {
+        const form = document.querySelector('[data-alert-channel-form]');
+        if (!form) return;
+
+        const allowedProviders = Array.isArray(entitlements.allowedAlertProviders)
+            ? entitlements.allowedAlertProviders
+            : [];
+        const limit = Number(entitlements.alertChannelLimit || 0);
+        const select = form.querySelector('select[name="provider"]');
+        const button = form.querySelector('button[type="submit"]');
+        const status = form.querySelector('[data-alert-channel-status]');
+        const providerLabels = {
+            slack: 'Slack',
+            discord: 'Discord',
+            teams: 'Microsoft Teams',
+            telegram: 'Telegram',
+            github_issues: 'GitHub Issues'
+        };
+        const isLocked = limit < 1 || allowedProviders.length === 0;
+        const isAtLimit = !isLocked && activeCount >= limit;
+
+        if (select) {
+            select.innerHTML = allowedProviders.length
+                ? allowedProviders.map((provider) => `<option value="${escapeHtml(provider)}">${escapeHtml(providerLabels[provider] || provider)}</option>`).join('')
+                : '<option value="">Pro plan required</option>';
+            select.disabled = isLocked || isAtLimit;
+        }
+
+        form.querySelectorAll('input, select, textarea').forEach((input) => {
+            if (input !== select) input.disabled = isLocked || isAtLimit;
+        });
+
+        if (button) {
+            button.dataset.alertChannelLocked = String(isLocked || isAtLimit);
+            button.disabled = isLocked || isAtLimit;
+            button.textContent = isLocked ? 'Upgrade to Pro' : isAtLimit ? 'Channel limit reached' : 'Connect alert channel';
+        }
+
+        if (status) {
+            status.textContent = isLocked
+                ? 'External alert channels are included in Pro. Starter still sends critical and high-risk alerts to the registered email.'
+                : isAtLimit
+                    ? `Your plan supports ${limit} active alert channel${limit === 1 ? '' : 's'}. Remove one before adding another.`
+                    : `Your plan supports ${limit} active alert channel${limit === 1 ? '' : 's'}.`;
+            status.style.color = isLocked || isAtLimit ? 'var(--warning)' : 'var(--muted)';
+        }
+
+        updateAlertChannelFields();
+    }
+
+    function updateAlertChannelFields() {
+        const form = document.querySelector('[data-alert-channel-form]');
+        if (!form) return;
+
+        const provider = form.querySelector('select[name="provider"]')?.value || 'slack';
+        const webhookField = form.querySelector('[data-alert-webhook-field]');
+        const webhookInput = form.querySelector('input[name="webhookUrl"]');
+        const telegramFields = form.querySelectorAll('[data-alert-telegram-field]');
+        const telegramInputs = form.querySelectorAll('[name="botToken"], [name="chatId"]');
+        const githubField = form.querySelector('[data-alert-github-field]');
+        const githubSelect = form.querySelector('[name="repositoryId"]');
+
+        if (webhookField && webhookInput) {
+            webhookField.hidden = provider === 'telegram' || provider === 'github_issues';
+            webhookInput.required = !webhookField.hidden;
+        }
+        telegramFields.forEach((field) => {
+            field.hidden = provider !== 'telegram';
+        });
+        telegramInputs.forEach((input) => {
+            input.required = provider === 'telegram';
+        });
+        if (githubField && githubSelect) {
+            githubField.hidden = provider !== 'github_issues';
+            githubSelect.required = provider === 'github_issues';
+        }
+    }
+
+    async function hydrateAlertChannelRepositories() {
+        const select = document.querySelector('[data-alert-github-repositories]');
+        if (!select) return;
+
+        updateAlertChannelFields();
+
+        try {
+            const payload = await apiFetch('/api/user/repositories?limit=100');
+            const repositories = payload.data || [];
+            select.innerHTML = repositories.map(function (repository) {
+                return `<option value="${escapeHtml(repository.id)}">${escapeHtml(repository.fullName || repository.name || `Repository #${repository.id}`)}</option>`;
+            }).join('') || '<option value="">No repositories connected</option>';
+        } catch (error) {
+            select.innerHTML = '<option value="">Repositories unavailable</option>';
+        }
+    }
+
+    async function deleteAlertChannel(button) {
+        const channelId = button.dataset.alertChannelDelete;
+        if (!channelId || !confirm('Remove this alert channel?')) {
+            return;
+        }
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Removing...';
+
+        try {
+            await apiFetch(`/api/user/alert-channels/${encodeURIComponent(channelId)}`, { method: 'DELETE' });
+            await hydrateAlertChannels();
+        } catch (error) {
+            button.disabled = false;
+            button.textContent = originalText;
+            alert(error.message || 'Alert channel could not be removed.');
+        }
+    }
+
+    async function testAlertChannel(button) {
+        const channelId = button.dataset.alertChannelTest;
+        if (!channelId) return;
+
+        const originalText = button.textContent;
+        button.disabled = true;
+        button.textContent = 'Sending...';
+
+        try {
+            await apiFetch(`/api/user/alert-channels/${encodeURIComponent(channelId)}/test`, { method: 'POST' });
+            button.textContent = 'Queued';
+            setTimeout(function () {
+                button.disabled = false;
+                button.textContent = originalText;
+            }, 1800);
+        } catch (error) {
+            button.disabled = false;
+            button.textContent = originalText;
+            alert(error.message || 'Test alert could not be queued.');
         }
     }
 

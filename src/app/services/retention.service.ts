@@ -2,6 +2,7 @@ import { Op } from 'sequelize';
 
 import {
     AuditLog,
+    CiRuntimeEvent,
     Finding,
     GithubWebhookEvent,
     InAppNotification,
@@ -13,6 +14,7 @@ import {
     TenantSubscription,
     UserSession
 } from '../../db/models';
+import { env } from '../../bootstrap/env';
 
 let lastCleanupAt = 0;
 
@@ -53,6 +55,7 @@ async function runRetentionCleanup(force = false)
             ProviderOauthState.destroy({ where: { expiresAt: { [Op.lt]: new Date() } } }),
             NotificationEvent.destroy({ where: { createdAt: { [Op.lt]: new Date(now - 180 * 24 * 60 * 60 * 1000) } } }),
             InAppNotification.destroy({ where: { createdAt: { [Op.lt]: new Date(now - 180 * 24 * 60 * 60 * 1000) } } }),
+            CiRuntimeEvent.destroy({ where: { createdAt: { [Op.lt]: new Date(now - env.cicdRuntimeRetentionDays * 24 * 60 * 60 * 1000) } } }),
             GithubWebhookEvent.destroy({ where: { createdAt: { [Op.lt]: new Date(now - 90 * 24 * 60 * 60 * 1000) } } }),
             AuditLog.destroy({ where: { createdAt: { [Op.lt]: new Date(now - 365 * 24 * 60 * 60 * 1000) } } })
         ]

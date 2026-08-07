@@ -1,4 +1,5 @@
 import crypto from 'crypto';
+import { parse as parseYaml } from 'yaml';
 
 type RepositoryFile =
 {
@@ -18,6 +19,90 @@ type ScannerFinding =
     fingerprint: string;
     metadata?: object;
 };
+
+type FindingConfidence = 'high' | 'medium' | 'low';
+
+const reviewNeededRules = new Set(
+    [
+        'framework.express-missing-helmet',
+        'auth.permissive-cors',
+        'business.auth-sensitive-todo',
+        'container.exposed-service',
+        'code.node-command-execution',
+        'code.jvm-command-execution',
+        'code.go-command-execution',
+        'code.rust-command-execution',
+        'code.native-shell-execution',
+        'code.swift-process-execution',
+        'code.scala-process-execution',
+        'code.ruby-command-execution',
+        'code.perl-command-execution',
+        'code.lua-command-execution',
+        'code.dart-process-execution'
+    ]
+);
+
+function findingCategory(ruleId: string)
+{
+    if (ruleId.startsWith('secret.')) return 'Secrets';
+    if (ruleId.startsWith('dependency.')) return 'Dependencies';
+    if (ruleId.startsWith('repo.')) return 'Repository hygiene';
+    if (ruleId.startsWith('framework.') || ruleId.startsWith('auth.')) return 'Application configuration';
+    if (ruleId.startsWith('iac.')) return 'Infrastructure configuration';
+    if (ruleId.startsWith('container.')) return 'Container configuration';
+    if (ruleId.startsWith('ci.')) return 'CI/CD workflow risk';
+    if (ruleId.startsWith('code.')) return 'Code risk pattern';
+
+    return 'Security review';
+}
+
+function findingConfidence(ruleId: string, severity: ScannerFinding['severity']): FindingConfidence
+{
+    if (
+        ruleId === 'secret.generic-assignment'
+        || ruleId === 'secret.high-entropy-assignment'
+        || ruleId === 'framework.express-missing-helmet'
+        || reviewNeededRules.has(ruleId)
+    )
+    {
+        return 'medium';
+    }
+
+    if (severity === 'critical' || ruleId.startsWith('secret.') || ruleId.startsWith('repo.'))
+    {
+        return 'high';
+    }
+
+    return severity === 'low' ? 'low' : 'medium';
+}
+
+function buildFindingContext(
+    ruleId: string,
+    severity: ScannerFinding['severity'],
+    title: string,
+    description: string,
+    remediation: string,
+    evidence: string,
+    metadata?: object
+)
+{
+    const confidence = findingConfidence(ruleId, severity);
+
+    return {
+        category: findingCategory(ruleId),
+        confidence,
+        falsePositiveRisk: confidence === 'high' ? 'low' : confidence === 'medium' ? 'medium' : 'high',
+        detection: description,
+        impact: severity === 'critical' || severity === 'high'
+            ? 'This can expose credentials, weaken access control, or create a practical attack path if the repository is deployed as-is.'
+            : 'This is a review-needed security signal that may become risky depending on how the repository is deployed.',
+        recommendedAction: remediation,
+        fixVerification: 'Apply the fix, run a new scan, and keep the finding open until the next scan no longer detects the same fingerprint.',
+        evidencePreview: evidence.length > 80 ? `${evidence.slice(0, 77)}...` : evidence,
+        source: 'securerepos_rules',
+        ...(metadata ?? {})
+    };
+}
 
 type SecretRule =
 {
@@ -318,7 +403,7 @@ function pushFinding(
             filePath,
             lineNumber,
             fingerprint: fingerprint(ruleId, filePath, lineNumber, evidence),
-            metadata
+            metadata: buildFindingContext(ruleId, severity, title, description, remediation, evidence, metadata)
         }
     );
 }
@@ -792,6 +877,20 @@ function scanGithubActions(file: RepositoryFile, findings: ScannerFinding[])
         return;
     }
 
+    let workflow: Record<string, unknown> | null = null;
+
+    try
+    {
+        const parsed = parseYaml(file.content) as unknown;
+        workflow = parsed && typeof parsed === 'object' && !Array.isArray(parsed)
+            ? parsed as Record<string, unknown>
+            : null;
+    }
+    catch
+    {
+        workflow = null;
+    }
+
     if (/pull_request_target\s*:/i.test(file.content))
     {
         pushFinding(
@@ -822,6 +921,166 @@ function scanGithubActions(file: RepositoryFile, findings: ScannerFinding[])
             file.path,
             file.content
         );
+    }
+
+    if (!/^\s*permissions\s*:/im.test(file.content))
+    {
+        pushFinding(
+            findings,
+            'ci.missing-workflow-permissions',
+            'medium',
+            'GitHub Actions workflow does not declare token permissions',
+            'Workflows without explicit permissions inherit the repository default token policy, which is often broader than required.',
+            'Add least-privilege permissions at the workflow or job level, such as permissions: contents: read, then grant write scopes only to jobs that need them.',
+            file.path,
+            null,
+            'missing permissions',
+            file.content,
+            { policy: 'least_privilege_github_token' }
+        );
+    }
+
+    const broadPermissionMatch = /^\s*(contents|actions|checks|deployments|discussions|id-token|issues|packages|pages|pull-requests|repository-projects|security-events|statuses)\s*:\s*write\s*$/im.exec(file.content);
+    if (broadPermissionMatch)
+    {
+        pushFinding(
+            findings,
+            'ci.broad-write-permission',
+            broadPermissionMatch[1] === 'id-token' ? 'high' : 'medium',
+            `GitHub Actions grants ${broadPermissionMatch[1]} write permission`,
+            'A workflow grants a sensitive write permission. Write scopes should be limited to the exact job that needs them.',
+            `Move ${broadPermissionMatch[1]}: write to the smallest possible job scope, or replace it with read/none if the workflow does not need write access.`,
+            file.path,
+            getLineNumber(file.content, broadPermissionMatch.index),
+            broadPermissionMatch[0],
+            file.content,
+            { permission: broadPermissionMatch[1] }
+        );
+    }
+
+    const actionPattern = /\buses\s*:\s*['"]?([^@\s'"]+)@([^'"\s#]+)['"]?/gi;
+    let actionMatch = actionPattern.exec(file.content);
+    while (actionMatch)
+    {
+        const action = actionMatch[1] ?? '';
+        const version = actionMatch[2] ?? '';
+        const isDockerAction = action.startsWith('docker://');
+        const isLocalAction = action.startsWith('./') || action.startsWith('../');
+        const isShaPinned = /^[a-f0-9]{40}$/i.test(version);
+
+        if (!isDockerAction && !isLocalAction && !isShaPinned)
+        {
+            pushFinding(
+                findings,
+                'ci.unpinned-action',
+                version.startsWith('v') || /^\d+$/.test(version) ? 'medium' : 'high',
+                'GitHub Action is not pinned to a commit SHA',
+                'Third-party actions referenced by tags or branches can change without review and alter CI behavior.',
+                `Pin ${action} to a reviewed full commit SHA. Keep version updates explicit through dependency review or scheduled maintenance.`,
+                file.path,
+                getLineNumber(file.content, actionMatch.index),
+                actionMatch[0],
+                file.content,
+                { action, version }
+            );
+        }
+
+        actionMatch = actionPattern.exec(file.content);
+    }
+
+    const riskyShellRules: Array<{ ruleId: string; severity: ScannerFinding['severity']; title: string; pattern: RegExp; remediation: string }> =
+    [
+        {
+            ruleId: 'ci.remote-script-pipe-shell',
+            severity: 'high',
+            title: 'Workflow pipes a remote script into a shell',
+            pattern: /\b(curl|wget)\b[^\n|;]*(?:\||\>)\s*(?:sudo\s+)?(?:bash|sh)\b/i,
+            remediation: 'Download scripts with checksum/signature verification or replace them with pinned actions and checked-in scripts.'
+        },
+        {
+            ruleId: 'ci.secret-echo',
+            severity: 'high',
+            title: 'Workflow may print secrets to logs',
+            pattern: /\b(echo|printf)\b[^\n]*(\$\{\{\s*secrets\.|secrets\.)/i,
+            remediation: 'Do not print secrets. Pass them directly to the command that needs them and mask any derived values before logging.'
+        },
+        {
+            ruleId: 'ci.untrusted-script-execution',
+            severity: 'medium',
+            title: 'Workflow downloads and executes code during CI',
+            pattern: /\b(chmod\s+\+x|bash|sh)\b[^\n]*(\/tmp|https?:\/\/|\$\{\{\s*github\.event)/i,
+            remediation: 'Use checked-in scripts, pinned actions, and explicit validation before executing files created from network or pull request inputs.'
+        }
+    ];
+
+    for (const rule of riskyShellRules)
+    {
+        const match = rule.pattern.exec(file.content);
+        if (!match) continue;
+
+        pushFinding(
+            findings,
+            rule.ruleId,
+            rule.severity,
+            rule.title,
+            'The workflow contains a shell pattern that can turn CI into an attack path when combined with untrusted input or network content.',
+            rule.remediation,
+            file.path,
+            getLineNumber(file.content, match.index),
+            match[0].slice(0, 120),
+            file.content,
+            { policy: 'ci_runtime_hardening' }
+        );
+    }
+
+    if (/persist-credentials\s*:\s*true/i.test(file.content))
+    {
+        pushFinding(
+            findings,
+            'ci.checkout-persist-credentials',
+            'medium',
+            'actions/checkout persists GitHub credentials',
+            'Persisted checkout credentials can be reused by later steps in the job if a script or dependency is compromised.',
+            'Set persist-credentials: false for read-only workflows. Keep it enabled only in tightly scoped jobs that intentionally push back to the repository.',
+            file.path,
+            getLineNumber(file.content, file.content.search(/persist-credentials\s*:\s*true/i)),
+            'persist-credentials: true',
+            file.content
+        );
+    }
+
+    if (workflow)
+    {
+        const jobs = workflow.jobs;
+        if (!jobs || typeof jobs !== 'object' || Array.isArray(jobs))
+        {
+            return;
+        }
+
+        for (const [jobName, rawJob] of Object.entries(jobs as Record<string, unknown>))
+        {
+            if (!rawJob || typeof rawJob !== 'object' || Array.isArray(rawJob)) continue;
+            const job = rawJob as Record<string, unknown>;
+            const runsOn = job['runs-on'];
+            const labels = Array.isArray(runsOn) ? runsOn.map(String) : [String(runsOn ?? '')];
+
+            if (labels.some((label) => label.toLowerCase().includes('self-hosted')))
+            {
+                pushFinding(
+                    findings,
+                    'ci.self-hosted-runner',
+                    'medium',
+                    'Workflow uses a self-hosted runner',
+                    'Self-hosted runners need strict isolation, patching, token scoping, and cleanup because compromised jobs can affect the host.',
+                    'Run untrusted jobs on ephemeral isolated runners, restrict outbound access, rotate runner tokens, and avoid sharing runners across trust boundaries.',
+                    file.path,
+                    null,
+                    jobName,
+                    file.content,
+                    { jobName, runner: labels }
+                );
+            }
+        }
     }
 }
 

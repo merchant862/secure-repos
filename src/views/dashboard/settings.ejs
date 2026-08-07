@@ -59,6 +59,80 @@
                             <tbody data-api-table="cli-tokens"><tr><td colspan="5">Loading CLI tokens...</td></tr></tbody>
                         </table>
                     </div>
+                    <div class="card-body" style="border-top:1px solid var(--border)">
+                        <div class="grid grid-2">
+                            <article>
+                                <strong>CLI scan</strong>
+                                <pre class="code-preview" style="margin-top:10px">npm install -g @securerepos/cli
+securerepos scan --api-key srp_cli_xxxxx</pre>
+                            </article>
+                            <article>
+                                <strong>MCP for coding agents</strong>
+                                <pre class="code-preview" style="margin-top:10px">{
+  "mcpServers": {
+    "securerepos": {
+      "command": "npx",
+      "args": ["@securerepos/mcp"],
+      "env": { "SECUREREPOS_API_KEY": "srp_cli_xxxxx" }
+    }
+  }
+}</pre>
+                            </article>
+                        </div>
+                    </div>
+                </section>
+                <section class="card" style="margin-top:18px">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">Alert Channels</h2>
+                            <p class="muted small">Critical and high-risk alerts can also go to Slack, Discord, Microsoft Teams, Telegram, or GitHub Issues. Secrets are encrypted and never shown again.</p>
+                        </div>
+                        <span class="badge warning">High risk only</span>
+                    </div>
+                    <form class="card-body" data-alert-channel-form>
+                        <div class="grid grid-3">
+                            <div class="form-field">
+                                <label>Channel</label>
+                                <select class="input" name="provider" required>
+                                    <option value="slack">Slack</option>
+                                    <option value="discord">Discord</option>
+                                    <option value="teams">Microsoft Teams</option>
+                                    <option value="telegram">Telegram</option>
+                                    <option value="github_issues">GitHub Issues</option>
+                                </select>
+                            </div>
+                            <div class="form-field">
+                                <label>Name</label>
+                                <input class="input" name="name" maxlength="100" placeholder="Security alerts" required>
+                            </div>
+                            <div class="form-field" data-alert-webhook-field>
+                                <label>Webhook URL</label>
+                                <input class="input" name="webhookUrl" type="url" inputmode="url" placeholder="https://..." required>
+                            </div>
+                            <div class="form-field" data-alert-telegram-field hidden>
+                                <label>Bot token</label>
+                                <input class="input" name="botToken" placeholder="123456:ABC..." autocomplete="off">
+                            </div>
+                            <div class="form-field" data-alert-telegram-field hidden>
+                                <label>Chat ID</label>
+                                <input class="input" name="chatId" placeholder="-1001234567890">
+                            </div>
+                            <div class="form-field" data-alert-github-field hidden>
+                                <label>Issue repository</label>
+                                <select class="input" name="repositoryId" data-alert-github-repositories>
+                                    <option value="">Loading repositories...</option>
+                                </select>
+                            </div>
+                        </div>
+                        <button class="button primary" type="submit">Connect alert channel</button>
+                        <p class="muted small" data-alert-channel-status style="margin:12px 0 0"></p>
+                    </form>
+                    <div class="table-wrap">
+                        <table>
+                            <thead><tr><th>Channel</th><th>Name</th><th>Status</th><th>Last delivered</th><th></th></tr></thead>
+                            <tbody data-api-table="alert-channels"><tr><td colspan="5">Loading alert channels...</td></tr></tbody>
+                        </table>
+                    </div>
                 </section>
                 <section class="card" style="margin-top:18px">
                     <div class="card-header"><h2 class="card-title">Audit Log</h2></div>

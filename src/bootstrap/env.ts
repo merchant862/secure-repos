@@ -21,6 +21,7 @@ const env =
     appUrl: getEnv('APP_URL', 'https://securerepos.com'),
     supportEmail: getEnv('SUPPORT_EMAIL', 'support@securerepos.com'),
     port: Number(getEnv('PORT', '3000')),
+    notificationWsPort: Number(getEnv('NOTIFICATION_WS_PORT', '3001')),
 
     dbHost: getEnv('DB_HOST'),
     dbPort: Number(getEnv('DB_PORT', '3306')),
@@ -54,6 +55,10 @@ const env =
     dockerScannerTmpDir: getEnv('DOCKER_SCANNER_TMP_DIR', '/tmp/securerepos-scans'),
     dockerScannerMemory: getEnv('DOCKER_SCANNER_MEMORY', '1536m'),
     dockerScannerCpus: getEnv('DOCKER_SCANNER_CPUS', '1.5'),
+    cicdRuntimeIngestToken: getEnv('CICD_RUNTIME_INGEST_TOKEN', ''),
+    cicdRuntimeMaxEventsPerRequest: Number(getEnv('CICD_RUNTIME_MAX_EVENTS_PER_REQUEST', '100')),
+    cicdRuntimeFindingsEnabled: getEnv('CICD_RUNTIME_FINDINGS_ENABLED', 'true') === 'true',
+    cicdRuntimeRetentionDays: Number(getEnv('CICD_RUNTIME_RETENTION_DAYS', '90')),
     notificationWorkerPollMs: Number(getEnv('NOTIFICATION_WORKER_POLL_MS', '10000')),
     notificationDeliveryMode: getEnv('NOTIFICATION_DELIVERY_MODE', 'log'),
     resendApiKey: getEnv('RESEND_API_KEY', ''),

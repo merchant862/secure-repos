@@ -4,6 +4,7 @@ import { PricingPlan, PricingPlanFeature, TenantSubscription } from '../../../db
 import { AuthenticatedRequest } from '../../middlewares/user-auth.middleware';
 import { cancelTenantSubscription, createTenantPaymentMethodUpdateLink } from '../../services/billing.service';
 import { createCheckoutToken, getPaddleCustomerPaymentMethodSummary, syncPaddleCheckoutCompletion, syncPaddleSubscriptionByCustomerEmail } from '../../services/paddle.service';
+import { entitlementsForPlan } from '../../services/plan-limit.service';
 
 async function getUserBillingController(req: AuthenticatedRequest, res: Response)
 {
@@ -82,6 +83,7 @@ async function getUserBillingController(req: AuthenticatedRequest, res: Response
                 subscription,
                 selectedPlan,
                 pendingPlan,
+                entitlements: entitlementsForPlan(selectedPlan),
                 checkoutToken,
                 paymentMethod,
                 paymentMethodError
