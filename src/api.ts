@@ -4,7 +4,7 @@ type ApiConfig =
 };
 
 const apiUrl = 'https://securerepos.com';
-const userAgent = 'SecureRepos-MCP/0.1.0';
+const userAgent = 'SecureRepos-MCP/0.1.1';
 
 async function cliApiRequest<T>(
     config: ApiConfig,

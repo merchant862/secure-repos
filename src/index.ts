@@ -10,7 +10,7 @@ import { ApiConfig, cliApiRequest } from './api.js';
 import { getGitRepositoryContext } from './git.js';
 import { scanLocalTrackedFiles } from './local-scan.js';
 
-const version = '0.1.0';
+const version = '0.1.1';
 
 type CliRepository =
 {
@@ -47,7 +47,7 @@ function getApiConfig(): ApiConfig
 
     if (!token)
     {
-        throw new Error('Set SECUREREPOS_API_KEY to a SecureRepos API token before starting the MCP server.');
+        throw new Error('Set SECUREREPOS_TOKEN to a SecureRepos CLI token before starting the MCP server.');
     }
 
     return { token };

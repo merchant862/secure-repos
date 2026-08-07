@@ -8,9 +8,9 @@ Source code stays on the user's machine. The server syncs scan metadata, redacte
 
 - Node.js 20 or newer
 - Git
-- An active SecureRepos subscription
+- An active SecureRepos Pro subscription
 - A connected and approved GitHub repository
-- A SecureRepos API token generated from Settings
+- A SecureRepos CLI token generated from Settings
 
 ## Install
 
@@ -29,7 +29,7 @@ Or run it through `npx` from your MCP client config.
       "command": "npx",
       "args": ["@securerepos/mcp"],
       "env": {
-        "SECUREREPOS_API_KEY": "srp_cli_your_token_here"
+        "SECUREREPOS_TOKEN": "srp_cli_your_token_here"
       }
     }
   }
@@ -44,12 +44,14 @@ For global installs, use:
     "securerepos": {
       "command": "securerepos-mcp",
       "env": {
-        "SECUREREPOS_API_KEY": "srp_cli_your_token_here"
+        "SECUREREPOS_TOKEN": "srp_cli_your_token_here"
       }
     }
   }
 }
 ```
+
+`SECUREREPOS_API_KEY` is also accepted for MCP clients that prefer API-key naming, but the token is the same short-lived SecureRepos CLI token from Settings.
 
 ## Tools
 
@@ -73,8 +75,9 @@ For global installs, use:
 ## Security
 
 - Tokens expire after no more than 30 days.
-- Only one active API token is allowed per account.
+- Only one active token is allowed per account.
 - Tokens cannot access account, billing, password, or settings APIs.
+- Tokens can only list approved repositories and submit scan results.
 - Only approved GitHub repositories can be scanned.
 - Only Git-tracked text and dependency files are scanned.
 - Raw source files and detected secret values are never uploaded.
