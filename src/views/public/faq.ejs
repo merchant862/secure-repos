@@ -36,6 +36,7 @@
         </section>
 
         <section class="faq-layout">
+            <div class="faq-section-label">Product</div>
             <article class="faq-item">
                 <h2>What does SecureRepos scan?</h2>
                 <p>SecureRepos checks connected GitHub repositories for exposed secrets, broad GitHub Actions permissions, risky Dockerfile and infrastructure patterns, known vulnerable dependency versions across supported package ecosystems, and repository hygiene issues.</p>
@@ -48,13 +49,18 @@
                 <h2>Does SecureRepos replace a security audit?</h2>
                 <p>No. It is an automated scanning and workflow tool. It helps surface likely issues and keeps ownership visible, but findings still need human review before you treat them as confirmed vulnerabilities.</p>
             </article>
+            <div class="faq-section-label">Access and data</div>
             <article class="faq-item">
                 <h2>How does GitHub access work?</h2>
                 <p>After email verification and checkout, users install the SecureRepos GitHub App and select repositories they are authorized to monitor. Each SecureRepos account is permanently linked to the first GitHub account it connects.</p>
             </article>
             <article class="faq-item">
                 <h2>Do you store repository code?</h2>
-                <p>The service uses GitHub App access to inspect repository content needed for scans. Scan results, finding metadata, selected file paths, and account activity are stored for your account. SecureRepos does not sell repository code.</p>
+                <p>The service uses GitHub App access to inspect repository content needed for scans. Repository code is processed for scanning and temporary scanner workspaces are removed after parsing. Scan results, finding metadata, selected file paths, and account activity are stored for your account. SecureRepos does not sell repository code.</p>
+            </article>
+            <article class="faq-item">
+                <h2>How is SecureRepos different from GitHub dependency alerts?</h2>
+                <p>Dependency alerts are useful, but they focus mainly on vulnerable packages. SecureRepos adds repository-level checks for secrets, CI/CD workflow risk, Docker and infrastructure configuration, repository hygiene, risk summaries, scan history, remediation context, CLI access, MCP access, and critical/high alert channels.</p>
             </article>
             <article class="faq-item">
                 <h2>Can scans produce false positives?</h2>
@@ -64,13 +70,14 @@
                 <h2>Can another person use my account?</h2>
                 <p>No. SecureRepos plans are designed for one developer account. Login credentials and account access should not be shared with another person.</p>
             </article>
+            <div class="faq-section-label">Billing and preview</div>
             <article class="faq-item">
                 <h2>How does billing work?</h2>
-                <p>Checkout is handled by Paddle and requires a payment method. The 7-day Security Preview includes one repository and one limited scan. Unless cancelled, Paddle charges the card when the preview ends and the paid package activates automatically.</p>
+                <p>Checkout is handled by Paddle and requires a payment method to prevent abuse and keep private repository scanning sustainable. The 7-day Security Preview includes one repository and one limited scan. Unless cancelled, Paddle charges the card when the preview ends and the selected paid plan activates automatically.</p>
             </article>
             <article class="faq-item">
                 <h2>Is the Security Preview a complete scan?</h2>
-                <p>No. It checks a small default-branch sample and displays up to three sample findings. Scheduled scans, alerts, CLI access, complete dependency analysis, and full evidence unlock with the paid subscription.</p>
+                <p>No. It checks a small default-branch sample and displays up to five sample findings, with useful context on the first high-value items. Full scheduled scanning, complete evidence, and plan-specific automation unlock with the paid subscription.</p>
             </article>
             <article class="faq-item">
                 <h2>Can I cancel my plan?</h2>

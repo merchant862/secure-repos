@@ -7,18 +7,26 @@
     <main class="auth-shell">
         <section class="auth-copy">
             <a class="brand" href="/" style="padding:0;color:#fff"><%- include('../partials/brand-logo') %></a>
-            <div>
-                <h1 style="font-size:42px;line-height:1.08;margin:0 0 16px">Keep repository risk visible before it ships.</h1>
-                  <p style="color:#d0d5dd;max-width:560px">Scan every branch, review the affected file, and keep remediation guidance in one focused dashboard.</p>
+            <div class="auth-copy-main">
+                <span class="auth-eyebrow">Workspace sign in</span>
+                <h1>Keep repository risk visible before it ships.</h1>
+                <p>Review the affected file, branch, severity, evidence, and remediation status from one focused security workspace.</p>
+                <ul class="auth-proof-list">
+                    <li>GitHub App access stays limited to selected repositories.</li>
+                    <li>Critical and high-risk alerts are sent without exposing billing or account controls to API tokens.</li>
+                    <li>Every login is protected by an email OTP step.</li>
+                </ul>
             </div>
-            <p style="color:#98a2b3;margin:0">Built for independent developers and selected-repository access.</p>
+            <p class="auth-copy-foot">Built for independent developers, agencies, and small teams that need practical repository security.</p>
         </section>
         <section class="auth-card">
             <div class="auth-card-inner">
-                <a class="muted small" href="/dashboard">Back to dashboard</a>
-                <h1 style="margin:22px 0 8px">Sign in</h1>
-                <p class="muted" style="margin:0 0 26px">Use the email and password attached to your account.</p>
+                <div class="auth-card-top"><a class="muted small" href="/">Back to home</a><span class="badge brand">OTP protected</span></div>
+                <h1>Sign in</h1>
+                <p class="auth-card-subcopy">Use the email and password attached to your account.</p>
                 <p class="muted small" data-auth-page-status style="margin:0 0 14px"></p>
+                <a class="button primary" href="/api/auth/github" style="width:100%;margin-bottom:14px">Continue with GitHub</a>
+                <div class="auth-divider"><span>or email</span></div>
                 <form method="post" action="/api/auth/login">
                     <div class="form-field">
                         <label>Email</label>

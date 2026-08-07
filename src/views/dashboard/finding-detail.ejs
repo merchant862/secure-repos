@@ -7,21 +7,25 @@
         <div class="main-area">
             <%- include('../partials/navbar', { title, appName, eyebrow: `Finding #${findingId}` }) %>
             <main class="content">
-                <section class="page-toolbar"><div><h2>Finding detail</h2><p class="muted">Finding data loads from your authenticated workspace.</p></div><span class="badge brand">GitHub</span></section>
+                <section class="page-toolbar" data-finding-detail="<%= findingId %>"><div><h2 data-finding-detail-title>Finding detail</h2><p class="muted" data-finding-detail-subtitle>Finding data loads from your authenticated workspace.</p></div><span class="badge brand" data-finding-detail-category>Security review</span></section>
                 <section class="grid grid-2">
                     <article class="card">
-                        <div class="card-header"><h2 class="card-title">Evidence</h2></div>
-                        <pre class="code-preview">No evidence loaded yet.</pre>
+                        <div class="card-header"><h2 class="card-title">Context</h2><span class="badge brand" data-finding-detail-confidence>Confidence</span></div>
+                        <div class="card-body scan-detail-list" data-finding-detail-context>
+                            <div class="empty-state">Loading finding context...</div>
+                        </div>
                     </article>
                     <article class="card">
                         <div class="card-header"><h2 class="card-title">Workflow</h2><span class="badge brand">Owner action</span></div>
                         <div class="card-body">
-                            <div class="form-field"><label>Status</label><select class="input"><option>Open</option><option>Resolved</option><option>Ignored</option></select></div>
-                            <div class="toolbar-actions" style="justify-content:flex-start"><button class="button">Snooze</button><button class="button primary">Resolve</button></div>
+                            <div class="form-field"><label>Status</label><select class="input" data-finding-detail-status><option value="open">Open</option><option value="resolved">Resolved</option><option value="ignored">Ignored</option></select></div>
+                            <div class="toolbar-actions" style="justify-content:flex-start"><button class="button" type="button" data-finding-verify>Verify fix</button><button class="button" type="button" data-finding-create-pr hidden>Create PR</button><button class="button primary" type="button" data-finding-detail-save>Save status</button></div>
+                            <p class="muted small" data-finding-detail-action-status style="margin:12px 0 0"></p>
                         </div>
                     </article>
                 </section>
-                <section class="card" style="margin-top:18px"><div class="card-header"><h2 class="card-title">Recommendation</h2></div><div class="card-body"><p class="muted">Run a scan and open a real finding to review scanner evidence and remediation guidance.</p></div></section>
+                <section class="card" style="margin-top:18px"><div class="card-header"><h2 class="card-title">Recommendation</h2></div><div class="card-body" data-finding-detail-remediation><p class="muted">Loading remediation guidance...</p></div></section>
+                <section class="card" style="margin-top:18px"><div class="card-header"><h2 class="card-title">History</h2></div><div class="table-wrap"><table><thead><tr><th>Scan</th><th>Branch</th><th>Severity</th><th>Seen</th></tr></thead><tbody data-finding-detail-history><tr><td colspan="4">Loading history...</td></tr></tbody></table></div></section>
                 <%- include('../partials/footer') %>
             </main>
         </div>

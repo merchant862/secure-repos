@@ -103,6 +103,32 @@
     color: #101828;
 }
 
+.checkout-assurance {
+    display: grid;
+    gap: 10px;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid rgba(148, 163, 184, 0.24);
+}
+
+.checkout-assurance span {
+    display: grid;
+    grid-template-columns: 9px 1fr;
+    gap: 10px;
+    color: #cbd5e1;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.checkout-assurance span::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    margin-top: 6px;
+    border-radius: 999px;
+    background: #67e8f9;
+}
+
 .paddle-checkout-frame {
     min-height: 480px;
 }
@@ -839,6 +865,25 @@ td { font-size: 14px; }
     font-weight: 700;
 }
 
+.plan-card-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.plan-card-facts span {
+    display: inline-flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 6px 10px;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    background: var(--surface-muted);
+    color: var(--muted);
+    font-size: 12px;
+    font-weight: 800;
+}
+
 .plan-list {
     display: grid;
     gap: 10px;
@@ -863,6 +908,19 @@ td { font-size: 14px; }
     height: 8px;
     border-radius: 999px;
     background: var(--brand);
+}
+
+.plan-list li.locked {
+    color: var(--muted);
+    opacity: .65;
+}
+
+.plan-list li.locked::before {
+    width: 9px;
+    height: 2px;
+    top: 10px;
+    border-radius: 999px;
+    background: currentColor;
 }
 
 .provider-icon {
@@ -2095,6 +2153,21 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
     padding: 28px 0 10px;
 }
 
+.faq-section-label {
+    margin-top: 26px;
+    padding: 0 0 10px;
+    border-bottom: 1px solid rgba(152, 162, 179, 0.28);
+    color: var(--brand-strong);
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.faq-section-label:first-child {
+    margin-top: 0;
+}
+
 .faq-item {
     display: grid;
     align-content: start;
@@ -2153,6 +2226,12 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
 .contact-notes article {
     border-top: 1px solid rgba(152, 162, 179, 0.2);
     padding: 22px 0;
+}
+
+.contact-panel-heading {
+    display: grid;
+    gap: 8px;
+    margin-bottom: 20px;
 }
 
 .contact-notes {
@@ -3570,28 +3649,172 @@ body.landing-menu-open .landing-menu-toggle span:nth-child(3) {
 
 .auth-shell {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) minmax(420px, 0.82fr);
+    grid-template-columns: minmax(0, 0.95fr) minmax(420px, 0.72fr);
     min-height: 100vh;
-    background: var(--surface);
+    background: #f7f9fc;
 }
 
 .auth-copy {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
-    background: #101828;
+    position: relative;
+    overflow: hidden;
+    background:
+        linear-gradient(145deg, rgba(14, 21, 36, 0.98), rgba(10, 15, 26, 0.98)),
+        #101828;
     color: #ffffff;
-    padding: 44px;
+    padding: clamp(30px, 5vw, 56px);
+}
+
+.auth-copy::after {
+    content: "";
+    position: absolute;
+    inset: auto 0 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(63, 224, 208, 0.7), rgba(255, 87, 178, 0.5), transparent);
+}
+
+.auth-copy-main {
+    display: grid;
+    gap: 24px;
+    max-width: 640px;
+}
+
+.auth-eyebrow {
+    color: #67e8f9;
+    font-size: 12px;
+    font-weight: 900;
+    letter-spacing: .08em;
+    text-transform: uppercase;
+}
+
+.auth-copy h1 {
+    margin: 0;
+    max-width: 700px;
+    font-size: clamp(36px, 5vw, 58px);
+    line-height: 1;
+}
+
+.auth-copy p {
+    margin: 0;
+    max-width: 620px;
+    color: #cbd5e1;
+    font-size: 16px;
+    line-height: 1.7;
+}
+
+.auth-proof-list {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.auth-proof-list li {
+    display: grid;
+    grid-template-columns: 10px 1fr;
+    gap: 12px;
+    align-items: start;
+    color: #d8e0ee;
+    font-size: 14px;
+    line-height: 1.55;
+}
+
+.auth-proof-list li::before {
+    content: "";
+    width: 8px;
+    height: 8px;
+    margin-top: 7px;
+    border-radius: 999px;
+    background: #67e8f9;
+    box-shadow: 0 0 0 4px rgba(103, 232, 249, 0.12);
+}
+
+.auth-copy-foot {
+    color: #94a3b8;
+    font-size: 13px;
+    line-height: 1.6;
 }
 
 .auth-card {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 32px;
+    padding: clamp(22px, 5vw, 48px);
 }
 
-.auth-card-inner { width: min(420px, 100%); }
+.auth-card-inner {
+    width: min(430px, 100%);
+    padding: clamp(22px, 4vw, 34px);
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #fff;
+    color: #101828;
+    box-shadow: 0 18px 60px rgba(16, 24, 40, 0.08);
+}
+
+.auth-card-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+
+.auth-card h1 {
+    margin: 0 0 8px;
+    color: #101828;
+    font-size: 30px;
+    line-height: 1.15;
+}
+
+.auth-card-subcopy {
+    margin: 0 0 24px;
+    color: #667085;
+    line-height: 1.6;
+}
+
+.auth-divider {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: center;
+    margin: 16px 0;
+    color: #667085;
+    font-size: 12px;
+    font-weight: 800;
+    text-transform: uppercase;
+}
+
+.auth-divider::before,
+.auth-divider::after {
+    content: "";
+    height: 1px;
+    background: var(--border);
+}
+
+.auth-card label {
+    color: #475467;
+}
+
+.auth-card .input {
+    border-color: #d0d5dd;
+    background: #ffffff;
+    color: #101828;
+}
+
+.auth-card .input:focus {
+    border-color: #465fff;
+    box-shadow: 0 0 0 4px rgba(70, 95, 255, 0.12);
+}
+
+.auth-card .button:not(.primary) {
+    border-color: #d0d5dd;
+    background: #ffffff;
+    color: #101828;
+}
 
 .checkbox-row {
     display: flex;
@@ -3883,6 +4106,11 @@ body.sidebar-open .overlay { display: block; }
     th, td { padding: 12px 14px; }
     .auth-shell { grid-template-columns: 1fr; }
     .auth-copy { display: none; }
+    .auth-card {
+        align-items: start;
+        min-height: 100vh;
+        padding-top: 28px;
+    }
     .landing-shell { width: min(100% - 28px, 680px); padding-top: 12px; }
     .landing-nav {
         display: flex;

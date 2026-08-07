@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { dashboardController } from './controllers/web/dashboard.controller';
 import { checkoutPageController } from './controllers/web/checkout.controller';
 import { githubInstallCallbackController } from './controllers/web/github-install.controller';
+import { uiTestLoginController } from './controllers/web/ui-test.controller';
 import {
     billingPageController,
     contactPageController,
@@ -34,6 +35,8 @@ import {
 } from './controllers/api/code-host.controller';
 import {
     changePasswordController,
+    githubLoginCallbackController,
+    githubLoginStartController,
     loginController,
     loginOtpController,
     logoutController,
@@ -47,20 +50,28 @@ import {
 import {
     enqueueUserRepositoryScanController,
     getUserDashboardSummaryController,
+    getUserFindingController,
     getUserRepositoryController,
     getUserRepositoryChecklistController,
     getUserScanController,
     listUserFindingsController,
+    listUserRepositoryRuntimeEventsController,
     listUserRepositoriesController,
     listUserScansController,
     markUserBaselineController,
-    updateUserFindingController
+    createFindingRemediationPrController,
+    updateUserFindingController,
+    verifyUserFindingController
 } from './controllers/api/user-security.controller';
 import {
+    createAlertChannelController,
+    deleteAlertChannelController,
     getSecurityTrendController,
+    listAlertChannelsController,
     listAuditLogsController,
     listNotificationsController,
-    markNotificationReadController
+    markNotificationReadController,
+    testAlertChannelController
 } from './controllers/api/user-settings.controller';
 import { notificationStreamController } from './controllers/api/notification-stream.controller';
 import {
@@ -76,6 +87,7 @@ import {
     syncUserPaddleCheckoutController
 } from './controllers/api/billing.controller';
 import { submitContactController } from './controllers/api/contact.controller';
+import { ingestCiRuntimeEventsController } from './controllers/api/ci-runtime.controller';
 import { rateLimit, sameOriginApiMiddleware } from './middlewares/security.middleware';
 import {
     createUserCliAccessTokenController,
@@ -98,11 +110,13 @@ const paymentMethodUpdateRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit
 const cliTokenCreateRateLimit = rateLimit({ windowMs: 60 * 60 * 1000, limit: 10, scope: 'cli-token-create' });
 const cliApiRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 120, scope: 'cli-api' });
 const cliScanRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 10, scope: 'cli-scan' });
+const ciRuntimeIngestRateLimit = rateLimit({ windowMs: 60 * 1000, limit: 60, scope: 'ci-runtime-ingest' });
 
 router.use('/api', sameOriginApiMiddleware);
 
 router.get('/robots.txt', robotsTxtController);
 router.get('/sitemap.xml', sitemapXmlController);
+router.get('/ui-test/login', uiTestLoginController);
 router.get('/', guestPageMiddleware, landingPageController);
 router.get('/terms', legalPlaceholderPageController);
 router.get('/privacy', legalPlaceholderPageController);
@@ -137,11 +151,14 @@ router.post('/api/auth/signup', authRateLimit, signupController);
 router.post('/api/auth/email-verification/resend', authRateLimit, resendEmailVerificationController);
 router.post('/api/auth/login', authRateLimit, loginController);
 router.post('/api/auth/login/otp', otpRateLimit, loginOtpController);
+router.get('/api/auth/github', githubLoginStartController);
+router.get('/api/auth/github/callback', githubLoginCallbackController);
 router.post('/api/auth/password-reset/request', authRateLimit, passwordResetRequestController);
 router.post('/api/auth/password-reset/confirm', authRateLimit, passwordResetConfirmController);
 router.post('/api/auth/logout', logoutController);
 router.post('/api/contact', contactRateLimit, submitContactController);
 router.get('/api/pricing', listPublicPricingPlansController);
+router.post('/api/ci/runtime/events', ciRuntimeIngestRateLimit, ingestCiRuntimeEventsController);
 
 router.use('/api/cli/v1', cliApiRateLimit, cliAccessTokenAuthMiddleware);
 router.get('/api/cli/v1/me', getCliIdentityController);
@@ -155,16 +172,24 @@ router.get('/api/user/auth/:provider/connect-url', getProviderConnectUrlControll
 router.get('/api/user/dashboard-summary', getUserDashboardSummaryController);
 router.get('/api/user/repositories', listUserRepositoriesController);
 router.get('/api/user/repositories/:repositoryId', getUserRepositoryController);
+router.get('/api/user/repositories/:repositoryId/runtime-events', listUserRepositoryRuntimeEventsController);
 router.get('/api/user/repositories/:repositoryId/checklist', getUserRepositoryChecklistController);
 router.post('/api/user/repositories/:repositoryId/scans', enqueueUserRepositoryScanController);
 router.get('/api/user/scans', listUserScansController);
 router.get('/api/user/scans/:scanId', getUserScanController);
 router.get('/api/user/findings', listUserFindingsController);
+router.get('/api/user/findings/:findingId', getUserFindingController);
 router.patch('/api/user/findings/:findingId', updateUserFindingController);
+router.post('/api/user/findings/:findingId/verify', verifyUserFindingController);
+router.post('/api/user/findings/:findingId/remediation-pr', createFindingRemediationPrController);
 router.post('/api/user/scans/:scanId/baseline', requireOwner, markUserBaselineController);
 router.get('/api/user/notifications', listNotificationsController);
 router.get('/api/user/notifications/stream', notificationStreamController);
 router.patch('/api/user/notifications/:notificationId/read', markNotificationReadController);
+router.get('/api/user/alert-channels', listAlertChannelsController);
+router.post('/api/user/alert-channels', requireOwner, createAlertChannelController);
+router.delete('/api/user/alert-channels/:channelId', requireOwner, deleteAlertChannelController);
+router.post('/api/user/alert-channels/:channelId/test', requireOwner, testAlertChannelController);
 router.get('/api/user/audit-logs', requireOwner, listAuditLogsController);
 router.get('/api/user/cli-tokens', requireOwner, listUserCliAccessTokensController);
 router.post('/api/user/cli-tokens', requireOwner, cliTokenCreateRateLimit, createUserCliAccessTokenController);

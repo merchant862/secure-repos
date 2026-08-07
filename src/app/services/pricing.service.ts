@@ -109,9 +109,9 @@ async function assertActivePlanLimit(planId?: number)
     const activePlanIds = activePlans.map((plan) => Number(plan.id));
     const isAlreadyActive = planId ? activePlanIds.includes(planId) : false;
 
-    if (!isAlreadyActive && activePlanIds.length >= 1)
+    if (!isAlreadyActive && activePlanIds.length >= 2)
     {
-        throw new Error('Only one active pricing package is allowed.');
+        throw new Error('Only two active pricing packages are allowed.');
     }
 }
 

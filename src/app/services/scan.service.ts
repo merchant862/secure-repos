@@ -42,6 +42,33 @@ function decodeBlobContent(content: string, encoding: string): string
     return Buffer.from(content.replace(/\n/g, ''), 'base64').toString('utf8');
 }
 
+function estimateScanSeconds(input: { mode?: 'preview' | 'full'; repository?: Repository | null } = {})
+{
+    if (input.mode === 'preview') return 90;
+    if (env.dockerScannerEnabled) return 420;
+
+    return input.repository?.defaultBranch ? 240 : 180;
+}
+
+function estimatedScanMetadata(mode: 'preview' | 'full', repository?: Repository | null)
+{
+    const estimatedDurationSeconds = estimateScanSeconds({ mode, repository });
+
+    return {
+        estimatedDurationSeconds,
+        estimatedCompletedAt: new Date(Date.now() + estimatedDurationSeconds * 1000).toISOString(),
+        progressStage: 'queued'
+    };
+}
+
+function mergeScanMetadata(scan: Scan, metadata: object)
+{
+    return {
+        ...((scan.metadata as object | null) ?? {}),
+        ...metadata
+    } as object;
+}
+
 async function enqueueRepositoryScan(repositoryId: number, triggerType: string, scanMode?: 'preview' | 'full')
 {
     return sequelize.transaction(async function (transaction)
@@ -133,7 +160,8 @@ async function enqueueRepositoryScan(repositoryId: number, triggerType: string, 
             metadata:
             {
                 mode: effectiveScanMode,
-                limited: effectiveScanMode === 'preview'
+                limited: effectiveScanMode === 'preview',
+                ...estimatedScanMetadata(effectiveScanMode, repository)
             } as object
         },
         { transaction }
@@ -308,6 +336,15 @@ function mapDependabotAlert(repository: Repository, alert: GithubDependabotAlert
         metadata:
         {
             source: 'github_dependabot',
+            category: 'Dependencies',
+            confidence: 'high',
+            falsePositiveRisk: 'low',
+            detection: `GitHub reported an open dependency advisory for ${dependencyName}.`,
+            impact: 'Known vulnerable dependencies can expose the application to published attack techniques when the affected package path is reachable.',
+            recommendedAction: patchedVersion
+                ? `Update ${dependencyName} to ${patchedVersion} or later and verify the lockfile changed.`
+                : `Review the advisory, update or replace ${dependencyName}, and verify the alert is closed.`,
+            fixVerification: 'Run a new SecureRepos scan after updating dependencies. The finding closes when GitHub no longer reports the alert.',
             githubAlertNumber: alert.number,
             advisoryId,
             ecosystem,
@@ -336,6 +373,13 @@ function mapSecretScanningAlert(repository: Repository, alert: GithubSecretScann
         metadata:
         {
             source: 'github_secret_scanning',
+            category: 'Secrets',
+            confidence: alert.validity === 'active' || alert.publicly_leaked ? 'high' : 'medium',
+            falsePositiveRisk: alert.validity === 'active' || alert.publicly_leaked ? 'low' : 'medium',
+            detection: `GitHub reported an open secret scanning alert for ${secretType}.`,
+            impact: 'An exposed credential can allow unauthorized access until it is rotated or revoked.',
+            recommendedAction: 'Rotate or revoke the exposed credential, remove it from git history where needed, and resolve the GitHub alert.',
+            fixVerification: 'Run a new scan after rotating the credential. The finding closes when the GitHub secret scanning alert is no longer open.',
             githubAlertNumber: alert.number,
             secretType: alert.secret_type,
             secretTypeDisplayName: alert.secret_type_display_name,
@@ -410,7 +454,7 @@ async function fetchScannableFilesForBranch(repository: Repository, accessToken:
     return files;
 }
 
-async function scanGithubRepositoryBranches(repository: Repository): Promise<ScannerFinding[]>
+async function scanGithubRepositoryBranches(repository: Repository): Promise<{ findings: ScannerFinding[]; scanMetadata?: object }>
 {
     const githubInstallation = repository.githubInstallationId
         ? await GithubInstallation.findByPk(repository.githubInstallationId)
@@ -431,23 +475,33 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
     }> = [];
     const startedAt = Date.now();
     let scannedFiles = 0;
+    let scannedBranches = 0;
+    let stoppedEarly = false;
+    let limitReason: string | null = null;
+    const branchesToScan = branches.slice(0, env.scanMaxBranches);
+    const skippedBranches = Math.max(0, branches.length - branchesToScan.length);
 
-    if (branches.length > env.scanMaxBranches)
+    if (skippedBranches > 0)
     {
-        throw new Error(`Repository has ${branches.length} branches; the safe scan limit is ${env.scanMaxBranches}. Archive stale branches or increase SCAN_MAX_BRANCHES.`);
+        stoppedEarly = true;
+        limitReason = `Only ${branchesToScan.length} of ${branches.length} branches were scanned due to the branch safety limit.`;
     }
 
-    for (const branch of branches)
+    for (const branch of branchesToScan)
     {
         if (Date.now() - startedAt > env.scanMaxDurationMs)
         {
-            throw new Error(`Scan exceeded the ${Math.ceil(env.scanMaxDurationMs / 60000)} minute safety limit.`);
+            stoppedEarly = true;
+            limitReason = `Scan stopped after reaching the ${Math.ceil(env.scanMaxDurationMs / 60000)} minute safety limit.`;
+            break;
         }
 
         const remainingFiles = env.scanMaxFiles - scannedFiles;
         if (remainingFiles <= 0)
         {
-            throw new Error(`Repository exceeded the ${env.scanMaxFiles} file scan budget.`);
+            stoppedEarly = true;
+            limitReason = `Scan stopped after reaching the ${env.scanMaxFiles} file safety limit.`;
+            break;
         }
 
         const files = await fetchScannableFilesForBranch(repository, accessToken, branch, remainingFiles);
@@ -472,13 +526,26 @@ async function scanGithubRepositoryBranches(repository: Repository): Promise<Sca
         });
 
         findings.push(...branchFindings);
+        scannedBranches += 1;
     }
 
     findings.push(...await scanDependencyVulnerabilities(dependencyInventories));
     findings.push(...dependabotAlerts.map((alert) => mapDependabotAlert(repository, alert)));
     findings.push(...secretScanningAlerts.map((alert) => mapSecretScanningAlert(repository, alert)));
 
-    return dedupeNativeDependencyAlerts(findings);
+    return {
+        findings: dedupeNativeDependencyAlerts(findings),
+        scanMetadata:
+        {
+            partial: stoppedEarly,
+            limitReason,
+            scannedFiles,
+            scannedBranches,
+            skippedBranches: Math.max(skippedBranches, branches.length - scannedBranches),
+            totalBranches: branches.length,
+            progressStage: stoppedEarly ? 'partial_results_saved' : 'completed'
+        }
+    };
 }
 
 async function fetchNativeGithubAlerts(repository: Repository, accessToken: string)
@@ -518,8 +585,21 @@ async function scanGithubRepositoryWithDocker(repository: Repository): Promise<{
     };
 }
 
-function previewFinding(finding: ScannerFinding): ScannerFinding
+function previewFinding(finding: ScannerFinding, index: number): ScannerFinding
 {
+    if (index < 2)
+    {
+        return {
+            ...finding,
+            metadata:
+            {
+                ...(finding.metadata ?? {}),
+                preview: true,
+                previewDetailUnlocked: true
+            }
+        };
+    }
+
     return {
         ...finding,
         description: 'A sample issue was detected during the limited Security Preview.',
@@ -562,7 +642,7 @@ async function scanGithubRepositoryPreview(repository: Repository): Promise<Scan
 
     return scanFiles(files)
         .sort((left, right) => ['critical', 'high', 'medium', 'low'].indexOf(left.severity) - ['critical', 'high', 'medium', 'low'].indexOf(right.severity))
-        .slice(0, 3)
+        .slice(0, 5)
         .map(previewFinding);
 }
 
@@ -690,14 +770,14 @@ async function publishGithubCheckRun(repository: Repository, scan: Scan, finding
     }
 }
 
-async function scanRepositoryBranches(repository: Repository): Promise<ScannerFinding[]>
+async function scanRepositoryBranches(repository: Repository): Promise<{ findings: ScannerFinding[]; scannerSummary?: object; scanMetadata?: object }>
 {
     if (repository.provider === 'github')
     {
         if (env.dockerScannerEnabled)
         {
             const result = await scanGithubRepositoryWithDocker(repository);
-            return result.findings;
+            return { findings: result.findings, scannerSummary: result.scannerSummary };
         }
 
         return scanGithubRepositoryBranches(repository);
@@ -706,14 +786,14 @@ async function scanRepositoryBranches(repository: Repository): Promise<ScannerFi
     throw new Error('Only GitHub repositories are supported');
 }
 
-async function scanRepositoryFull(repository: Repository): Promise<{ findings: ScannerFinding[]; scannerSummary?: object }>
+async function scanRepositoryFull(repository: Repository): Promise<{ findings: ScannerFinding[]; scannerSummary?: object; scanMetadata?: object }>
 {
     if (repository.provider === 'github' && env.dockerScannerEnabled)
     {
         return scanGithubRepositoryWithDocker(repository);
     }
 
-    return { findings: await scanRepositoryBranches(repository) };
+    return scanRepositoryBranches(repository);
 }
 
 async function completeScanWithFindings(
@@ -882,7 +962,13 @@ async function completeScanWithFindings(
             findingsHigh: counts.high,
             findingsMedium: counts.medium,
             findingsLow: counts.low,
-            completedAt: new Date()
+            completedAt: new Date(),
+            metadata: mergeScanMetadata(
+                scan,
+                {
+                    progressStage: ((scan.metadata as { partial?: unknown } | null)?.partial) ? 'partial_results_saved' : 'completed'
+                }
+            )
         }
     );
 
@@ -920,7 +1006,18 @@ async function processScan(scan: Scan)
             {
                 status: 'running',
                 startedAt: new Date(),
-                errorMessage: null
+                errorMessage: null,
+                metadata: mergeScanMetadata(
+                    scan,
+                    {
+                        progressStage: 'running',
+                        estimatedCompletedAt: new Date(Date.now() + estimateScanSeconds(
+                            {
+                                mode: (((scan.metadata as { mode?: unknown } | null)?.mode) === 'preview' ? 'preview' : 'full')
+                            }
+                        ) * 1000).toISOString()
+                    }
+                )
             }
         );
     }
@@ -936,18 +1033,22 @@ async function processScan(scan: Scan)
 
         const scanMetadata = scan.metadata as { mode?: unknown } | null;
         const isPreview = scanMetadata?.mode === 'preview';
+        await scan.update({ metadata: mergeScanMetadata(scan, { progressStage: isPreview ? 'running_preview' : 'preparing_repository' }) });
         const scanResult = isPreview
             ? { findings: await scanGithubRepositoryPreview(repository) }
             : await scanRepositoryFull(repository);
-        if (scanResult.scannerSummary)
+        await scan.update({ metadata: mergeScanMetadata(scan, { progressStage: 'saving_results' }) });
+        if (scanResult.scannerSummary || scanResult.scanMetadata)
         {
             await scan.update(
                 {
-                    metadata:
-                    {
-                        ...((scan.metadata as object | null) ?? {}),
-                        scannerSummary: scanResult.scannerSummary
-                    } as object
+                    metadata: mergeScanMetadata(
+                        scan,
+                        {
+                            ...(scanResult.scannerSummary ? { scannerSummary: scanResult.scannerSummary } : {}),
+                            ...(scanResult.scanMetadata ?? {})
+                        }
+                    )
                 }
             );
         }

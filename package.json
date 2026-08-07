@@ -30,6 +30,7 @@
     "pm2:logs": "pm2 logs",
     "pm2:save": "pm2 save",
     "dev:build": "tsc -w",
+    "ci:runtime-guard": "node tools/ci-runtime-guard/guard.js",
     "test": "vitest run",
     "test:watch": "vitest"
   },

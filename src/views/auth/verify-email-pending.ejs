@@ -7,18 +7,23 @@
     <main class="auth-shell">
         <section class="auth-copy">
             <a class="brand" href="/" style="padding:0;color:#fff"><%- include('../partials/brand-logo') %></a>
-            <div>
-                <span class="badge brand">Account verification</span>
-                <h1 style="font-size:42px;line-height:1.08;margin:18px 0 16px">Check your inbox before continuing.</h1>
-                <p style="color:#d0d5dd;max-width:560px">SecureRepos only activates accounts with a verified email address. The link is single-use and expires after 24 hours.</p>
+            <div class="auth-copy-main">
+                <span class="auth-eyebrow">Account verification</span>
+                <h1>Check your inbox before continuing.</h1>
+                <p>SecureRepos only activates accounts with a verified email address. The link is single-use and expires after 24 hours.</p>
+                <ul class="auth-proof-list">
+                    <li>Email verification comes before checkout and GitHub access.</li>
+                    <li>Verification links are single-use.</li>
+                    <li>After verification, sign in and continue onboarding.</li>
+                </ul>
             </div>
-            <p style="color:#98a2b3;margin:0">After verification, sign in and complete the guided setup.</p>
+            <p class="auth-copy-foot">Check spam or promotions if the message does not arrive within a minute.</p>
         </section>
         <section class="auth-card">
             <div class="auth-card-inner">
-                <span class="badge success">Account created</span>
-                <h1 style="margin:22px 0 8px">Verify your email</h1>
-                <p class="muted" style="margin:0 0 26px">Open the verification link we sent, then return to sign in. Check spam or promotions if it does not arrive.</p>
+                <div class="auth-card-top"><a class="muted small" href="/sign-in">Back to sign in</a><span class="badge success">Account created</span></div>
+                <h1>Verify your email</h1>
+                <p class="auth-card-subcopy">Open the verification link we sent, then return to sign in.</p>
                 <form method="post" action="/api/auth/email-verification/resend" data-auth-flow="verification-resend">
                     <div class="form-field">
                         <label>Email</label>

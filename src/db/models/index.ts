@@ -23,6 +23,8 @@ import { FindingOccurrence, initFindingOccurrenceModel } from './finding-occurre
 import { PasswordResetToken, initPasswordResetTokenModel } from './password-reset-token.model';
 import { CliAccessToken, initCliAccessTokenModel } from './cli-access-token.model';
 import { EmailVerificationToken, initEmailVerificationTokenModel } from './email-verification-token.model';
+import { AlertChannel, initAlertChannelModel } from './alert-channel.model';
+import { CiRuntimeEvent, initCiRuntimeEventModel } from './ci-runtime-event.model';
 
 function initModels(sequelize: Sequelize)
 {
@@ -49,6 +51,8 @@ function initModels(sequelize: Sequelize)
     initPasswordResetTokenModel(sequelize);
     initCliAccessTokenModel(sequelize);
     initEmailVerificationTokenModel(sequelize);
+    initAlertChannelModel(sequelize);
+    initCiRuntimeEventModel(sequelize);
 
     Tenant.hasMany(User, {
         foreignKey: 'tenantId',
@@ -106,6 +110,26 @@ function initModels(sequelize: Sequelize)
     });
 
     CliAccessToken.belongsTo(Tenant, {
+        foreignKey: 'tenantId',
+        as: 'tenant'
+    });
+
+    Tenant.hasMany(AlertChannel, {
+        foreignKey: 'tenantId',
+        as: 'alertChannels'
+    });
+
+    AlertChannel.belongsTo(Tenant, {
+        foreignKey: 'tenantId',
+        as: 'tenant'
+    });
+
+    Tenant.hasMany(CiRuntimeEvent, {
+        foreignKey: 'tenantId',
+        as: 'ciRuntimeEvents'
+    });
+
+    CiRuntimeEvent.belongsTo(Tenant, {
         foreignKey: 'tenantId',
         as: 'tenant'
     });
@@ -316,5 +340,7 @@ export
     PasswordResetToken,
     CliAccessToken,
     EmailVerificationToken,
+    AlertChannel,
+    CiRuntimeEvent,
     initModels
 };
