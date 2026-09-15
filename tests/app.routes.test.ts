@@ -3,6 +3,7 @@ import { vi } from 'vitest';
 
 import app from '../src/app/app';
 import { UserSession } from '../src/db/models';
+import { sequelize } from '../src/db/sequelize';
 
 describe('Application routes', function ()
 {
@@ -97,6 +98,21 @@ describe('Application routes', function ()
         const baseUrl = (process.env.APP_URL || 'https://securerepos.com').replace(/\/$/, '');
         expect(sitemapResponse.text).toContain(`<loc>${baseUrl}/</loc>`);
         expect(sitemapResponse.text).toContain(`<loc>${baseUrl}/faqs</loc>`);
+    });
+
+    it('should expose a health endpoint with database status', async function ()
+    {
+        const authenticate = vi.spyOn(sequelize, 'authenticate').mockResolvedValue(undefined);
+
+        const response = await request(app).get('/health');
+
+        expect(response.status).toBe(200);
+        expect(response.body.status).toBe('ok');
+        expect(response.body.app).toBe('up');
+        expect(response.body.database).toBe('up');
+        expect(response.body.timestamp).toEqual(expect.any(String));
+
+        authenticate.mockRestore();
     });
 
     it('should reject cross-origin API writes', async function ()

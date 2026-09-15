@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { dashboardController } from './controllers/web/dashboard.controller';
 import { checkoutPageController } from './controllers/web/checkout.controller';
 import { githubInstallCallbackController } from './controllers/web/github-install.controller';
+import { healthController } from './controllers/web/health.controller';
 import { uiTestLoginController } from './controllers/web/ui-test.controller';
 import {
     billingPageController,
@@ -116,6 +117,8 @@ router.use('/api', sameOriginApiMiddleware);
 
 router.get('/robots.txt', robotsTxtController);
 router.get('/sitemap.xml', sitemapXmlController);
+router.get('/health', healthController);
+router.get('/healthz', healthController);
 router.get('/ui-test/login', uiTestLoginController);
 router.get('/', guestPageMiddleware, landingPageController);
 router.get('/terms', legalPlaceholderPageController);

@@ -6,25 +6,28 @@ Built for founders, agencies, and small teams that want practical repository sec
 
 ## Requirements
 
-- Node.js
-- MySQL
+- Node.js 22
+- npm
+- MySQL 8, or Docker for the Compose path
 - GitHub App credentials
 - Resend credentials if email delivery is enabled
 
 ## Setup
 
-Install dependencies:
+Install dependencies from a fresh clone:
 
 ```bash
-npm install
+npm ci
 ```
 
 Create `.env` from `.env.example` and set the database, app URL, GitHub App, token encryption, and email values.
 
-Run migrations with the existing Sequelize setup, then build:
+Run migrations with the existing Sequelize setup, then build and verify:
 
 ```bash
+npm run db:migrate
 npm run build
+npm test
 ```
 
 Start the web app:
@@ -32,6 +35,24 @@ Start the web app:
 ```bash
 npm start
 ```
+
+## Docker Compose Local Run
+
+For a self-contained local smoke test with MySQL:
+
+```bash
+cp .env.example .env
+docker compose up --build
+```
+
+After the app starts, open:
+
+```txt
+http://localhost:3000/demo
+http://localhost:3000/health
+```
+
+The Compose app service runs database migrations before starting the web process.
 
 ## Local GitHub App Testing
 
@@ -76,6 +97,17 @@ The `/demo` route stays public and uses demo data.
 ## Verification
 
 ```bash
+npm run typecheck
+npm run lint
+npm run format:check
 npm run build
 npm test
+npm run test:coverage
+npm audit --audit-level=high
 ```
+
+## Documentation
+
+- [Architecture](docs/architecture.md)
+- [Contributing](CONTRIBUTING.md)
+- [Changelog](CHANGELOG.md)

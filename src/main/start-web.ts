@@ -4,6 +4,7 @@ import os from 'os';
 import app from '../app/app';
 import { env } from '../bootstrap/env';
 import { connectDatabase } from '../bootstrap/database';
+import { logger } from '../app/services/logger.service';
 
 function getWorkerCount()
 {
@@ -23,12 +24,12 @@ async function start()
 
         app.listen(env.port, function ()
         {
-            console.log(`${env.appName} worker ${process.pid} listening on port ${env.port}`);
+            logger.info('web worker listening', { pid: process.pid, port: env.port });
         });
     }
     catch (error)
     {
-        console.error('Failed to start application:', error);
+        logger.error('failed to start application', error);
         process.exit(1);
     }
 }
@@ -39,14 +40,14 @@ function startCluster()
 
     if (workerCount <= 1)
     {
-        console.log(`${env.appName} starting single web process pid=${process.pid} node_env=${env.nodeEnv}`);
+        logger.info('starting single web process', { pid: process.pid, nodeEnv: env.nodeEnv });
         start();
         return;
     }
 
     if (cluster.isPrimary)
     {
-        console.log(`${env.appName} primary pid=${process.pid} starting ${workerCount} web workers node_env=${env.nodeEnv}`);
+        logger.info('starting clustered web process', { pid: process.pid, workerCount, nodeEnv: env.nodeEnv });
 
         for (let index = 0; index < workerCount; index += 1)
         {
@@ -55,7 +56,13 @@ function startCluster()
 
         cluster.on('exit', function (worker, code, signal)
         {
-            console.error(`${env.appName} web worker pid=${worker.process.pid ?? 'unknown'} exited code=${code ?? 'null'} signal=${signal ?? 'null'}`);
+            logger.error('web worker exited', undefined,
+                {
+                    pid: worker.process.pid ?? 'unknown',
+                    code: code ?? 'null',
+                    signal: signal ?? 'null'
+                }
+            );
             cluster.fork();
         });
 

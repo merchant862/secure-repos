@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import { logger } from '../services/logger.service';
 
 const appName = process.env.APP_NAME?.trim() || 'SecureRepos';
 
@@ -28,7 +29,13 @@ function notFoundMiddleware(req: Request, res: Response)
 
 function errorMiddleware(error: Error, req: Request, res: Response, next: NextFunction)
 {
-    console.error(error);
+    logger.error('request failed', error,
+        {
+            method: req.method,
+            path: req.path,
+            requestId: req.header('x-request-id') || null
+        }
+    );
 
     if (res.headersSent)
     {

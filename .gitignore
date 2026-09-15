@@ -2,6 +2,7 @@ node_modules/
 dist/
 .env
 npm-debug.log*
+tmp-start-web.*
 .DS_Store
 storage/keys/
 secure-repos.test+2-key.pem

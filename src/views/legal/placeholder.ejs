@@ -2,8 +2,8 @@
 <html lang="en">
 <head><%- include('../partials/head', { title, appName, seo: typeof seo !== 'undefined' ? seo : undefined }) %></head>
 <body data-force-theme="dark">
-    <main class="landing-shell">
-        <nav class="landing-nav">
+    <main class="landing-shell sr-legal">
+        <nav class="landing-nav sr-nav">
             <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
             <div class="landing-nav-links">
                 <a href="/">Home</a>
@@ -28,29 +28,27 @@
                 </div>
             </div>
         </nav>
-        <section class="legal-shell legal-shell-refined">
-            <div>
-                <span class="public-kicker">Legal information</span>
-                <h1><%= legalTitle %></h1>
-                <p class="muted">These policies apply to <%= appName %>, a GitHub repository security scanning and workflow platform operated by Secure Repos.</p>
-            </div>
-            <div class="legal-meta">
-                <span><strong>Contact</strong><a href="mailto:<%= supportEmail %>"><%= supportEmail %></a></span>
+        <section class="sr-legal-hero">
+            <p class="sr-kicker">Legal center</p>
+            <h1><%= legalTitle %></h1>
+            <p>Policies for SecureRepos accounts, GitHub App access, billing, repository scanning, privacy, and support.</p>
+            <div class="sr-legal-meta">
+                <span><strong>Support</strong><a href="mailto:<%= supportEmail %>"><%= supportEmail %></a></span>
                 <span><strong>Website</strong><a href="<%= websiteUrl %>"><%= websiteUrl %></a></span>
             </div>
         </section>
 
-        <section class="legal-layout">
-            <aside class="legal-sidebar">
-                <span class="public-kicker">Documents</span>
+        <section class="sr-legal-layout">
+            <aside class="sr-legal-sidebar">
+                <span>Documents</span>
                 <a href="/terms" class="<%= legalSlug === 'terms' ? 'active' : '' %>">Terms</a>
                 <a href="/privacy" class="<%= legalSlug === 'privacy' ? 'active' : '' %>">Privacy</a>
                 <a href="/refund-policy" class="<%= legalSlug === 'refund-policy' ? 'active' : '' %>">Refund Policy</a>
                 <a href="/do-not-sell" class="<%= legalSlug === 'do-not-sell' ? 'active' : '' %>">Do Not Sell/Share</a>
             </aside>
-            <div class="legal-document">
+            <div class="sr-legal-document">
         <% if (legalSlug === 'terms') { %>
-            <section class="legal-content">
+            <section class="sr-legal-content">
                 <h2>1. Acceptance of Terms</h2>
                 <p>By visiting the website, creating an account, selecting a plan, installing the GitHub App, or using <%= appName %>, you agree to these Terms and Conditions, the Privacy Policy, Refund Policy, and any checkout or billing disclosures presented at the time of purchase.</p>
                 <p><%= appName %> is operated by Secure Repos. In these Terms, "we," "us," and "our" refer to Secure Repos and <%= appName %>. "You" and "user" refer to the person or organization using the service.</p>
@@ -84,7 +82,7 @@
                 <p>For account, billing, or legal questions, contact <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a>.</p>
             </section>
         <% } else if (legalSlug === 'privacy') { %>
-            <section class="legal-content">
+            <section class="sr-legal-content">
                 <h2>1. Overview</h2>
                 <p>This Privacy Policy explains how Secure Repos and <%= appName %> collect, use, disclose, and protect information when you visit the website, create an account, connect GitHub repositories, use scans, contact support, or interact with our services.</p>
                 <h2>2. Information We Collect</h2>
@@ -112,7 +110,7 @@
                 <p>For privacy requests, contact <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a>.</p>
             </section>
         <% } else if (legalSlug === 'refund-policy') { %>
-            <section class="legal-content">
+            <section class="sr-legal-content">
                 <h2>1. Digital Service Refund Policy</h2>
                 <p><%= appName %> is a digital SaaS product operated by Secure Repos. Once an account is activated and service access is delivered, fees are generally non-refundable unless required by law or approved by support.</p>
                 <h2>2. Refund Requests</h2>
@@ -127,7 +125,7 @@
                 <p>Please contact support before opening a payment dispute. Chargebacks may result in account suspension while the dispute is reviewed. We may provide account, checkout, access, and usage records to payment processors or banks to respond to disputes.</p>
             </section>
         <% } else { %>
-            <section class="legal-content">
+            <section class="sr-legal-content">
                 <h2>Do Not Sell or Share</h2>
                 <p>Secure Repos and <%= appName %> do not sell personal information for money. Some analytics, advertising, attribution, or similar technologies may be considered "sharing" or "targeted advertising" under certain privacy laws.</p>
                 <p>You may request to opt out by emailing <a href="mailto:<%= supportEmail %>"><%= supportEmail %></a> with the subject line "Do Not Sell or Share Request." Include the email address associated with your account so we can process the request.</p>
@@ -137,7 +135,7 @@
             </div>
         </section>
 
-        <footer class="landing-footer compact-footer">
+        <footer class="landing-footer sr-footer compact-footer">
             <div class="landing-footer-brand">
                 <a class="brand" href="/" style="padding:0"><%- include('../partials/brand-logo') %></a>
                 <p class="muted small">GitHub repository scanning, branch-level findings, and remediation guidance for independent developers.</p>

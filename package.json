@@ -4,6 +4,9 @@
   "main": "dist/src/main/start-web.js",
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint . --max-warnings=0",
+    "format:check": "prettier --check --ignore-unknown README.md CHANGELOG.md CONTRIBUTING.md docs/**/*.md .env.example docker-compose.yml Dockerfile .github/**/*.yml",
     "start": "node dist/src/main/start-web.js",
     "start:worker": "node dist/src/main/start-worker.js",
     "start:notifications": "node dist/src/main/start-notification-worker.js",
@@ -29,9 +32,11 @@
     "pm2:delete": "pm2 delete ecosystem.config.js",
     "pm2:logs": "pm2 logs",
     "pm2:save": "pm2 save",
+    "db:migrate": "sequelize-cli db:migrate",
     "dev:build": "tsc -w",
     "ci:runtime-guard": "node tools/ci-runtime-guard/guard.js",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
     "test:watch": "vitest"
   },
   "keywords": [],
@@ -51,13 +56,18 @@
     "uuid": "11.1.1"
   },
   "devDependencies": {
+    "@eslint/js": "^10.0.1",
     "@types/ejs": "^3.1.5",
     "@types/express": "^5.0.6",
     "@types/node": "^25.3.5",
     "@types/supertest": "^7.2.0",
+    "@vitest/coverage-v8": "^4.1.9",
+    "eslint": "^10.8.1",
+    "prettier": "^3.9.6",
     "sequelize-cli": "^6.6.5",
     "supertest": "^7.2.2",
     "typescript": "^5.9.3",
+    "typescript-eslint": "^8.67.0",
     "vite": "7.3.6",
     "vitest": "4.1.9"
   }
